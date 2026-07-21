@@ -22,7 +22,7 @@ public final class BoothLayout {
     public static final Rect DECK_PLAY    = new Rect(0.150f, 0.850f, 0.110f, 0.110f); // green play/pause
     public static final Rect DECK_CUE     = new Rect(0.150f, 0.705f, 0.110f, 0.110f); // orange cue
     public static final Rect DECK_LOOP    = new Rect(0.270f, 0.385f, 0.095f, 0.060f); // reloop/exit
-    public static final Rect DECK_TEMPO   = new Rect(0.875f, 0.560f, 0.055f, 0.345f); // vertical tempo fader
+    public static final Rect DECK_TEMPO   = new Rect(0.775f, 0.585f, 0.050f, 0.260f); // vertical tempo fader
     public static final Rect DECK_SCREEN  = new Rect(0.120f, 0.150f, 0.620f, 0.190f); // for live readout
 
     // --- Mixer controls (relative to the mixer region, placeholder panel) ---

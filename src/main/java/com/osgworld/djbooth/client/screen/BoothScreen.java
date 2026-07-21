@@ -174,6 +174,16 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     // --- Rendering ---
 
     @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        // Container screens swallow drags for slot handling; forward them to our widgets
+        // so faders and the jog wheel respond to click-and-drag.
+        if (this.getFocused() != null && button == 0) {
+            return this.getFocused().mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
     protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
         g.blit(TEXTURE, leftPos, topPos, imageWidth, imageHeight, 0f, 0f, TEX_W, TEX_H, TEX_W, TEX_H);
     }

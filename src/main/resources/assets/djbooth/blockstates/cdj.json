@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "djbooth:block/cdj" },
+    "facing=south": { "model": "djbooth:block/cdj", "y": 180 },
+    "facing=west":  { "model": "djbooth:block/cdj", "y": 270 },
+    "facing=east":  { "model": "djbooth:block/cdj", "y": 90 }
+  }
+}

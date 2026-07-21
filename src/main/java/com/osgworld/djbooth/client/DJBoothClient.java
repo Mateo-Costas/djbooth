@@ -1,7 +1,7 @@
 package com.osgworld.djbooth.client;
 
 import com.osgworld.djbooth.DJBooth;
-import com.osgworld.djbooth.client.screen.CdjScreen;
+import com.osgworld.djbooth.client.screen.BoothScreen;
 import com.osgworld.djbooth.registry.ModMenus;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -14,6 +14,6 @@ public final class DJBoothClient {
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onRegisterScreens(RegisterMenuScreensEvent event) {
-        event.register(ModMenus.CDJ.get(), CdjScreen::new);
+        event.register(ModMenus.BOOTH.get(), BoothScreen::new);
     }
 }

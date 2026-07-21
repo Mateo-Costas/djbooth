@@ -1,7 +1,7 @@
 package com.osgworld.djbooth.registry;
 
 import com.osgworld.djbooth.DJBooth;
-import com.osgworld.djbooth.menu.CdjMenu;
+import com.osgworld.djbooth.menu.BoothMenu;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
 import net.neoforged.bus.api.IEventBus;
@@ -13,9 +13,9 @@ public final class ModMenus {
     public static final DeferredRegister<MenuType<?>> MENUS =
             DeferredRegister.create(Registries.MENU, DJBooth.MODID);
 
-    public static final DeferredHolder<MenuType<?>, MenuType<CdjMenu>> CDJ =
-            MENUS.register("cdj", () -> IMenuTypeExtension.create(
-                    (id, inv, buf) -> new CdjMenu(id, inv, buf)));
+    public static final DeferredHolder<MenuType<?>, MenuType<BoothMenu>> BOOTH =
+            MENUS.register("booth", () -> IMenuTypeExtension.create(
+                    (id, inv, buf) -> new BoothMenu(id, inv, buf)));
 
     private ModMenus() {}
 

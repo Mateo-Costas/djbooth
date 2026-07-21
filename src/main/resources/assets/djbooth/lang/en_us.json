@@ -1,5 +1,6 @@
 {
   "block.djbooth.cdj": "CDJ-3000",
   "block.djbooth.mixer": "DJ Mixer",
+  "gui.djbooth.booth": "DJ Booth",
   "itemGroup.djbooth": "DJ Booth"
 }

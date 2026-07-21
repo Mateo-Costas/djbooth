@@ -4,10 +4,8 @@ import com.mojang.serialization.MapCodec;
 import com.osgworld.djbooth.blockentity.CdjBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
@@ -63,9 +61,7 @@ public class CdjBlock extends BaseEntityBlock {
                                                Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer
                 && level.getBlockEntity(pos) instanceof CdjBlockEntity) {
-            serverPlayer.openMenu(new SimpleMenuProvider(
-                    (id, inv, p) -> new com.osgworld.djbooth.menu.CdjMenu(id, inv, pos),
-                    Component.translatable("block.djbooth.cdj")), buf -> buf.writeBlockPos(pos));
+            com.osgworld.djbooth.booth.BoothInteraction.open(serverPlayer, pos);
         }
         return InteractionResult.SUCCESS;
     }

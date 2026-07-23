@@ -27,6 +27,11 @@ public record MixerPayload(BlockPos pos, int channel, float value) implements Cu
     public static final int EQ_MID_B = 9;
     public static final int EQ_HI_B = 10;
     public static final int FILTER_B = 11;
+    public static final int FX_ECHO_A = 12;
+    public static final int FX_ECHO_B = 13;
+    // Global switches sent as 0/1: isolator EQ curve, steep fader curve.
+    public static final int ISOLATOR = 14;
+    public static final int FADER_CURVE = 15;
 
     public static final Type<MixerPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(DJBooth.MODID, "mixer"));

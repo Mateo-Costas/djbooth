@@ -31,7 +31,6 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     private static final int TEX_H = 440;
     private static final double MS_PER_DEG = 8.0; // jog sensitivity: full turn ≈ 2.9 s scrub
     private static final double JOG_BEND_PER_DEG = 0.05; // jog pitch-bend strength while playing
-    private static final double TEMPO_RANGE = 0.16; // tempo fader throw: +/-16%, like a real CDJ
 
     private static final int BOTTOM_STRIP = 92; // reserved height below panel: search + perf pads + guide
 
@@ -41,6 +40,20 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     /** Recently loaded tracks (query text or URL), newest first, shared across the session. */
     private static final java.util.List<String> RECENTS = new java.util.ArrayList<>();
     private static final int MAX_RECENTS = 6;
+
+    // Tempo range per deck (client-only feel, like the CDJ TEMPO RANGE button): ±6/±10/±16/WIDE.
+    private static final double[] TEMPO_RANGES = {0.06, 0.10, 0.16, 0.60};
+    private static final String[] TEMPO_RANGE_NAMES = {"±6", "±10", "±16", "WIDE"};
+    private final java.util.Map<BlockPos, Integer> tempoRangeIdx = new java.util.HashMap<>();
+
+    // Tap-tempo per deck: recent tap times -> a measured BPM shown on the deck readout.
+    private static final long TAP_RESET_MS = 2000; // gap that starts a fresh count
+    private final java.util.Map<BlockPos, java.util.ArrayDeque<Long>> taps = new java.util.HashMap<>();
+    private final java.util.Map<BlockPos, Double> bpm = new java.util.HashMap<>();
+
+    private double tempoRangeFor(BlockPos pos) {
+        return TEMPO_RANGES[tempoRangeIdx.getOrDefault(pos, 2)]; // default ±16
+    }
 
     public BoothScreen(BoothMenu menu, Inventory inv, Component title) {
         super(menu, inv, title);
@@ -245,19 +258,44 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 Component.translatable("gui.djbooth.loop")));
         addRenderableWidget(loopBtn);
 
-        // Tempo fader (vertical): centre = 100%, full throw = +/-TEMPO_RANGE, like a real CDJ.
+        // Tempo fader (vertical): centre = 100%, full throw = +/- the selected range, like a real CDJ.
         int[] t = px(region, BoothLayout.DECK_TEMPO);
         PanelFader tempo = new PanelFader(t[0], t[1], t[2], t[3], true,
                 () -> {
                     CdjBlockEntity be = menu.deck(pos);
                     double rate = be != null ? be.state().getRate() : 1.0;
-                    return 0.5 + (rate - 1.0) / (2 * TEMPO_RANGE); // rate -> fader 0..1
+                    return 0.5 + (rate - 1.0) / (2 * tempoRangeFor(pos)); // rate -> fader 0..1
                 },
                 v -> PacketDistributor.sendToServer(
-                        new JogNudgePayload(pos, 1.0 + (v - 0.5) * 2 * TEMPO_RANGE, -1L)));
+                        new JogNudgePayload(pos, 1.0 + (v - 0.5) * 2 * tempoRangeFor(pos), -1L)));
         tempo.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 Component.translatable("gui.djbooth.tempo")));
         addRenderableWidget(tempo);
+
+        // TEMPO RANGE selector (client feel only): cycles ±6 / ±10 / ±16 / WIDE.
+        int[] tr = px(region, BoothLayout.DECK_TEMPO_RANGE);
+        int idx0 = tempoRangeIdx.getOrDefault(pos, 2);
+        net.minecraft.client.gui.components.Button rangeBtn =
+                net.minecraft.client.gui.components.Button.builder(
+                        Component.literal("RANGE " + TEMPO_RANGE_NAMES[idx0]), b -> {
+                            int idx = (tempoRangeIdx.getOrDefault(pos, 2) + 1) % TEMPO_RANGES.length;
+                            tempoRangeIdx.put(pos, idx);
+                            b.setMessage(Component.literal("RANGE " + TEMPO_RANGE_NAMES[idx]));
+                        })
+                        .bounds(tr[0], tr[1], tr[2], tr[3])
+                        .tooltip(net.minecraft.client.gui.components.Tooltip.create(
+                                Component.translatable("gui.djbooth.tempo_range")))
+                        .build();
+        addRenderableWidget(rangeBtn);
+
+        // TAP tempo: tap on the beat to measure BPM (shown on the readout).
+        int[] tp = px(region, BoothLayout.DECK_TAP);
+        addRenderableWidget(net.minecraft.client.gui.components.Button.builder(
+                        Component.literal("TAP"), b -> tapTempo(pos))
+                .bounds(tp[0], tp[1], tp[2], tp[3])
+                .tooltip(net.minecraft.client.gui.components.Tooltip.create(
+                        Component.translatable("gui.djbooth.tap")))
+                .build());
 
         // Jog wheel. While playing it bends the pitch like a real CDJ jog (smooth, client-local,
         // no seek). While parked it scrubs the position by seeking on the server.
@@ -278,6 +316,26 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                         new JogNudgePayload(pos, be.state().getRate(), target));
             }
         }));
+    }
+
+    /** Register a beat tap; average the recent intervals into a BPM for this deck. */
+    private void tapTempo(BlockPos pos) {
+        long now = System.currentTimeMillis();
+        java.util.ArrayDeque<Long> q = taps.computeIfAbsent(pos, k -> new java.util.ArrayDeque<>());
+        if (!q.isEmpty() && now - q.peekLast() > TAP_RESET_MS) {
+            q.clear();
+        }
+        q.addLast(now);
+        while (q.size() > 8) {
+            q.removeFirst();
+        }
+        if (q.size() >= 2) {
+            long span = q.peekLast() - q.peekFirst();
+            double avgInterval = (double) span / (q.size() - 1);
+            if (avgInterval > 0) {
+                bpm.put(pos, 60000.0 / avgInterval);
+            }
+        }
     }
 
     /** A pasted link loads directly; anything else is a YouTube search for the top hit. */
@@ -353,6 +411,43 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 m -> m.getEqLowB(), Component.translatable("gui.djbooth.eq_low"));
         addMixerKnob(BoothLayout.MIX_FILTER_B, "FLT", false, MixerPayload.FILTER_B,
                 m -> m.getFilterB(), Component.translatable("gui.djbooth.filter"));
+
+        // Echo (Beat FX) per channel.
+        addMixerKnob(BoothLayout.MIX_ECHO_A, "FX", true, MixerPayload.FX_ECHO_A,
+                m -> m.getEchoA(), Component.translatable("gui.djbooth.echo"));
+        addMixerKnob(BoothLayout.MIX_ECHO_B, "FX", false, MixerPayload.FX_ECHO_B,
+                m -> m.getEchoB(), Component.translatable("gui.djbooth.echo"));
+
+        // Global switches: EQ curve (isolator/EQ) and channel fader curve.
+        addMixerToggle(BoothLayout.MIX_ISOLATOR, MixerPayload.ISOLATOR,
+                MixerBlockEntity::isIsolator, "ISO", "EQ", "gui.djbooth.eq_curve");
+        addMixerToggle(BoothLayout.MIX_FADERCURVE, MixerPayload.FADER_CURVE,
+                MixerBlockEntity::isFaderSharp, "SHARP", "LIN", "gui.djbooth.fader_curve");
+    }
+
+    /** A two-state switch on the mixer (isolator/EQ, sharp/linear fader), synced to the server. */
+    private void addMixerToggle(BoothLayout.Rect ctrl, int channel,
+                                java.util.function.Predicate<MixerBlockEntity> state,
+                                String onLabel, String offLabel, String tipKey) {
+        BlockPos mix = menu.refs().mixer();
+        int[] k = px(BoothLayout.REGION_MIXER, ctrl);
+        java.util.function.Supplier<Boolean> cur = () -> {
+            MixerBlockEntity be = menu.mixer();
+            return be != null && state.test(be);
+        };
+        net.minecraft.client.gui.components.Button btn =
+                net.minecraft.client.gui.components.Button.builder(
+                        Component.literal(cur.get() ? onLabel : offLabel), b -> {
+                            boolean next = !cur.get();
+                            PacketDistributor.sendToServer(
+                                    new MixerPayload(mix, channel, next ? 1f : 0f));
+                            b.setMessage(Component.literal(next ? onLabel : offLabel));
+                        })
+                        .bounds(k[0], k[1], k[2], k[3])
+                        .tooltip(net.minecraft.client.gui.components.Tooltip.create(
+                                Component.translatable(tipKey)))
+                        .build();
+        addRenderableWidget(btn);
     }
 
     private void addMixerKnob(BoothLayout.Rect ctrl, String tag, boolean labelLeft, int channel,
@@ -501,6 +596,14 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         g.fill(x0, pline, x0 + sw, pline + 1, 0x33FFFFFF);
         int px = x0 + Math.round(sw * progress);
         g.fill(px - 1, pline - 2, px + 1, pline + 3, 0xFFFFFFFF);
+
+        // BPM from tap-tempo, top-right of the screen.
+        Double b = bpm.get(pos);
+        if (b != null) {
+            String bpmStr = String.format("%.1f BPM", b);
+            g.drawString(this.font, bpmStr, x0 + sw - this.font.width(bpmStr) - 1, y0 + 1,
+                    0xFF35E070, false);
+        }
 
         // Elapsed (left) and remaining (right).
         String elapsed = fmtTime(ms);

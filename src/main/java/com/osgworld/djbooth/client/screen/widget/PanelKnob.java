@@ -77,7 +77,7 @@ public class PanelKnob extends AbstractWidget {
         if (tag != null && !tag.isEmpty()) {
             var font = net.minecraft.client.Minecraft.getInstance().font;
             float s = 0.55f; // shrink the font so labels stay tiny
-            int color = isHovered() ? 0xFFFFFFFF : 0xFFF0C24A; // bright amber, readable on dark art
+            int color = isHovered() ? 0xFFFFFFFF : 0xFF35E070; // bright green, readable on dark art
             float screenX = labelLeft
                     ? cx - r - 2 - font.width(tag) * s
                     : cx + r + 2;

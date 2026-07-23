@@ -25,5 +25,10 @@
   "gui.djbooth.eq_hi": "High EQ (drag; right-click = flat, full down = kill)",
   "gui.djbooth.eq_mid": "Mid EQ (drag; right-click = flat, full down = kill)",
   "gui.djbooth.eq_low": "Low/bass EQ (drag; right-click = flat, full down = kill)",
-  "gui.djbooth.filter": "Colour filter (left = low-pass, right = high-pass, centre = off)"
+  "gui.djbooth.filter": "Colour filter (left = low-pass, right = high-pass, centre = off)",
+  "gui.djbooth.echo": "Echo FX (drag up for more; right-click = off)",
+  "gui.djbooth.eq_curve": "EQ curve: ISO = full kill, EQ = -26 dB",
+  "gui.djbooth.fader_curve": "Channel fader: SHARP = steep, LIN = linear",
+  "gui.djbooth.tempo_range": "Tempo range: ±6 / ±10 / ±16 / WIDE",
+  "gui.djbooth.tap": "Tap on the beat to measure BPM"
 }

@@ -21,9 +21,13 @@ public class MixerBlockEntity extends BlockEntity {
     private float crossfader = 0.5f; // 0 = full A, 1 = full B
     private float master = 1.0f;
 
-    // Per-channel EQ + colour filter, 0..1 with 0.5 = flat/bypass. Deck A first, then deck B.
-    private float eqLowA = 0.5f, eqMidA = 0.5f, eqHiA = 0.5f, filterA = 0.5f;
-    private float eqLowB = 0.5f, eqMidB = 0.5f, eqHiB = 0.5f, filterB = 0.5f;
+    // Per-channel EQ + colour filter + echo, 0..1 with 0.5 = flat/bypass (echo 0 = off).
+    private float eqLowA = 0.5f, eqMidA = 0.5f, eqHiA = 0.5f, filterA = 0.5f, echoA = 0f;
+    private float eqLowB = 0.5f, eqMidB = 0.5f, eqHiB = 0.5f, filterB = 0.5f, echoB = 0f;
+    // Global switches, like the real DJM. isolator: EQ knobs kill to -inf vs -26 dB.
+    // faderSharp: steep channel-fader curve vs linear.
+    private boolean isolator = false;
+    private boolean faderSharp = false;
 
     public MixerBlockEntity(BlockPos pos, BlockState blockState) {
         super(ModBlockEntities.MIXER.get(), pos, blockState);
@@ -57,11 +61,21 @@ public class MixerBlockEntity extends BlockEntity {
     public void setEqHiB(float v) { this.eqHiB = clamp01(v); }
     public void setFilterB(float v) { this.filterB = clamp01(v); }
 
-    /** Deck's EQ knobs as {low, mid, high, filter}, each 0..1 (0.5 = flat). */
+    public float getEchoA() { return echoA; }
+    public float getEchoB() { return echoB; }
+    public void setEchoA(float v) { this.echoA = clamp01(v); }
+    public void setEchoB(float v) { this.echoB = clamp01(v); }
+
+    public boolean isIsolator() { return isolator; }
+    public boolean isFaderSharp() { return faderSharp; }
+    public void setIsolator(boolean v) { this.isolator = v; }
+    public void setFaderSharp(boolean v) { this.faderSharp = v; }
+
+    /** Deck's DSP knobs as {low, mid, high, filter, echo}, each 0..1 (0.5 = flat, echo 0 = off). */
     public float[] eqForDeck(boolean deckA) {
         return deckA
-                ? new float[]{eqLowA, eqMidA, eqHiA, filterA}
-                : new float[]{eqLowB, eqMidB, eqHiB, filterB};
+                ? new float[]{eqLowA, eqMidA, eqHiA, filterA, echoA}
+                : new float[]{eqLowB, eqMidB, eqHiB, filterB, echoB};
     }
 
     private static float clamp01(float v) {
@@ -75,6 +89,11 @@ public class MixerBlockEntity extends BlockEntity {
      */
     public float volumeForDeck(boolean deckA) {
         float channel = deckA ? faderA : faderB;
+        // Steep curve keeps the channel near silent until the top of the throw, like the DJM's
+        // sharp fader setting; linear is the gentle default.
+        if (faderSharp) {
+            channel = channel * channel;
+        }
         float xf = deckA ? (1.0f - crossfader) : crossfader;
         return clamp01(channel * xf * master);
     }
@@ -101,6 +120,10 @@ public class MixerBlockEntity extends BlockEntity {
         tag.putFloat("EqMidB", eqMidB);
         tag.putFloat("EqHiB", eqHiB);
         tag.putFloat("FilterB", filterB);
+        tag.putFloat("EchoA", echoA);
+        tag.putFloat("EchoB", echoB);
+        tag.putBoolean("Isolator", isolator);
+        tag.putBoolean("FaderSharp", faderSharp);
     }
 
     @Override
@@ -118,6 +141,10 @@ public class MixerBlockEntity extends BlockEntity {
         eqMidB = tag.contains("EqMidB") ? tag.getFloat("EqMidB") : 0.5f;
         eqHiB = tag.contains("EqHiB") ? tag.getFloat("EqHiB") : 0.5f;
         filterB = tag.contains("FilterB") ? tag.getFloat("FilterB") : 0.5f;
+        echoA = tag.contains("EchoA") ? tag.getFloat("EchoA") : 0f;
+        echoB = tag.contains("EchoB") ? tag.getFloat("EchoB") : 0f;
+        isolator = tag.contains("Isolator") && tag.getBoolean("Isolator");
+        faderSharp = tag.contains("FaderSharp") && tag.getBoolean("FaderSharp");
     }
 
     @Override

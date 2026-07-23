@@ -38,6 +38,10 @@ public final class ServerMixerHandler {
                 case MixerPayload.EQ_MID_B -> be.setEqMidB(msg.value());
                 case MixerPayload.EQ_HI_B -> be.setEqHiB(msg.value());
                 case MixerPayload.FILTER_B -> be.setFilterB(msg.value());
+                case MixerPayload.FX_ECHO_A -> be.setEchoA(msg.value());
+                case MixerPayload.FX_ECHO_B -> be.setEchoB(msg.value());
+                case MixerPayload.ISOLATOR -> be.setIsolator(msg.value() > 0.5f);
+                case MixerPayload.FADER_CURVE -> be.setFaderSharp(msg.value() > 0.5f);
                 default -> { return; }
             }
             be.applyAndSync();

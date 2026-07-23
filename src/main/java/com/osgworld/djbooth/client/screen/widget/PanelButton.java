@@ -12,6 +12,7 @@ public class PanelButton extends AbstractWidget {
     private final Runnable onPress;
     private final BooleanSupplier lit;
     private final int accent;
+    private Runnable onSecondary; // right-click action (optional)
 
     public PanelButton(int x, int y, int w, int h, Component label, int accent,
                        Runnable onPress, BooleanSupplier lit) {
@@ -19,6 +20,27 @@ public class PanelButton extends AbstractWidget {
         this.onPress = onPress;
         this.lit = lit;
         this.accent = accent;
+    }
+
+    /** Attach a right-click action (e.g. CUE: set the cue point). */
+    public PanelButton withSecondary(Runnable action) {
+        this.onSecondary = action;
+        return this;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (this.active && this.visible && this.isMouseOver(mouseX, mouseY)) {
+            if (button == 1 && onSecondary != null) {
+                onSecondary.run();
+                return true;
+            }
+            if (button == 0) {
+                onPress.run();
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

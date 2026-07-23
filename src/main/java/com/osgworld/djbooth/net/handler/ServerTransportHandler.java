@@ -30,8 +30,8 @@ public final class ServerTransportHandler {
             switch (msg.action()) {
                 case TransportPayload.PLAY -> be.state().press(PlayState.PLAY, now);
                 case TransportPayload.PAUSE -> be.state().press(PlayState.PAUSE, now);
-                case TransportPayload.CUE -> be.state().press(PlayState.CUE, now);
-                case TransportPayload.SET_CUE -> be.state().setCuePointMs(be.state().positionMsAt(now));
+                case TransportPayload.CUE -> be.state().cue(now);
+                case TransportPayload.SET_CUE -> be.state().setCueHere(now);
                 case TransportPayload.LOOP_TOGGLE -> {
                     long p = be.state().positionMsAt(now);
                     if (be.state().isLoopOn()) {

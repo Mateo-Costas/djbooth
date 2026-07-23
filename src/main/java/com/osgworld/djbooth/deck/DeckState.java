@@ -57,6 +57,32 @@ public final class DeckState {
         this.loopOn = on && this.loopOutMs > this.loopInMs;
     }
 
+    /** Set the cue point at the current position. */
+    public void setCueHere(long now) {
+        this.cuePointMs = positionMsAt(now);
+    }
+
+    /**
+     * CUE button. Playing -&gt; jump back to the cue point and pause there. Parked -&gt; play a
+     * preview from the cue point (a second press, which is now "playing", parks it back).
+     */
+    public void cue(long now) {
+        if (playState == PlayState.PLAY) {
+            offsetMs = cuePointMs;
+            playState = PlayState.CUE;
+        } else {
+            offsetMs = cuePointMs;
+            startEpochMs = now;
+            playState = PlayState.PLAY;
+        }
+    }
+
+    /** Jump to {@code posMs} without changing the play state (needle / beat jump). */
+    public void jumpTo(long posMs, long now) {
+        offsetMs = Math.max(0, posMs);
+        startEpochMs = now;
+    }
+
     /** Transition to {@code next}, re-anchoring the position math to {@code now}. */
     public void press(PlayState next, long now) {
         long current = positionMsAt(now);

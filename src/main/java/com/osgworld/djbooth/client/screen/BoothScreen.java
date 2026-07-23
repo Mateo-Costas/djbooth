@@ -30,6 +30,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     private static final int TEX_H = 440;
     private static final double MS_PER_DEG = 8.0; // jog sensitivity: full turn ≈ 2.9 s scrub
     private static final double JOG_BEND_PER_DEG = 0.05; // jog pitch-bend strength while playing
+    private static final double TEMPO_RANGE = 0.16; // tempo fader throw: +/-16%, like a real CDJ
 
     private static final int BOTTOM_STRIP = 66; // reserved height below the panel for search UI + guide
 
@@ -165,21 +166,16 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 Component.translatable("gui.djbooth.play")));
         addRenderableWidget(playBtn);
 
-        // CUE (orange): jump to cue while playing, otherwise set cue here.
+        // CUE (orange): left-click cues/previews, right-click sets the cue point here.
         int[] cue = px(region, BoothLayout.DECK_CUE);
         PanelButton cueBtn = new PanelButton(cue[0], cue[1], cue[2], cue[3],
                 Component.translatable("gui.djbooth.cue"), 0xFFF2A900,
-                () -> {
-                    CdjBlockEntity be = menu.deck(pos);
-                    if (be == null) return;
-                    int action = be.state().getPlayState() == PlayState.PLAY
-                            ? TransportPayload.CUE : TransportPayload.SET_CUE;
-                    PacketDistributor.sendToServer(new TransportPayload(pos, action));
-                },
+                () -> PacketDistributor.sendToServer(new TransportPayload(pos, TransportPayload.CUE)),
                 () -> {
                     CdjBlockEntity be = menu.deck(pos);
                     return be != null && be.state().getPlayState() == PlayState.CUE;
-                });
+                }).withSecondary(
+                () -> PacketDistributor.sendToServer(new TransportPayload(pos, TransportPayload.SET_CUE)));
         cueBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 Component.translatable("gui.djbooth.cue")));
         addRenderableWidget(cueBtn);
@@ -198,16 +194,16 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 Component.translatable("gui.djbooth.loop")));
         addRenderableWidget(loopBtn);
 
-        // Tempo fader (vertical): 0..1 -> rate 0.5..1.5.
+        // Tempo fader (vertical): centre = 100%, full throw = +/-TEMPO_RANGE, like a real CDJ.
         int[] t = px(region, BoothLayout.DECK_TEMPO);
         PanelFader tempo = new PanelFader(t[0], t[1], t[2], t[3], true,
                 () -> {
                     CdjBlockEntity be = menu.deck(pos);
                     double rate = be != null ? be.state().getRate() : 1.0;
-                    return rate - 0.5;
+                    return 0.5 + (rate - 1.0) / (2 * TEMPO_RANGE); // rate -> fader 0..1
                 },
                 v -> PacketDistributor.sendToServer(
-                        new JogNudgePayload(pos, 0.5 + v, -1L)));
+                        new JogNudgePayload(pos, 1.0 + (v - 0.5) * 2 * TEMPO_RANGE, -1L)));
         tempo.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 Component.translatable("gui.djbooth.tempo")));
         addRenderableWidget(tempo);
@@ -307,6 +303,43 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     }
 
     // --- Rendering ---
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (super.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        // Needle search: click on a CDJ screen to jump to that point in the track.
+        if (button == 0) {
+            if (trySeekOnScreen(menu.refs().deckA(), BoothLayout.REGION_DECK_A, mouseX, mouseY)
+                    || trySeekOnScreen(menu.refs().deckB(), BoothLayout.REGION_DECK_B, mouseX, mouseY)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean trySeekOnScreen(BlockPos pos, BoothLayout.Rect region, double mx, double my) {
+        if (pos == null) {
+            return false;
+        }
+        int[] scr = px(region, BoothLayout.DECK_SCREEN);
+        if (mx < scr[0] || mx > scr[0] + scr[2] || my < scr[1] || my > scr[1] + scr[3]) {
+            return false;
+        }
+        long dur = DeckAudioManager.durationMs(pos);
+        if (dur <= 0) {
+            return false;
+        }
+        CdjBlockEntity be = menu.deck(pos);
+        if (be == null) {
+            return false;
+        }
+        double frac = Math.max(0, Math.min(1, (mx - scr[0]) / scr[2]));
+        long target = Math.round(frac * dur);
+        PacketDistributor.sendToServer(new JogNudgePayload(pos, be.state().getRate(), target));
+        return true;
+    }
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {

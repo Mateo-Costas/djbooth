@@ -25,6 +25,10 @@ dependencies {
 
     compileOnly rootProject.files("libs/watermedia-3.0.0.21.jar")
     compileOnly rootProject.files("libs/minedmx-1.5.1.jar")
+
+    // Dev-only: load the real audio backend in runClient so sound works (never bundled/published).
+    modLocalRuntime rootProject.files("libs/watermedia-3.0.0.21.jar")
+    modLocalRuntime rootProject.files("libs/watermedia_binaries-3.0.0-rc.4.jar")
 }
 
 processResources {

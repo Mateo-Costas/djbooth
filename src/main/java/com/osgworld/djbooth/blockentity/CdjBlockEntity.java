@@ -17,12 +17,30 @@ import org.jetbrains.annotations.Nullable;
 public class CdjBlockEntity extends BlockEntity {
     private final DeckState state = new DeckState();
 
+    /** Client-side set of loaded decks, so the audio engine can find them each tick. */
+    public static final java.util.Set<CdjBlockEntity> CLIENT_DECKS =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     public CdjBlockEntity(BlockPos pos, BlockState blockState) {
         super(ModBlockEntities.CDJ.get(), pos, blockState);
     }
 
     public DeckState state() {
         return state;
+    }
+
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        if (level != null && level.isClientSide) {
+            CLIENT_DECKS.add(this);
+        }
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        CLIENT_DECKS.remove(this);
     }
 
     /** Server-side: persist the current state and push it to tracking clients. */

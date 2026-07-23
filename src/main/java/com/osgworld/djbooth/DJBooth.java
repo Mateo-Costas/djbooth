@@ -6,9 +6,11 @@ import com.osgworld.djbooth.registry.ModCreativeTabs;
 import com.osgworld.djbooth.registry.ModItems;
 import com.osgworld.djbooth.registry.ModMenus;
 import com.osgworld.djbooth.registry.ModPayloads;
+import com.osgworld.djbooth.booth.BoothCommands;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,5 +27,6 @@ public final class DJBooth {
         ModMenus.register(modBus);
         ModCreativeTabs.register(modBus);
         modBus.addListener(ModPayloads::register);
+        NeoForge.EVENT_BUS.addListener(BoothCommands::onRegisterCommands);
     }
 }

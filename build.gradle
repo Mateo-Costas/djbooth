@@ -110,6 +110,12 @@ dependencies {
     // against and never published as a dependency. DJ Booth never links MineDMX classes.
     localRuntime files("libs/minedmx-1.5.1.jar")
 
+    // WaterMedia (optional audio backend): compiled against for the deck audio engine, but
+    // treated as a soft dependency at runtime (guarded by a ModList check). compileOnly keeps
+    // it off the published/runtime classpath; localRuntime loads it in the dev runClient.
+    compileOnly files("libs/watermedia-3.0.0.21.jar")
+    localRuntime files("libs/watermedia-3.0.0.21.jar")
+
     // Plain JUnit for pure-logic unit tests (no Minecraft bootstrap).
     testImplementation platform("org.junit:junit-bom:5.10.2")
     testImplementation "org.junit.jupiter:junit-jupiter"

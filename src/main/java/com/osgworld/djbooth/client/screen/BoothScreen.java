@@ -351,11 +351,49 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         }
         long now = minecraft.level.getGameTime() * 50L;
         long ms = be.state().positionMsAt(now);
-        String readout = String.format("%02d:%02d.%01d", ms / 60000, (ms / 1000) % 60, (ms % 1000) / 100);
+        long dur = DeckAudioManager.durationMs(pos);
+        boolean playing = be.state().getPlayState() == PlayState.PLAY;
+
         int[] scr = px(region, BoothLayout.DECK_SCREEN);
-        int cx = scr[0] + scr[2] / 2;
-        int y = scr[1] + scr[3] / 2 - this.font.lineHeight / 2;
-        g.drawCenteredString(this.font, readout, cx, y, 0xFF00E0A0);
+        int x0 = scr[0], y0 = scr[1], sw = scr[2], sh = scr[3];
+
+        // Scrolling waveform, brighter behind the playhead. Procedural but tied to position so it
+        // actually moves with the track; it is decoration, not the real audio samples.
+        int bars = Math.max(8, sw / 3);
+        int barGap = sw / bars;
+        int mid = y0 + sh * 2 / 5;
+        int maxAmp = sh / 3;
+        long scroll = ms / 40; // advances as the track plays
+        float progress = dur > 0 ? Math.min(1f, (float) ms / dur) : 0f;
+        for (int i = 0; i < bars; i++) {
+            long seed = i + scroll;
+            float n = (float) ((Math.sin(seed * 0.7) + Math.sin(seed * 0.29 + 1.3)
+                    + Math.sin(seed * 0.13 + 2.1)) / 3.0);
+            int amp = 2 + Math.round(Math.abs(n) * maxAmp);
+            int bx = x0 + i * barGap;
+            boolean passed = (float) i / bars <= progress;
+            int col = passed ? (playing ? 0xFF25E0C0 : 0xFF1B9E8C) : 0x556070A0;
+            g.fill(bx, mid - amp, bx + Math.max(1, barGap - 1), mid + amp, col);
+        }
+
+        // Progress line under the waveform.
+        int pline = y0 + sh - 6;
+        g.fill(x0, pline, x0 + sw, pline + 1, 0x33FFFFFF);
+        int px = x0 + Math.round(sw * progress);
+        g.fill(px - 1, pline - 2, px + 1, pline + 3, 0xFFFFFFFF);
+
+        // Elapsed (left) and remaining (right).
+        String elapsed = fmtTime(ms);
+        g.drawString(this.font, elapsed, x0 + 1, pline + 4, 0xFF00E0A0, false);
+        if (dur > 0) {
+            String remaining = "-" + fmtTime(Math.max(0, dur - ms));
+            g.drawString(this.font, remaining, x0 + sw - this.font.width(remaining) - 1,
+                    pline + 4, 0xFFE0A000, false);
+        }
+    }
+
+    private static String fmtTime(long ms) {
+        return String.format("%d:%02d", ms / 60000, (ms / 1000) % 60);
     }
 
     @Override

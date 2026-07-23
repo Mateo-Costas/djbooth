@@ -51,6 +51,15 @@ public final class DeckAudioManager {
         t.start();
     }
 
+    /** Track length in ms for a deck's audio, or 0 if unknown / no WaterMedia. */
+    public static long durationMs(BlockPos pos) {
+        if (!available()) {
+            return 0;
+        }
+        DeckAudio audio = AUDIO.get(pos);
+        return audio != null ? audio.durationMs() : 0;
+    }
+
     /** Ride the pitch on one deck's audio (jog bend). No-op without WaterMedia or an active deck. */
     public static void nudgeBend(BlockPos pos, double factor) {
         if (!available()) {

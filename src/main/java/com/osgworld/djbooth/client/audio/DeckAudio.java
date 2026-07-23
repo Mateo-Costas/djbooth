@@ -50,6 +50,15 @@ public class DeckAudio {
         return System.currentTimeMillis() < bendUntil;
     }
 
+    /** Track length in ms once known, else 0. */
+    public long durationMs() {
+        try {
+            return player != null ? Math.max(0, player.duration()) : 0;
+        } catch (Throwable t) {
+            return 0;
+        }
+    }
+
     /** Point this deck at a track URL, tearing down any previous player. */
     public void ensureUrl(String newUrl) {
         String u = newUrl == null ? "" : newUrl;

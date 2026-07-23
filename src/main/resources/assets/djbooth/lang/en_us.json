@@ -13,5 +13,13 @@
   "gui.djbooth.tempo": "Tempo (speed / pitch)",
   "gui.djbooth.url_hint": "Search or paste link + Enter",
   "gui.djbooth.guide1": "Type a song or paste a link, press Enter",
-  "gui.djbooth.guide2": "Play · Cue · Tempo=speed · Jog=pitch · Crossfader mixes A/B"
+  "gui.djbooth.guide2": "Play · Cue (right=set) · Tempo · Jog=pitch · click screen=seek",
+  "gui.djbooth.hotcue": "Hot cue %s: click sets or jumps",
+  "gui.djbooth.jump_back": "Jump back 4s",
+  "gui.djbooth.jump_fwd": "Jump forward 4s",
+  "gui.djbooth.loop_in": "Loop: mark start",
+  "gui.djbooth.loop_out": "Loop: mark end and enable",
+  "gui.djbooth.loop_exit": "Exit loop",
+  "gui.djbooth.loop_halve": "Halve loop length",
+  "gui.djbooth.loop_double": "Double loop length"
 }

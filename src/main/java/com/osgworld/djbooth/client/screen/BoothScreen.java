@@ -9,6 +9,7 @@ import com.osgworld.djbooth.client.screen.widget.PanelJog;
 import com.osgworld.djbooth.client.audio.DeckAudioManager;
 import com.osgworld.djbooth.deck.PlayState;
 import com.osgworld.djbooth.menu.BoothMenu;
+import com.osgworld.djbooth.net.HotCuePayload;
 import com.osgworld.djbooth.net.JogNudgePayload;
 import com.osgworld.djbooth.net.MixerPayload;
 import com.osgworld.djbooth.net.TransportPayload;
@@ -32,7 +33,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     private static final double JOG_BEND_PER_DEG = 0.05; // jog pitch-bend strength while playing
     private static final double TEMPO_RANGE = 0.16; // tempo fader throw: +/-16%, like a real CDJ
 
-    private static final int BOTTOM_STRIP = 66; // reserved height below the panel for search UI + guide
+    private static final int BOTTOM_STRIP = 92; // reserved height below panel: search + perf pads + guide
 
     /** URL input boxes, so Enter can load the right deck. */
     private final java.util.Map<EditBox, BlockPos> urlBoxes = new java.util.HashMap<>();
@@ -76,38 +77,88 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         addSearchBar();
     }
 
-    /** URL/search boxes for each deck plus a row of recent-track chips, below the panel. */
+    /** URL box, hot-cue / loop / beat-jump rows per deck, and recent chips, below the panel. */
     private void addSearchBar() {
-        int stripY = topPos + imageHeight + 5;
-        int boxH = 16;
+        int stripY = topPos + imageHeight + 4;
         int gap = 8;
         int half = (imageWidth - gap) / 2;
+        int rightX = leftPos + half + gap;
 
         if (menu.refs().deckA() != null) {
             addUrlBox(menu.refs().deckA(), leftPos, stripY, half);
+            addPerfRows(menu.refs().deckA(), leftPos, half, stripY + 18);
         }
         if (menu.refs().deckB() != null) {
-            addUrlBox(menu.refs().deckB(), leftPos + half + gap, stripY, half);
+            addUrlBox(menu.refs().deckB(), rightX, stripY, half);
+            addPerfRows(menu.refs().deckB(), rightX, half, stripY + 18);
         }
 
         // Recent tracks: quick chips to reload the last songs onto the focused (or A) deck.
-        int chipY = stripY + boxH + 5;
+        int chipY = stripY + 18 + 2 * 15 + 2;
         int chipW = Math.min(150, (imageWidth - 5 * 4) / Math.max(1, RECENTS.size() + 1));
         int cx = leftPos;
         for (String recent : RECENTS) {
             String label = recent.length() > 22 ? recent.substring(0, 21) + "…" : recent;
-            net.minecraft.client.gui.components.Button chip =
-                    net.minecraft.client.gui.components.Button.builder(
+            addRenderableWidget(net.minecraft.client.gui.components.Button.builder(
                             Component.literal(label), b -> submitTrack(targetDeck(), recent))
-                    .bounds(cx, chipY, chipW, 14)
+                    .bounds(cx, chipY, chipW, 13)
                     .tooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(recent)))
-                    .build();
-            addRenderableWidget(chip);
+                    .build());
             cx += chipW + 4;
             if (cx + chipW > leftPos + imageWidth) {
                 break;
             }
         }
+    }
+
+    /** Two rows of performance controls for a deck: hot cues + beat jump, then the loop tools. */
+    private void addPerfRows(BlockPos pos, int x0, int width, int y) {
+        // Row 1: hot cues 1..4 then beat-jump back/forward.
+        int n = com.osgworld.djbooth.deck.DeckState.HOT_CUES + 2;
+        int bw = (width - (n - 1) * 2) / n;
+        int x = x0;
+        for (int i = 0; i < com.osgworld.djbooth.deck.DeckState.HOT_CUES; i++) {
+            final int idx = i;
+            addRenderableWidget(perfButton(String.valueOf(i + 1),
+                    Component.translatable("gui.djbooth.hotcue", i + 1), x, y, bw, () -> {
+                        CdjBlockEntity be = menu.deck(pos);
+                        int action = (be != null && be.state().hasHotCue(idx))
+                                ? HotCuePayload.JUMP : HotCuePayload.SET;
+                        PacketDistributor.sendToServer(new HotCuePayload(pos, idx, action));
+                    }));
+            x += bw + 2;
+        }
+        addRenderableWidget(perfButton("◀", Component.translatable("gui.djbooth.jump_back"),
+                x, y, bw, () -> PacketDistributor.sendToServer(
+                        new TransportPayload(pos, TransportPayload.JUMP_BACK))));
+        x += bw + 2;
+        addRenderableWidget(perfButton("▶", Component.translatable("gui.djbooth.jump_fwd"),
+                x, y, bw, () -> PacketDistributor.sendToServer(
+                        new TransportPayload(pos, TransportPayload.JUMP_FWD))));
+
+        // Row 2: loop IN / OUT / EXIT / halve / double.
+        int y2 = y + 15;
+        String[] labels = {"IN", "OUT", "EXIT", "½", "2×"};
+        int[] actions = {TransportPayload.LOOP_IN, TransportPayload.LOOP_OUT,
+                TransportPayload.LOOP_EXIT, TransportPayload.LOOP_HALVE, TransportPayload.LOOP_DOUBLE};
+        String[] keys = {"loop_in", "loop_out", "loop_exit", "loop_halve", "loop_double"};
+        int lw = (width - 4 * 2) / 5;
+        int lx = x0;
+        for (int i = 0; i < labels.length; i++) {
+            final int action = actions[i];
+            addRenderableWidget(perfButton(labels[i], Component.translatable("gui.djbooth." + keys[i]),
+                    lx, y2, lw, () -> PacketDistributor.sendToServer(new TransportPayload(pos, action))));
+            lx += lw + 2;
+        }
+    }
+
+    private net.minecraft.client.gui.components.Button perfButton(
+            String label, Component tip, int x, int y, int w, Runnable action) {
+        return net.minecraft.client.gui.components.Button.builder(
+                        Component.literal(label), b -> action.run())
+                .bounds(x, y, w, 13)
+                .tooltip(net.minecraft.client.gui.components.Tooltip.create(tip))
+                .build();
     }
 
     private void addUrlBox(BlockPos pos, int x, int y, int width) {

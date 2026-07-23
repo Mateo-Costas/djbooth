@@ -63,6 +63,11 @@ public class CdjBlockEntity extends BlockEntity {
         tag.putBoolean("LoopOn", state.isLoopOn());
         tag.putLong("LoopIn", state.getLoopInMs());
         tag.putLong("LoopOut", state.getLoopOutMs());
+        long[] hc = new long[DeckState.HOT_CUES];
+        for (int i = 0; i < hc.length; i++) {
+            hc[i] = state.getHotCue(i);
+        }
+        tag.putLongArray("HotCues", hc);
     }
 
     @Override
@@ -76,6 +81,10 @@ public class CdjBlockEntity extends BlockEntity {
         state.setOffsetMs(tag.getLong("Offset"));
         state.setStartEpochMs(tag.getLong("Start"));
         state.setLoop(tag.getLong("LoopIn"), tag.getLong("LoopOut"), tag.getBoolean("LoopOn"));
+        long[] hc = tag.getLongArray("HotCues");
+        for (int i = 0; i < DeckState.HOT_CUES && i < hc.length; i++) {
+            state.loadHotCue(i, hc[i]);
+        }
     }
 
     @Override

@@ -11,6 +11,8 @@ import net.minecraft.resources.ResourceLocation;
 /** C2S: a transport button was pressed on the CDJ at {@code pos}. */
 public record TransportPayload(BlockPos pos, int action) implements CustomPacketPayload {
     public static final int PLAY = 0, PAUSE = 1, CUE = 2, SET_CUE = 3, LOOP_TOGGLE = 4;
+    public static final int LOOP_IN = 5, LOOP_OUT = 6, LOOP_EXIT = 7, RELOOP = 8,
+            LOOP_HALVE = 9, LOOP_DOUBLE = 10, JUMP_BACK = 11, JUMP_FWD = 12;
 
     public static final Type<TransportPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(DJBooth.MODID, "transport"));

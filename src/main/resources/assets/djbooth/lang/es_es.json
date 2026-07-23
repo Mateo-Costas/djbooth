@@ -13,5 +13,13 @@
   "gui.djbooth.tempo": "Tempo (velocidad / tono)",
   "gui.djbooth.url_hint": "Busca o pega enlace + Enter",
   "gui.djbooth.guide1": "Escribe una canción o pega un enlace, pulsa Enter",
-  "gui.djbooth.guide2": "Play · Cue · Tempo=velocidad · Jog=pitch · Crossfader mezcla A/B"
+  "gui.djbooth.guide2": "Play · Cue (der=fijar) · Tempo · Jog=pitch · clic pantalla=saltar",
+  "gui.djbooth.hotcue": "Hot cue %s: clic marca o salta",
+  "gui.djbooth.jump_back": "Saltar atrás 4s",
+  "gui.djbooth.jump_fwd": "Saltar adelante 4s",
+  "gui.djbooth.loop_in": "Loop: marcar inicio",
+  "gui.djbooth.loop_out": "Loop: marcar fin y activar",
+  "gui.djbooth.loop_exit": "Salir del loop",
+  "gui.djbooth.loop_halve": "Loop mitad de largo",
+  "gui.djbooth.loop_double": "Loop doble de largo"
 }

@@ -16,6 +16,9 @@ public final class DeckState {
     private long loopOutMs = 0;
     private String trackUrl = "";
 
+    public static final int HOT_CUES = 4;
+    private final long[] hotCues = { -1, -1, -1, -1 }; // ms, -1 = unset
+
     public PlayState getPlayState() { return playState; }
     public void setPlayState(PlayState s) { this.playState = s; }
 
@@ -81,6 +84,63 @@ public final class DeckState {
     public void jumpTo(long posMs, long now) {
         offsetMs = Math.max(0, posMs);
         startEpochMs = now;
+    }
+
+    // --- Hot cues ---
+
+    public long getHotCue(int i) { return (i >= 0 && i < HOT_CUES) ? hotCues[i] : -1; }
+    public boolean hasHotCue(int i) { return getHotCue(i) >= 0; }
+
+    public void setHotCue(int i, long now) {
+        if (i >= 0 && i < HOT_CUES) hotCues[i] = positionMsAt(now);
+    }
+
+    public void clearHotCue(int i) {
+        if (i >= 0 && i < HOT_CUES) hotCues[i] = -1;
+    }
+
+    /** Jump onto a hot cue, keeping the current play state. */
+    public void jumpHotCue(int i, long now) {
+        if (hasHotCue(i)) jumpTo(hotCues[i], now);
+    }
+
+    /** Raw hot-cue setter for NBT load. */
+    public void loadHotCue(int i, long ms) {
+        if (i >= 0 && i < HOT_CUES) hotCues[i] = ms;
+    }
+
+    // --- Loop control ---
+
+    /** Arm the loop-in point at the current position. */
+    public void loopIn(long now) {
+        loopInMs = positionMsAt(now);
+    }
+
+    /** Set the loop-out point at the current position and start looping. */
+    public void loopOut(long now) {
+        loopOutMs = positionMsAt(now);
+        loopOn = loopOutMs > loopInMs;
+    }
+
+    /** Leave the loop but remember its bounds for a reloop. */
+    public void loopExit() {
+        loopOn = false;
+    }
+
+    /** Re-enter the stored loop and jump to its start. */
+    public void reloop(long now) {
+        if (loopOutMs > loopInMs) {
+            loopOn = true;
+            jumpTo(loopInMs, now);
+        }
+    }
+
+    /** Halve / double the loop length (keeps the in point). */
+    public void resizeLoop(double factor) {
+        long span = loopOutMs - loopInMs;
+        if (span <= 0) return;
+        long next = Math.max(50, Math.round(span * factor));
+        loopOutMs = loopInMs + next;
     }
 
     /** Transition to {@code next}, re-anchoring the position math to {@code now}. */

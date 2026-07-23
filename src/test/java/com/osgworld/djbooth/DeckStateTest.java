@@ -44,4 +44,48 @@ class DeckStateTest {
         // raw pos at t=2500 is 2500; wrapped into [1000,2000): 1000 + (2500-1000)%1000 = 1500
         assertEquals(1500, s.positionMsAt(2500));
     }
+
+    @Test
+    void cuePreviewFromParkedThenReturns() {
+        DeckState s = new DeckState();
+        s.setCuePointMs(5000);
+        s.press(PlayState.PAUSE, 0);
+        s.cue(1000);                       // parked -> preview plays from cue
+        assertEquals(PlayState.PLAY, s.getPlayState());
+        assertEquals(5000, s.positionMsAt(1000));
+        assertEquals(5200, s.positionMsAt(1200));  // advancing
+        s.cue(1200);                       // playing -> jump back to cue, pause
+        assertEquals(PlayState.CUE, s.getPlayState());
+        assertEquals(5000, s.positionMsAt(9999));
+    }
+
+    @Test
+    void hotCueSetAndJump() {
+        DeckState s = new DeckState();
+        s.press(PlayState.PLAY, 0);
+        s.setHotCue(0, 2000);              // pos at t=2000 is 2000
+        assertEquals(2000, s.getHotCue(0));
+        s.jumpHotCue(0, 6000);             // jump back onto it, still playing
+        assertEquals(2000, s.positionMsAt(6000));
+        assertEquals(2100, s.positionMsAt(6100));
+    }
+
+    @Test
+    void loopInOutReloopAndResize() {
+        DeckState s = new DeckState();
+        s.press(PlayState.PLAY, 0);
+        s.jumpTo(1000, 0);
+        s.loopIn(0);                       // in = 1000
+        s.jumpTo(3000, 0);
+        s.loopOut(0);                      // out = 3000, looping on
+        assertEquals(true, s.isLoopOn());
+        assertEquals(2000, s.getLoopOutMs() - s.getLoopInMs());
+        s.resizeLoop(0.5);                 // span 2000 -> 1000
+        assertEquals(1000, s.getLoopOutMs() - s.getLoopInMs());
+        s.loopExit();
+        assertEquals(false, s.isLoopOn());
+        s.reloop(0);                       // re-enter, jump to in (1000)
+        assertEquals(true, s.isLoopOn());
+        assertEquals(1000, s.positionMsAt(0));
+    }
 }

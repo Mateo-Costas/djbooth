@@ -31,8 +31,14 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     private static final double MS_PER_DEG = 8.0; // jog sensitivity: full turn ≈ 2.9 s scrub
     private static final double JOG_BEND_PER_DEG = 0.05; // jog pitch-bend strength while playing
 
+    private static final int BOTTOM_STRIP = 44; // reserved height below the panel for search UI
+
     /** URL input boxes, so Enter can load the right deck. */
     private final java.util.Map<EditBox, BlockPos> urlBoxes = new java.util.HashMap<>();
+
+    /** Recently loaded tracks (query text or URL), newest first, shared across the session. */
+    private static final java.util.List<String> RECENTS = new java.util.ArrayList<>();
+    private static final int MAX_RECENTS = 6;
 
     public BoothScreen(BoothMenu menu, Inventory inv, Component title) {
         super(menu, inv, title);
@@ -40,18 +46,21 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
 
     @Override
     protected void init() {
-        // Scale the panel to the window while keeping the texture aspect ratio.
+        // Scale the panel to the window, keeping aspect and reserving a strip below the panel
+        // for the search boxes + recent chips (so they never sit on top of the CDJ artwork).
         float aspect = (float) TEX_W / TEX_H;
         int w = Math.min(this.width - 20, 1040);
         int h = Math.round(w / aspect);
-        if (h > this.height - 40) {
-            h = this.height - 40;
+        if (h > this.height - 40 - BOTTOM_STRIP) {
+            h = this.height - 40 - BOTTOM_STRIP;
             w = Math.round(h * aspect);
         }
         this.imageWidth = w;
         this.imageHeight = h;
 
         super.init();
+        // Shift the panel up so the reserved strip fits below it on screen.
+        this.topPos = Math.max(10, (this.height - BOTTOM_STRIP - imageHeight) / 2);
         urlBoxes.clear();
 
         if (menu.refs().deckA() != null) {
@@ -63,6 +72,61 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         if (menu.refs().mixer() != null) {
             addMixer();
         }
+        addSearchBar();
+    }
+
+    /** URL/search boxes for each deck plus a row of recent-track chips, below the panel. */
+    private void addSearchBar() {
+        int stripY = topPos + imageHeight + 5;
+        int boxH = 16;
+        int gap = 8;
+        int half = (imageWidth - gap) / 2;
+
+        if (menu.refs().deckA() != null) {
+            addUrlBox(menu.refs().deckA(), leftPos, stripY, half);
+        }
+        if (menu.refs().deckB() != null) {
+            addUrlBox(menu.refs().deckB(), leftPos + half + gap, stripY, half);
+        }
+
+        // Recent tracks: quick chips to reload the last songs onto the focused (or A) deck.
+        int chipY = stripY + boxH + 5;
+        int chipW = Math.min(150, (imageWidth - 5 * 4) / Math.max(1, RECENTS.size() + 1));
+        int cx = leftPos;
+        for (String recent : RECENTS) {
+            String label = recent.length() > 22 ? recent.substring(0, 21) + "…" : recent;
+            net.minecraft.client.gui.components.Button chip =
+                    net.minecraft.client.gui.components.Button.builder(
+                            Component.literal(label), b -> submitTrack(targetDeck(), recent))
+                    .bounds(cx, chipY, chipW, 14)
+                    .tooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(recent)))
+                    .build();
+            addRenderableWidget(chip);
+            cx += chipW + 4;
+            if (cx + chipW > leftPos + imageWidth) {
+                break;
+            }
+        }
+    }
+
+    private void addUrlBox(BlockPos pos, int x, int y, int width) {
+        EditBox box = new EditBox(this.font, x, y, width, 16, Component.literal("URL"));
+        box.setMaxLength(1024);
+        box.setHint(Component.translatable("gui.djbooth.url_hint"));
+        CdjBlockEntity be = menu.deck(pos);
+        if (be != null) {
+            box.setValue(be.state().getTrackUrl());
+        }
+        addRenderableWidget(box);
+        urlBoxes.put(box, pos);
+    }
+
+    /** Deck whose box is focused, else deck A, else deck B. */
+    private BlockPos targetDeck() {
+        if (this.getFocused() instanceof EditBox eb && urlBoxes.containsKey(eb)) {
+            return urlBoxes.get(eb);
+        }
+        return menu.refs().deckA() != null ? menu.refs().deckA() : menu.refs().deckB();
     }
 
     // --- Region/control geometry ---
@@ -167,18 +231,6 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                         new JogNudgePayload(pos, be.state().getRate(), target));
             }
         }));
-
-        // Track URL input over the CDJ display: paste a link, press Enter to load it.
-        int[] u = px(region, BoothLayout.DECK_URLBAR);
-        EditBox urlBox = new EditBox(this.font, u[0], u[1], u[2], u[3], Component.literal("URL"));
-        urlBox.setMaxLength(1024);
-        urlBox.setHint(Component.translatable("gui.djbooth.url_hint"));
-        CdjBlockEntity deckBe = menu.deck(pos);
-        if (deckBe != null) {
-            urlBox.setValue(deckBe.state().getTrackUrl());
-        }
-        addRenderableWidget(urlBox);
-        urlBoxes.put(urlBox, pos);
     }
 
     /** A pasted link loads directly; anything else is a YouTube search for the top hit. */
@@ -187,11 +239,21 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         if (q.isEmpty()) {
             return;
         }
+        rememberRecent(q);
         if (q.startsWith("http://") || q.startsWith("https://")) {
             loadTrack(pos, q);
         } else {
             DeckAudioManager.searchTop(q, url -> loadTrack(pos, url));
         }
+    }
+
+    private void rememberRecent(String q) {
+        RECENTS.remove(q);
+        RECENTS.add(0, q);
+        while (RECENTS.size() > MAX_RECENTS) {
+            RECENTS.remove(RECENTS.size() - 1);
+        }
+        this.rebuildWidgets(); // refresh the recent chips
     }
 
     private void loadTrack(BlockPos pos, String url) {
@@ -266,7 +328,35 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         super.render(g, mouseX, mouseY, partialTick);
         drawDeckReadout(g, menu.refs().deckA(), BoothLayout.REGION_DECK_A);
         drawDeckReadout(g, menu.refs().deckB(), BoothLayout.REGION_DECK_B);
+        drawGuide(g);
         renderTooltip(g, mouseX, mouseY);
+    }
+
+    /** Small "how to use" card in the top-right corner of the panel. */
+    private void drawGuide(GuiGraphics g) {
+        Component[] lines = {
+                Component.translatable("gui.djbooth.guide_title"),
+                Component.translatable("gui.djbooth.guide1"),
+                Component.translatable("gui.djbooth.guide2"),
+                Component.translatable("gui.djbooth.guide3"),
+        };
+        int pad = 4;
+        int tw = 0;
+        for (Component c : lines) {
+            tw = Math.max(tw, this.font.width(c));
+        }
+        int boxW = tw + pad * 2;
+        int boxH = lines.length * (this.font.lineHeight + 1) + pad * 2 - 1;
+        int x = leftPos + imageWidth - boxW - 6;
+        int y = topPos + 6;
+        g.fill(x, y, x + boxW, y + boxH, 0xB0000000);
+        g.renderOutline(x, y, boxW, boxH, 0x40FFFFFF);
+        int ty = y + pad;
+        for (int i = 0; i < lines.length; i++) {
+            int col = i == 0 ? 0xFF1DB954 : 0xFFD0D0D8;
+            g.drawString(this.font, lines[i], x + pad, ty, col, false);
+            ty += this.font.lineHeight + 1;
+        }
     }
 
     private void drawDeckReadout(GuiGraphics g, BlockPos pos, BoothLayout.Rect region) {

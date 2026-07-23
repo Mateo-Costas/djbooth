@@ -11,5 +11,9 @@
   "gui.djbooth.cue": "Cue (marcar / saltar al cue)",
   "gui.djbooth.loop": "Bucle sí / no",
   "gui.djbooth.tempo": "Tempo (velocidad / tono)",
-  "gui.djbooth.url_hint": "Busca o pega enlace + Enter"
+  "gui.djbooth.url_hint": "Busca o pega enlace + Enter",
+  "gui.djbooth.guide_title": "Cómo usar",
+  "gui.djbooth.guide1": "Abajo: escribe o pega enlace + Enter",
+  "gui.djbooth.guide2": "Play / Cue / Tempo = velocidad",
+  "gui.djbooth.guide3": "Jog = pitch · Crossfader mezcla A/B"
 }

@@ -36,18 +36,27 @@ displayName="${mod_name}" #mandatory
 #displayURL="https://change.me.to.your.mods.homepage.example.invalid/" #optional
 
 # A file name (in the root of the mod JAR) containing a logo for display
-#logoFile="examplemod.png" #optional
+logoFile="djbooth_logo.png" #optional
 
 # A text field displayed in the mod UI
-#credits="" #optional
+credits="Built with WaterMedia (audio) and MineDMX (lighting)." #optional
 
 # The authors of the mod, displayed in the mod UI (optional)
 #authors=""
 
 # The description text for the mod (multi line!) (#mandatory)
 description='''
-Interactive Pioneer-style DJ booth: two CDJ decks and a mixer with a working GUI.
-Streams music (via WaterMedia) and drives DMX lights (via MineDMX). Both optional.
+An interactive Pioneer-style DJ booth for Minecraft.
+
+Place two CDJ decks around a mixer and right-click to open one full booth GUI drawn over the real
+gear. Load any track by pasting a link or typing a song name (YouTube search), then play, cue, loop,
+set hot cues, beat-jump, ride the jog for pitch-bends, and scrub by clicking the deck screen.
+
+The mixer is a working DJM: channel faders, crossfader, master, a real 3-band isolator EQ, a colour
+sweep filter and an echo FX, all processed live. Plus tap-tempo BPM and a selectable tempo range.
+
+Audio streaming needs WaterMedia (+ its binaries) installed; DMX stage lighting needs MineDMX. Both
+are optional soft dependencies: the booth loads and works without them (silent, no lights).
 '''
 authors="OSGWORLD"
 

@@ -1,25 +1,54 @@
+# DJ Booth
 
-Installation information
-=======
+An interactive Pioneer-style DJ booth for Minecraft (NeoForge 1.21.1). Two CDJ decks and a mixer
+that open a single booth GUI drawn over the real gear, stream real music, and can drive DMX stage
+lights.
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+![logo](src/main/resources/djbooth_logo.png)
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+## Features
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
+- **One booth GUI.** Right-click a deck or the mixer to open the whole rig at once, with every
+  control on the artwork where it lives on real hardware.
+- **Load any track.** Paste a link or type a song name (top YouTube hit). Recent tracks are one
+  click away.
+- **Deck controls.** Play/pause, smart cue (jump / right-click to set), loops (in / out / exit /
+  reloop / halve / double), 4 hot cues, beat-jump, a pitch-bend jog wheel, click-to-seek on the
+  deck screen, a scrolling waveform readout with elapsed/remaining time.
+- **Tempo.** Tempo fader with a selectable range (±6 / ±10 / ±16 / WIDE) and a tap-tempo BPM counter.
+- **Mixer.** Channel faders, crossfader, master. A real 3-band **isolator EQ**, a **colour sweep
+  filter** and an **echo FX**, all processed live in Java. Switches for EQ/ISO curve and fader curve.
+- **DMX (optional).** Sends lighting frames to MineDMX over UDP.
 
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
-https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
+## Requirements
 
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+| Mod | Needed for | Required? |
+| --- | --- | --- |
+| NeoForge 21.1.x (MC 1.21.1) | the mod itself | yes |
+| [WaterMedia](https://modrinth.com/mod/watermedia) + [WaterMedia Binaries](https://modrinth.com/mod/watermedia-binaries) | streaming audio | optional (no sound without it) |
+| [MineDMX](https://modrinth.com/mod/minedmx) | DMX stage lights | optional |
+
+The booth loads and works without the optional mods — it just stays silent / dark.
+
+> WaterMedia is under a non-commercial license, so it is **not** bundled with this mod. Install it
+> separately.
+
+## Setup in-game
+
+1. Place two **CDJ-3000** blocks with a **DJ Mixer** between (or beside) them. The booth finds the
+   nearest deck+mixer group automatically.
+2. Right-click any of them to open the booth.
+3. Type a song or paste a link in a deck's box, press Enter, hit the green play button.
+
+## Building
+
+```
+./gradlew build
+```
+
+The jar lands in `build/libs/`. Run `./gradlew runClient` for a dev client. Textures are generated
+from source art by the scripts in `tools/`.
+
+## Credits
+
+Built with [WaterMedia](https://github.com/WaterMediaTeam/watermedia) (audio) and MineDMX (lighting).

@@ -6,6 +6,7 @@ import com.osgworld.djbooth.blockentity.MixerBlockEntity;
 import com.osgworld.djbooth.client.screen.widget.PanelButton;
 import com.osgworld.djbooth.client.screen.widget.PanelFader;
 import com.osgworld.djbooth.client.screen.widget.PanelJog;
+import com.osgworld.djbooth.client.audio.DeckAudioManager;
 import com.osgworld.djbooth.deck.PlayState;
 import com.osgworld.djbooth.menu.BoothMenu;
 import com.osgworld.djbooth.net.JogNudgePayload;
@@ -27,6 +28,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     private static final int TEX_W = 1200;
     private static final int TEX_H = 440;
     private static final double MS_PER_DEG = 8.0; // jog sensitivity: full turn ≈ 2.9 s scrub
+    private static final double JOG_BEND_PER_DEG = 0.05; // jog pitch-bend strength while playing
 
     public BoothScreen(BoothMenu menu, Inventory inv, Component title) {
         super(menu, inv, title);
@@ -141,18 +143,24 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 Component.translatable("gui.djbooth.tempo")));
         addRenderableWidget(tempo);
 
-        // Jog wheel: drag -> scrub.
+        // Jog wheel. While playing it bends the pitch like a real CDJ jog (smooth, client-local,
+        // no seek). While parked it scrubs the position by seeking on the server.
         int[] j = px(region, BoothLayout.DECK_JOG);
         addRenderableWidget(new PanelJog(j[0], j[1], j[2], j[3], deg -> {
             CdjBlockEntity be = menu.deck(pos);
             if (be == null || minecraft == null || minecraft.level == null) {
                 return;
             }
-            long now = minecraft.level.getGameTime() * 50L;
-            long cur = be.state().positionMsAt(now);
-            long target = Math.max(0, cur + Math.round(deg * MS_PER_DEG));
-            PacketDistributor.sendToServer(
-                    new JogNudgePayload(pos, be.state().getRate(), target));
+            if (be.state().getPlayState() == PlayState.PLAY) {
+                // deg is the per-drag angle; turn it into a momentary speed multiplier.
+                DeckAudioManager.nudgeBend(pos, 1.0 + deg * JOG_BEND_PER_DEG);
+            } else {
+                long now = minecraft.level.getGameTime() * 50L;
+                long cur = be.state().positionMsAt(now);
+                long target = Math.max(0, cur + Math.round(deg * MS_PER_DEG));
+                PacketDistributor.sendToServer(
+                        new JogNudgePayload(pos, be.state().getRate(), target));
+            }
         }));
     }
 

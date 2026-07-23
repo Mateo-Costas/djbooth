@@ -19,14 +19,36 @@ import org.watermedia.api.media.players.MediaPlayer;
  * player is built on the client thread once its MRL is ready.
  */
 public class DeckAudio {
-    private static final long DRIFT_MS = 250; // re-seek only when audio drifts past this
+    // We re-seek only on a genuine discontinuity (cue jump, loop, track load), never to shave
+    // small drift, because seeking a live FFmpeg stream every tick stutters badly.
+    private static final long JUMP_MS = 400;   // server-position jump that counts as a seek
+    private static final long BEND_HOLD_MS = 160; // how long a jog nudge keeps bending the pitch
 
     private String url = "";
     private MRL mrl;
     private volatile boolean mrlReady;
     private MediaPlayer player;
-    private double lastRate = 1.0;
+    private double lastSpeed = -1.0;
     private int lastVolume = -1;
+
+    // Discontinuity tracking: where the server clock said we were last tick.
+    private boolean freshPlayer = true;
+    private long lastTarget = 0;
+    private long lastNow = 0;
+
+    // Jog pitch-bend (client-local, no seek): a transient speed multiplier.
+    private volatile double bend = 1.0;
+    private volatile long bendUntil = 0;
+
+    /** Nudge the pitch for a moment, like riding a CDJ jog. factor &gt;1 speeds up, &lt;1 slows. */
+    public void nudgeBend(double factor) {
+        this.bend = Math.max(0.05, Math.min(3.0, factor));
+        this.bendUntil = System.currentTimeMillis() + BEND_HOLD_MS;
+    }
+
+    public boolean isBending() {
+        return System.currentTimeMillis() < bendUntil;
+    }
 
     /** Point this deck at a track URL, tearing down any previous player. */
     public void ensureUrl(String newUrl) {
@@ -88,32 +110,36 @@ public class DeckAudio {
             lastVolume = vol;
         }
 
-        // Tempo (playback speed).
+        boolean shouldPlay = state.getPlayState() == PlayState.PLAY;
         double rate = state.getRate();
-        if (Math.abs(rate - lastRate) > 1e-3) {
-            player.speed((float) rate);
-            lastRate = rate;
+        double effSpeed = rate * (isBending() ? bend : 1.0);
+        if (Math.abs(effSpeed - lastSpeed) > 1e-3) {
+            player.speed((float) effSpeed);
+            lastSpeed = effSpeed;
         }
 
-        boolean shouldPlay = state.getPlayState() == PlayState.PLAY;
         long target = state.positionMsAt(nowMs);
+
+        // Seek only when the server position jumps (cue/loop/track/first play), not to trim
+        // drift. When bending, the audio deliberately runs off the server clock; leave it.
+        if (freshPlayer) {
+            player.seek(target);
+            freshPlayer = false;
+        } else if (!isBending()) {
+            long expected = lastTarget + (shouldPlay ? Math.round((nowMs - lastNow) * rate) : 0);
+            if (Math.abs(target - expected) > JUMP_MS) {
+                player.seek(target);
+            }
+        }
+        lastTarget = target;
+        lastNow = nowMs;
 
         if (shouldPlay) {
             if (player.status() != MediaPlayer.Status.PLAYING) {
                 player.resume();
             }
-            // Correct only real drift so we don't stutter every tick.
-            if (Math.abs(player.time() - target) > DRIFT_MS) {
-                player.seek(target);
-            }
-        } else {
-            if (player.status() == MediaPlayer.Status.PLAYING) {
-                player.pause();
-            }
-            // Parked (cue/pause/stop): keep the playhead where the deck says it is.
-            if (Math.abs(player.time() - target) > DRIFT_MS) {
-                player.seek(target);
-            }
+        } else if (player.status() == MediaPlayer.Status.PLAYING) {
+            player.pause();
         }
     }
 
@@ -146,6 +172,9 @@ public class DeckAudio {
         mrl = null;
         mrlReady = false;
         lastVolume = -1;
-        lastRate = 1.0;
+        lastSpeed = -1.0;
+        freshPlayer = true;
+        bend = 1.0;
+        bendUntil = 0;
     }
 }

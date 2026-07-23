@@ -29,6 +29,17 @@ public final class DeckAudioManager {
     private static final Map<BlockPos, DeckAudio> AUDIO = new HashMap<>();
     private static Boolean waterMediaPresent;
 
+    /** Ride the pitch on one deck's audio (jog bend). No-op without WaterMedia or an active deck. */
+    public static void nudgeBend(BlockPos pos, double factor) {
+        if (!available()) {
+            return;
+        }
+        DeckAudio audio = AUDIO.get(pos);
+        if (audio != null) {
+            audio.nudgeBend(factor);
+        }
+    }
+
     private static boolean available() {
         if (waterMediaPresent == null) {
             waterMediaPresent = ModList.get().isLoaded("watermedia");

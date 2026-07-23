@@ -32,7 +32,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     private static final double MS_PER_DEG = 8.0; // jog sensitivity: full turn ≈ 2.9 s scrub
     private static final double JOG_BEND_PER_DEG = 0.05; // jog pitch-bend strength while playing
 
-    private static final int BOTTOM_STRIP = 92; // reserved height below panel: search + perf pads + guide
+    private static final int BOTTOM_STRIP = 108; // reserved height below panel: search + perf pads + guide
 
     /** URL input boxes, so Enter can load the right deck. */
     private final java.util.Map<EditBox, BlockPos> urlBoxes = new java.util.HashMap<>();
@@ -107,7 +107,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         }
 
         // Recent tracks: quick chips to reload the last songs onto the focused (or A) deck.
-        int chipY = stripY + 18 + 2 * 15 + 2;
+        int chipY = stripY + 18 + 3 * 15 + 2;
         int chipW = Math.min(150, (imageWidth - 5 * 4) / Math.max(1, RECENTS.size() + 1));
         int cx = leftPos;
         for (String recent : RECENTS) {
@@ -163,6 +163,28 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                     lx, y2, lw, () -> PacketDistributor.sendToServer(new TransportPayload(pos, action))));
             lx += lw + 2;
         }
+
+        // Row 3: tempo RANGE selector + TAP tempo (client-side feel/measure).
+        int y3 = y + 30;
+        int hw = (width - 2) / 2;
+        int idx0 = tempoRangeIdx.getOrDefault(pos, 2);
+        net.minecraft.client.gui.components.Button rangeBtn = net.minecraft.client.gui.components.Button.builder(
+                Component.literal("RANGE " + TEMPO_RANGE_NAMES[idx0]), b -> {
+                    int idx = (tempoRangeIdx.getOrDefault(pos, 2) + 1) % TEMPO_RANGES.length;
+                    tempoRangeIdx.put(pos, idx);
+                    b.setMessage(Component.literal("RANGE " + TEMPO_RANGE_NAMES[idx]));
+                })
+                .bounds(x0, y3, hw, 13)
+                .tooltip(net.minecraft.client.gui.components.Tooltip.create(
+                        Component.translatable("gui.djbooth.tempo_range")))
+                .build();
+        addRenderableWidget(rangeBtn);
+        addRenderableWidget(net.minecraft.client.gui.components.Button.builder(
+                        Component.literal("TAP BPM"), b -> tapTempo(pos))
+                .bounds(x0 + hw + 2, y3, hw, 13)
+                .tooltip(net.minecraft.client.gui.components.Tooltip.create(
+                        Component.translatable("gui.djbooth.tap")))
+                .build());
     }
 
     private net.minecraft.client.gui.components.Button perfButton(
@@ -271,31 +293,6 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         tempo.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 Component.translatable("gui.djbooth.tempo")));
         addRenderableWidget(tempo);
-
-        // TEMPO RANGE selector (client feel only): cycles ±6 / ±10 / ±16 / WIDE.
-        int[] tr = px(region, BoothLayout.DECK_TEMPO_RANGE);
-        int idx0 = tempoRangeIdx.getOrDefault(pos, 2);
-        net.minecraft.client.gui.components.Button rangeBtn =
-                net.minecraft.client.gui.components.Button.builder(
-                        Component.literal("RANGE " + TEMPO_RANGE_NAMES[idx0]), b -> {
-                            int idx = (tempoRangeIdx.getOrDefault(pos, 2) + 1) % TEMPO_RANGES.length;
-                            tempoRangeIdx.put(pos, idx);
-                            b.setMessage(Component.literal("RANGE " + TEMPO_RANGE_NAMES[idx]));
-                        })
-                        .bounds(tr[0], tr[1], tr[2], tr[3])
-                        .tooltip(net.minecraft.client.gui.components.Tooltip.create(
-                                Component.translatable("gui.djbooth.tempo_range")))
-                        .build();
-        addRenderableWidget(rangeBtn);
-
-        // TAP tempo: tap on the beat to measure BPM (shown on the readout).
-        int[] tp = px(region, BoothLayout.DECK_TAP);
-        addRenderableWidget(net.minecraft.client.gui.components.Button.builder(
-                        Component.literal("TAP"), b -> tapTempo(pos))
-                .bounds(tp[0], tp[1], tp[2], tp[3])
-                .tooltip(net.minecraft.client.gui.components.Tooltip.create(
-                        Component.translatable("gui.djbooth.tap")))
-                .build());
 
         // Jog wheel. While playing it bends the pitch like a real CDJ jog (smooth, client-local,
         // no seek). While parked it scrubs the position by seeking on the server.

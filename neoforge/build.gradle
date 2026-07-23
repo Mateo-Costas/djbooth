@@ -22,12 +22,16 @@ dependencies {
     common(project(path: ":common", configuration: "namedElements")) { transitive false }
     shadowCommon(project(path: ":common", configuration: "transformProductionNeoForge")) { transitive false }
 
-    compileOnly rootProject.files("libs/watermedia-3.0.0.21.jar")
-    compileOnly rootProject.files("libs/minedmx-1.5.1.jar")
+    compileOnly "maven.modrinth:watermedia:3.0.0.21"
 
     // Dev-only: load the real audio backend in runClient so sound works (never bundled/published).
-    modLocalRuntime rootProject.files("libs/watermedia-3.0.0.21.jar")
-    modLocalRuntime rootProject.files("libs/watermedia_binaries-3.0.0-rc.4.jar")
+    // Guarded so CI / clean checkouts without the local jars still build.
+    if (rootProject.file("libs/watermedia-3.0.0.21.jar").exists()) {
+        modLocalRuntime rootProject.files("libs/watermedia-3.0.0.21.jar")
+    }
+    if (rootProject.file("libs/watermedia_binaries-3.0.0-rc.4.jar").exists()) {
+        modLocalRuntime rootProject.files("libs/watermedia_binaries-3.0.0-rc.4.jar")
+    }
 }
 
 processResources {

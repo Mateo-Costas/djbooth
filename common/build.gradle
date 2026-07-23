@@ -7,9 +7,10 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
     modImplementation "dev.architectury:architectury:${rootProject.architectury_api_version}"
 
-    // Soft-dep libraries used by the client audio / DMX code (pure Java, compileOnly, never bundled).
-    compileOnly rootProject.files("libs/watermedia-3.0.0.21.jar")
-    compileOnly rootProject.files("libs/minedmx-1.5.1.jar")
+    // Audio backend API for the DSP/player code (compileOnly, never bundled). Pulled from the
+    // Modrinth maven so CI can compile without the local jar. The DMX code links no MineDMX
+    // classes (pure UDP), so MineDMX is only a runtime soft-dep, not needed to compile.
+    compileOnly "maven.modrinth:watermedia:3.0.0.21"
 
     testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"

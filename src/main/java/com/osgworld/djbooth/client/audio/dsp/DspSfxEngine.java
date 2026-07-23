@@ -92,12 +92,13 @@ public final class DspSfxEngine extends SFXEngine {
         aLow = l; aMid = m; aHigh = h; aFilter = f;
     }
 
-    /** Knob 0..1 -> gain in dB. 0.5 = flat; up to +8 dB boost, down toward -40 dB (kill). */
+    /** Knob 0..1 -> gain in dB, matching the DJM-900NXS2 isolator curve: 0.5 = flat, up to +6 dB
+     *  boost, and down to a near -inf kill at 0 (so full-down mutes the band like a real isolator). */
     private static double dbForBand(double v) {
         if (v >= 0.5) {
-            return (v - 0.5) / 0.5 * 8.0;
+            return (v - 0.5) / 0.5 * 6.0;   // 0 .. +6 dB
         }
-        return (v / 0.5 - 1.0) * 40.0;
+        return (v / 0.5 - 1.0) * 60.0;      // 0 dB .. -60 dB (effectively kill)
     }
 
     /** Colour knob: centre = bypass, left = low-pass sweep down, right = high-pass sweep up. */

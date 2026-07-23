@@ -85,11 +85,15 @@ public final class Biquad {
         this.a2 = a2 / a0;
     }
 
+    // Tiny bias to keep the state out of denormal range; subnormal doubles are catastrophically
+    // slow on some CPUs and a filter that decays toward silence lands right in that range.
+    private static final double ANTI_DENORMAL = 1e-18;
+
     /** Filter one sample, advancing the state. */
     public double process(double x) {
         double y = b0 * x + z1;
-        z1 = b1 * x - a1 * y + z2;
-        z2 = b2 * x - a2 * y;
+        z1 = b1 * x - a1 * y + z2 + ANTI_DENORMAL;
+        z2 = b2 * x - a2 * y - ANTI_DENORMAL;
         return y;
     }
 

@@ -19,11 +19,14 @@ public class PanelKnob extends AbstractWidget {
 
     private final DoubleSupplier getter;
     private final DoubleConsumer setter;
-    private final String tag; // short caption drawn under the knob (HI / MID / LOW / FLT)
+    private final String tag;       // short caption (HI / MID / LOW / FLT)
+    private final boolean labelLeft; // draw the caption on the left (deck A) vs right (deck B)
 
-    public PanelKnob(int x, int y, int w, int h, String tag, DoubleSupplier getter, DoubleConsumer setter) {
+    public PanelKnob(int x, int y, int w, int h, String tag, boolean labelLeft,
+                     DoubleSupplier getter, DoubleConsumer setter) {
         super(x, y, w, h, Component.empty());
         this.tag = tag;
+        this.labelLeft = labelLeft;
         this.getter = getter;
         this.setter = setter;
     }
@@ -70,17 +73,18 @@ public class PanelKnob extends AbstractWidget {
         g.fill(px - 1, py - 1, px + 1, py + 1, col);
         g.fill(cx - 1, cy - 1, cx + 1, cy + 1, 0xFF60606A);
 
-        // Small caption to the RIGHT of the knob (never overlaps the knob above/below it).
+        // Tiny caption beside the knob (left for deck A, right for deck B) so columns don't collide.
         if (tag != null && !tag.isEmpty()) {
             var font = net.minecraft.client.Minecraft.getInstance().font;
-            float s = 0.62f; // shrink the font so labels stay tiny
+            float s = 0.55f; // shrink the font so labels stay tiny
             int color = isHovered() ? 0xFFFFFFFF : 0xFFB8B8C0;
+            float screenX = labelLeft
+                    ? cx - r - 2 - font.width(tag) * s
+                    : cx + r + 2;
+            float screenY = cy - font.lineHeight * s / 2f;
             g.pose().pushPose();
             g.pose().scale(s, s, 1f);
-            g.drawString(font, tag,
-                    Math.round((cx + r + 2) / s),
-                    Math.round((cy - font.lineHeight * s / 2f) / s),
-                    color, false);
+            g.drawString(font, tag, Math.round(screenX / s), Math.round(screenY / s), color, false);
             g.pose().popPose();
         }
     }

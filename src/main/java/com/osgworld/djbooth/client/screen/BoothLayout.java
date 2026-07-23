@@ -31,20 +31,18 @@ public final class BoothLayout {
     // crossfader centered x=0.44 y=0.925; master level knob x=0.75 y=0.12.
     public static final Rect MIX_FADER_A  = new Rect(0.226f, 0.673f, 0.050f, 0.162f); // channel 1 (deck A)
     public static final Rect MIX_FADER_B  = new Rect(0.355f, 0.673f, 0.050f, 0.162f); // channel 2 (deck B)
-    public static final Rect MIX_MASTER   = new Rect(0.725f, 0.055f, 0.050f, 0.130f); // master level (over knob)
+    public static final Rect MIX_MASTER   = new Rect(0.715f, 0.095f, 0.065f, 0.230f); // master level (lower + bigger)
     public static final Rect MIX_XFADER   = new Rect(0.340f, 0.905f, 0.200f, 0.045f); // MAGVEL crossfader
 
-    // EQ + COLOUR filter knobs, stacked above each channel fader (DJM strip: filter, HI, MID, LOW).
-    // Channel columns align with the faders (A x≈0.226, B x≈0.355); tweak Y to match the art.
-    private static final float KNOB_W = 0.050f, KNOB_H = 0.045f;
-    private static Rect knob(float x, float y) { return new Rect(x, y, KNOB_W, KNOB_H); }
-
-    public static final Rect MIX_FILTER_A = knob(0.226f, 0.270f); // COLOR
-    public static final Rect MIX_HI_A     = knob(0.226f, 0.395f);
-    public static final Rect MIX_MID_A    = knob(0.226f, 0.495f);
-    public static final Rect MIX_LOW_A    = knob(0.226f, 0.595f);
-    public static final Rect MIX_FILTER_B = knob(0.355f, 0.270f);
-    public static final Rect MIX_HI_B     = knob(0.355f, 0.395f);
-    public static final Rect MIX_MID_B    = knob(0.355f, 0.495f);
-    public static final Rect MIX_LOW_B    = knob(0.355f, 0.595f);
+    // EQ + COLOUR knobs, measured off the DJM-900NXS2 art (the mixer image fills the region exactly,
+    // so image fractions equal these control fractions). Real strip order top->bottom: HI, MID, LOW,
+    // then the larger COLOR filter. Channel columns: A (ch1) centre x≈0.250, B (ch2) centre x≈0.379.
+    public static final Rect MIX_HI_A     = new Rect(0.215f, 0.230f, 0.070f, 0.057f);
+    public static final Rect MIX_MID_A    = new Rect(0.215f, 0.305f, 0.070f, 0.057f);
+    public static final Rect MIX_LOW_A    = new Rect(0.215f, 0.382f, 0.070f, 0.057f);
+    public static final Rect MIX_FILTER_A = new Rect(0.210f, 0.467f, 0.080f, 0.065f); // COLOR
+    public static final Rect MIX_HI_B     = new Rect(0.344f, 0.230f, 0.070f, 0.057f);
+    public static final Rect MIX_MID_B    = new Rect(0.344f, 0.305f, 0.070f, 0.057f);
+    public static final Rect MIX_LOW_B    = new Rect(0.344f, 0.382f, 0.070f, 0.057f);
+    public static final Rect MIX_FILTER_B = new Rect(0.339f, 0.467f, 0.080f, 0.065f); // COLOR
 }

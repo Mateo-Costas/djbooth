@@ -2,5 +2,13 @@
   "block.djbooth.cdj": "CDJ-3000",
   "block.djbooth.mixer": "Mesa de mezclas",
   "gui.djbooth.booth": "Cabina DJ",
-  "itemGroup.djbooth": "Cabina DJ"
+  "itemGroup.djbooth": "Cabina DJ",
+  "gui.djbooth.fader_a": "Volumen canal A",
+  "gui.djbooth.fader_b": "Volumen canal B",
+  "gui.djbooth.master": "Volumen general (master)",
+  "gui.djbooth.crossfader": "Crossfader (A ↔ B)",
+  "gui.djbooth.play": "Play / Pausa",
+  "gui.djbooth.cue": "Cue (marcar / saltar al cue)",
+  "gui.djbooth.loop": "Bucle sí / no",
+  "gui.djbooth.tempo": "Tempo (velocidad / tono)"
 }

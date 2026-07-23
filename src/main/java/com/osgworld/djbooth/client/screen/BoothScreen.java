@@ -77,8 +77,8 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     private void addDeck(BlockPos pos, BoothLayout.Rect region) {
         // PLAY / PAUSE toggle (green): one button like the real CDJ.
         int[] play = px(region, BoothLayout.DECK_PLAY);
-        addRenderableWidget(new PanelButton(play[0], play[1], play[2], play[3],
-                Component.literal("Play/Pause"), 0xFF1DB954,
+        PanelButton playBtn = new PanelButton(play[0], play[1], play[2], play[3],
+                Component.translatable("gui.djbooth.play"), 0xFF1DB954,
                 () -> {
                     CdjBlockEntity be = menu.deck(pos);
                     if (be == null) return;
@@ -89,12 +89,15 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 () -> {
                     CdjBlockEntity be = menu.deck(pos);
                     return be != null && be.state().getPlayState() == PlayState.PLAY;
-                }));
+                });
+        playBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("gui.djbooth.play")));
+        addRenderableWidget(playBtn);
 
         // CUE (orange): jump to cue while playing, otherwise set cue here.
         int[] cue = px(region, BoothLayout.DECK_CUE);
-        addRenderableWidget(new PanelButton(cue[0], cue[1], cue[2], cue[3],
-                Component.literal("Cue"), 0xFFF2A900,
+        PanelButton cueBtn = new PanelButton(cue[0], cue[1], cue[2], cue[3],
+                Component.translatable("gui.djbooth.cue"), 0xFFF2A900,
                 () -> {
                     CdjBlockEntity be = menu.deck(pos);
                     if (be == null) return;
@@ -105,29 +108,38 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 () -> {
                     CdjBlockEntity be = menu.deck(pos);
                     return be != null && be.state().getPlayState() == PlayState.CUE;
-                }));
+                });
+        cueBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("gui.djbooth.cue")));
+        addRenderableWidget(cueBtn);
 
         // LOOP toggle.
         int[] loop = px(region, BoothLayout.DECK_LOOP);
-        addRenderableWidget(new PanelButton(loop[0], loop[1], loop[2], loop[3],
-                Component.literal("Loop"), 0xFFC03AA0,
+        PanelButton loopBtn = new PanelButton(loop[0], loop[1], loop[2], loop[3],
+                Component.translatable("gui.djbooth.loop"), 0xFFC03AA0,
                 () -> PacketDistributor.sendToServer(
                         new TransportPayload(pos, TransportPayload.LOOP_TOGGLE)),
                 () -> {
                     CdjBlockEntity be = menu.deck(pos);
                     return be != null && be.state().isLoopOn();
-                }));
+                });
+        loopBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("gui.djbooth.loop")));
+        addRenderableWidget(loopBtn);
 
         // Tempo fader (vertical): 0..1 -> rate 0.5..1.5.
         int[] t = px(region, BoothLayout.DECK_TEMPO);
-        addRenderableWidget(new PanelFader(t[0], t[1], t[2], t[3], true,
+        PanelFader tempo = new PanelFader(t[0], t[1], t[2], t[3], true,
                 () -> {
                     CdjBlockEntity be = menu.deck(pos);
                     double rate = be != null ? be.state().getRate() : 1.0;
                     return rate - 0.5;
                 },
                 v -> PacketDistributor.sendToServer(
-                        new JogNudgePayload(pos, 0.5 + v, -1L))));
+                        new JogNudgePayload(pos, 0.5 + v, -1L)));
+        tempo.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("gui.djbooth.tempo")));
+        addRenderableWidget(tempo);
 
         // Jog wheel: drag -> scrub.
         int[] j = px(region, BoothLayout.DECK_JOG);
@@ -147,28 +159,31 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     // --- Mixer ---
 
     private void addMixer() {
-        BlockPos mix = menu.refs().mixer();
         addMixerFader(BoothLayout.MIX_FADER_A, true, MixerPayload.FADER_A,
-                m -> m.getFaderA());
+                m -> m.getFaderA(), Component.translatable("gui.djbooth.fader_a"));
         addMixerFader(BoothLayout.MIX_FADER_B, true, MixerPayload.FADER_B,
-                m -> m.getFaderB());
+                m -> m.getFaderB(), Component.translatable("gui.djbooth.fader_b"));
         addMixerFader(BoothLayout.MIX_MASTER, true, MixerPayload.MASTER,
-                m -> m.getMaster());
+                m -> m.getMaster(), Component.translatable("gui.djbooth.master"));
         addMixerFader(BoothLayout.MIX_XFADER, false, MixerPayload.CROSSFADER,
-                m -> m.getCrossfader());
+                m -> m.getCrossfader(), Component.translatable("gui.djbooth.crossfader"));
     }
 
     private void addMixerFader(BoothLayout.Rect ctrl, boolean vertical, int channel,
-                               java.util.function.Function<MixerBlockEntity, Float> getter) {
+                               java.util.function.Function<MixerBlockEntity, Float> getter,
+                               Component label) {
         BlockPos mix = menu.refs().mixer();
         int[] f = px(BoothLayout.REGION_MIXER, ctrl);
-        addRenderableWidget(new PanelFader(f[0], f[1], f[2], f[3], vertical,
+        PanelFader fader = new PanelFader(f[0], f[1], f[2], f[3], vertical,
                 () -> {
                     MixerBlockEntity be = menu.mixer();
                     return be != null ? getter.apply(be) : 0.0;
                 },
                 v -> PacketDistributor.sendToServer(
-                        new MixerPayload(mix, channel, (float) v))));
+                        new MixerPayload(mix, channel, (float) v)));
+        fader.setTooltip(net.minecraft.client.gui.components.Tooltip.create(label));
+        fader.setMessage(label);
+        addRenderableWidget(fader);
     }
 
     // --- Rendering ---

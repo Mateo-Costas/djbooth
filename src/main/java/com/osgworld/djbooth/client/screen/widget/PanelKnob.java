@@ -19,9 +19,11 @@ public class PanelKnob extends AbstractWidget {
 
     private final DoubleSupplier getter;
     private final DoubleConsumer setter;
+    private final String tag; // short caption drawn under the knob (HI / MID / LOW / FLT)
 
-    public PanelKnob(int x, int y, int w, int h, DoubleSupplier getter, DoubleConsumer setter) {
+    public PanelKnob(int x, int y, int w, int h, String tag, DoubleSupplier getter, DoubleConsumer setter) {
         super(x, y, w, h, Component.empty());
+        this.tag = tag;
         this.getter = getter;
         this.setter = setter;
     }
@@ -67,6 +69,12 @@ public class PanelKnob extends AbstractWidget {
         int col = Math.abs(v - 0.5) < 0.02 ? 0xFF25E0C0 : 0xFFF2A900; // green at centre, amber when turned
         g.fill(px - 1, py - 1, px + 1, py + 1, col);
         g.fill(cx - 1, cy - 1, cx + 1, cy + 1, 0xFF60606A);
+
+        // Caption under the knob so it can be found on top of the busy mixer art.
+        if (tag != null && !tag.isEmpty()) {
+            var font = net.minecraft.client.Minecraft.getInstance().font;
+            g.drawCenteredString(font, tag, cx, cy + r + 1, isHovered() ? 0xFFFFFFFF : 0xFFB8B8C0);
+        }
     }
 
     @Override

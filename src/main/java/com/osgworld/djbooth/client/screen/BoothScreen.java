@@ -336,32 +336,32 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 m -> m.getCrossfader(), Component.translatable("gui.djbooth.crossfader"));
 
         // Channel A EQ + colour filter.
-        addMixerKnob(BoothLayout.MIX_HI_A, MixerPayload.EQ_HI_A,
+        addMixerKnob(BoothLayout.MIX_HI_A, "HI", MixerPayload.EQ_HI_A,
                 m -> m.getEqHiA(), Component.translatable("gui.djbooth.eq_hi"));
-        addMixerKnob(BoothLayout.MIX_MID_A, MixerPayload.EQ_MID_A,
+        addMixerKnob(BoothLayout.MIX_MID_A, "MID", MixerPayload.EQ_MID_A,
                 m -> m.getEqMidA(), Component.translatable("gui.djbooth.eq_mid"));
-        addMixerKnob(BoothLayout.MIX_LOW_A, MixerPayload.EQ_LOW_A,
+        addMixerKnob(BoothLayout.MIX_LOW_A, "LOW", MixerPayload.EQ_LOW_A,
                 m -> m.getEqLowA(), Component.translatable("gui.djbooth.eq_low"));
-        addMixerKnob(BoothLayout.MIX_FILTER_A, MixerPayload.FILTER_A,
+        addMixerKnob(BoothLayout.MIX_FILTER_A, "FLT", MixerPayload.FILTER_A,
                 m -> m.getFilterA(), Component.translatable("gui.djbooth.filter"));
         // Channel B EQ + colour filter.
-        addMixerKnob(BoothLayout.MIX_HI_B, MixerPayload.EQ_HI_B,
+        addMixerKnob(BoothLayout.MIX_HI_B, "HI", MixerPayload.EQ_HI_B,
                 m -> m.getEqHiB(), Component.translatable("gui.djbooth.eq_hi"));
-        addMixerKnob(BoothLayout.MIX_MID_B, MixerPayload.EQ_MID_B,
+        addMixerKnob(BoothLayout.MIX_MID_B, "MID", MixerPayload.EQ_MID_B,
                 m -> m.getEqMidB(), Component.translatable("gui.djbooth.eq_mid"));
-        addMixerKnob(BoothLayout.MIX_LOW_B, MixerPayload.EQ_LOW_B,
+        addMixerKnob(BoothLayout.MIX_LOW_B, "LOW", MixerPayload.EQ_LOW_B,
                 m -> m.getEqLowB(), Component.translatable("gui.djbooth.eq_low"));
-        addMixerKnob(BoothLayout.MIX_FILTER_B, MixerPayload.FILTER_B,
+        addMixerKnob(BoothLayout.MIX_FILTER_B, "FLT", MixerPayload.FILTER_B,
                 m -> m.getFilterB(), Component.translatable("gui.djbooth.filter"));
     }
 
-    private void addMixerKnob(BoothLayout.Rect ctrl, int channel,
+    private void addMixerKnob(BoothLayout.Rect ctrl, String tag, int channel,
                               java.util.function.Function<MixerBlockEntity, Float> getter,
                               Component label) {
         BlockPos mix = menu.refs().mixer();
         int[] k = px(BoothLayout.REGION_MIXER, ctrl);
         com.osgworld.djbooth.client.screen.widget.PanelKnob knob =
-                new com.osgworld.djbooth.client.screen.widget.PanelKnob(k[0], k[1], k[2], k[3],
+                new com.osgworld.djbooth.client.screen.widget.PanelKnob(k[0], k[1], k[2], k[3], tag,
                         () -> {
                             MixerBlockEntity be = menu.mixer();
                             return be != null ? getter.apply(be) : 0.5;

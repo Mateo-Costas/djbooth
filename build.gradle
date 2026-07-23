@@ -115,6 +115,9 @@ dependencies {
     // it off the published/runtime classpath; localRuntime loads it in the dev runClient.
     compileOnly files("libs/watermedia-3.0.0.21.jar")
     localRuntime files("libs/watermedia-3.0.0.21.jar")
+    // WaterMedia's native binaries (yt-dlp, FFmpeg, VLC) live in a separate required jar.
+    // Runtime-only: WaterMedia hard-fails to load without it (NoClassDefFoundError YtDlpBinary).
+    localRuntime files("libs/watermedia_binaries-3.0.0-rc.4.jar")
 
     // Plain JUnit for pure-logic unit tests (no Minecraft bootstrap).
     testImplementation platform("org.junit:junit-bom:5.10.2")

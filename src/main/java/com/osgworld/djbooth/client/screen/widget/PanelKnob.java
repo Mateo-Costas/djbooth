@@ -77,14 +77,15 @@ public class PanelKnob extends AbstractWidget {
         if (tag != null && !tag.isEmpty()) {
             var font = net.minecraft.client.Minecraft.getInstance().font;
             float s = 0.55f; // shrink the font so labels stay tiny
-            int color = isHovered() ? 0xFFFFFFFF : 0xFFB8B8C0;
+            int color = isHovered() ? 0xFFFFFFFF : 0xFFF0C24A; // bright amber, readable on dark art
             float screenX = labelLeft
                     ? cx - r - 2 - font.width(tag) * s
                     : cx + r + 2;
             float screenY = cy - font.lineHeight * s / 2f;
             g.pose().pushPose();
             g.pose().scale(s, s, 1f);
-            g.drawString(font, tag, Math.round(screenX / s), Math.round(screenY / s), color, false);
+            // drop-shadow = true gives a dark halo so the caption reads on any background
+            g.drawString(font, tag, Math.round(screenX / s), Math.round(screenY / s), color, true);
             g.pose().popPose();
         }
     }

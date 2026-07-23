@@ -6,6 +6,7 @@ import com.osgworld.djbooth.deck.PlayState;
 import org.watermedia.api.media.MRL;
 import org.watermedia.api.media.MediaAPI;
 import org.watermedia.api.media.engines.ALEngine;
+import org.watermedia.api.media.players.FFMediaPlayer;
 import org.watermedia.api.media.players.MediaPlayer;
 
 /**
@@ -58,15 +59,25 @@ public class DeckAudio {
                 return;
             }
             try {
-                player = MediaAPI.createPlayer(mrl, () -> null, ALEngine::buildDefault);
-                if (player == null) {
-                    return;
-                }
+                // Decode audio with FFmpeg directly (gfx=null skips video), on the source that
+                // carries the audio. This avoids WaterMedia routing a "video" URL (e.g. YouTube)
+                // to the VLC/texture player, which we don't want for an audio-only deck.
+                int idx = audioSourceIndex(mrl);
+                player = new FFMediaPlayer(mrl, idx, null, ALEngine.buildDefault());
                 player.startPaused();
             } catch (Throwable t) {
-                DJBooth.LOGGER.warn("DeckAudio: failed to create player for {}", url, t);
-                player = null;
-                return;
+                DJBooth.LOGGER.warn("DeckAudio: FFmpeg player failed for {}, trying default", url, t);
+                try {
+                    player = MediaAPI.createPlayer(mrl, () -> null, ALEngine::buildDefault);
+                    if (player == null) {
+                        return;
+                    }
+                    player.startPaused();
+                } catch (Throwable t2) {
+                    DJBooth.LOGGER.warn("DeckAudio: failed to create player for {}", url, t2);
+                    player = null;
+                    return;
+                }
             }
         }
 
@@ -104,6 +115,23 @@ public class DeckAudio {
                 player.seek(target);
             }
         }
+    }
+
+    /** Index of the source carrying audio: prefer a pure audio source, else a video one (FFmpeg
+     *  pulls the audio track out of it), else the first source. */
+    private static int audioSourceIndex(MRL mrl) {
+        java.util.List<MRL.Source> sources = mrl.sources();
+        for (int i = 0; i < sources.size(); i++) {
+            if (sources.get(i).isAudio()) {
+                return i;
+            }
+        }
+        for (int i = 0; i < sources.size(); i++) {
+            if (sources.get(i).isVideo()) {
+                return i;
+            }
+        }
+        return 0;
     }
 
     /** Silence and free this deck's player. */

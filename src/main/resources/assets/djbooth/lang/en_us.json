@@ -12,8 +12,6 @@
   "gui.djbooth.loop": "Loop on / off",
   "gui.djbooth.tempo": "Tempo (speed / pitch)",
   "gui.djbooth.url_hint": "Search or paste link + Enter",
-  "gui.djbooth.guide_title": "How to use",
-  "gui.djbooth.guide1": "Below: type or paste a link + Enter",
-  "gui.djbooth.guide2": "Play / Cue / Tempo = speed",
-  "gui.djbooth.guide3": "Jog = pitch · Crossfader mixes A/B"
+  "gui.djbooth.guide1": "Type a song or paste a link, press Enter",
+  "gui.djbooth.guide2": "Play · Cue · Tempo=speed · Jog=pitch · Crossfader mixes A/B"
 }

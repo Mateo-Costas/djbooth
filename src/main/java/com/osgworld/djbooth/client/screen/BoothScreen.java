@@ -31,7 +31,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     private static final double MS_PER_DEG = 8.0; // jog sensitivity: full turn ≈ 2.9 s scrub
     private static final double JOG_BEND_PER_DEG = 0.05; // jog pitch-bend strength while playing
 
-    private static final int BOTTOM_STRIP = 44; // reserved height below the panel for search UI
+    private static final int BOTTOM_STRIP = 66; // reserved height below the panel for search UI + guide
 
     /** URL input boxes, so Enter can load the right deck. */
     private final java.util.Map<EditBox, BlockPos> urlBoxes = new java.util.HashMap<>();
@@ -332,31 +332,13 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         renderTooltip(g, mouseX, mouseY);
     }
 
-    /** Small "how to use" card in the top-right corner of the panel. */
+    /** Two-line "how to use" hint below the panel (off the artwork). */
     private void drawGuide(GuiGraphics g) {
-        Component[] lines = {
-                Component.translatable("gui.djbooth.guide_title"),
-                Component.translatable("gui.djbooth.guide1"),
-                Component.translatable("gui.djbooth.guide2"),
-                Component.translatable("gui.djbooth.guide3"),
-        };
-        int pad = 4;
-        int tw = 0;
-        for (Component c : lines) {
-            tw = Math.max(tw, this.font.width(c));
-        }
-        int boxW = tw + pad * 2;
-        int boxH = lines.length * (this.font.lineHeight + 1) + pad * 2 - 1;
-        int x = leftPos + imageWidth - boxW - 6;
-        int y = topPos + 6;
-        g.fill(x, y, x + boxW, y + boxH, 0xB0000000);
-        g.renderOutline(x, y, boxW, boxH, 0x40FFFFFF);
-        int ty = y + pad;
-        for (int i = 0; i < lines.length; i++) {
-            int col = i == 0 ? 0xFF1DB954 : 0xFFD0D0D8;
-            g.drawString(this.font, lines[i], x + pad, ty, col, false);
-            ty += this.font.lineHeight + 1;
-        }
+        int cx = leftPos + imageWidth / 2;
+        int y = topPos + imageHeight + BOTTOM_STRIP - 2 * (this.font.lineHeight + 1);
+        g.drawCenteredString(this.font, Component.translatable("gui.djbooth.guide1"), cx, y, 0xFF1DB954);
+        g.drawCenteredString(this.font, Component.translatable("gui.djbooth.guide2"),
+                cx, y + this.font.lineHeight + 1, 0xFFB8B8C0);
     }
 
     private void drawDeckReadout(GuiGraphics g, BlockPos pos, BoothLayout.Rect region) {

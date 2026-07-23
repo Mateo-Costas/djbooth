@@ -39,6 +39,17 @@ public class MixerBlockEntity extends BlockEntity {
         return Math.max(0.0f, Math.min(1.0f, v));
     }
 
+    /**
+     * Effective output volume (0..1) for one deck, folding in its channel fader, the
+     * crossfader weight and the master. Crossfader 0 = full A, 1 = full B. This is the
+     * value the per-deck audio player scales its gain by (Plan 02b).
+     */
+    public float volumeForDeck(boolean deckA) {
+        float channel = deckA ? faderA : faderB;
+        float xf = deckA ? (1.0f - crossfader) : crossfader;
+        return clamp01(channel * xf * master);
+    }
+
     public void applyAndSync() {
         setChanged();
         if (level != null && !level.isClientSide) {

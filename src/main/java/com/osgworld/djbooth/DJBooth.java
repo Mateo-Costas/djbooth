@@ -9,11 +9,14 @@ import com.osgworld.djbooth.registry.ModPayloads;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** DJ Booth mod entry point. Wires all registries onto the mod event bus. */
 @Mod(DJBooth.MODID)
 public final class DJBooth {
     public static final String MODID = "djbooth";
+    public static final Logger LOGGER = LoggerFactory.getLogger(MODID);
 
     public DJBooth(IEventBus modBus, ModContainer container) {
         ModBlocks.register(modBus);

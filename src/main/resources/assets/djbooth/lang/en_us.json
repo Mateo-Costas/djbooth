@@ -11,5 +11,5 @@
   "gui.djbooth.cue": "Cue (set / jump to cue)",
   "gui.djbooth.loop": "Loop on / off",
   "gui.djbooth.tempo": "Tempo (speed / pitch)",
-  "gui.djbooth.url_hint": "Paste a link, press Enter"
+  "gui.djbooth.url_hint": "Search or paste link + Enter"
 }

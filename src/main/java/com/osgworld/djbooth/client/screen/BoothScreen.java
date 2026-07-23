@@ -181,6 +181,19 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         urlBoxes.put(urlBox, pos);
     }
 
+    /** A pasted link loads directly; anything else is a YouTube search for the top hit. */
+    private void submitTrack(BlockPos pos, String input) {
+        String q = input.trim();
+        if (q.isEmpty()) {
+            return;
+        }
+        if (q.startsWith("http://") || q.startsWith("https://")) {
+            loadTrack(pos, q);
+        } else {
+            DeckAudioManager.searchTop(q, url -> loadTrack(pos, url));
+        }
+    }
+
     private void loadTrack(BlockPos pos, String url) {
         PacketDistributor.sendToServer(new com.osgworld.djbooth.net.LoadTrackPayload(pos, url.trim()));
     }
@@ -191,7 +204,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
             // Enter loads the track; otherwise let the box handle it and swallow the key so the
             // inventory hotkey ('e') can't close the screen mid-typing.
             if (key == 257 || key == 335) {
-                loadTrack(urlBoxes.get(eb), eb.getValue());
+                submitTrack(urlBoxes.get(eb), eb.getValue());
                 return true;
             }
             if (eb.keyPressed(key, scan, mods) || eb.canConsumeInput()) {

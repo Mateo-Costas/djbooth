@@ -29,6 +29,28 @@ public final class DeckAudioManager {
     private static final Map<BlockPos, DeckAudio> AUDIO = new HashMap<>();
     private static Boolean waterMediaPresent;
 
+    /** Search YouTube for {@code query} and hand the top hit's URL back on the client thread.
+     *  Runs off-thread (network). No-op without WaterMedia. */
+    public static void searchTop(String query, java.util.function.Consumer<String> onUrl) {
+        if (!available() || query == null || query.isBlank()) {
+            return;
+        }
+        Thread t = new Thread(() -> {
+            try {
+                var yt = new org.watermedia.api.platform.web.YouTubePlatform();
+                var results = yt.search(query, 1);
+                if (results != null && !results.isEmpty() && results.get(0).url() != null) {
+                    String url = results.get(0).url().toString();
+                    Minecraft.getInstance().execute(() -> onUrl.accept(url));
+                }
+            } catch (Throwable e) {
+                com.osgworld.djbooth.DJBooth.LOGGER.warn("YouTube search failed for '{}'", query, e);
+            }
+        }, "djbooth-yt-search");
+        t.setDaemon(true);
+        t.start();
+    }
+
     /** Ride the pitch on one deck's audio (jog bend). No-op without WaterMedia or an active deck. */
     public static void nudgeBend(BlockPos pos, double factor) {
         if (!available()) {

@@ -11,5 +11,5 @@
   "gui.djbooth.cue": "Cue (marcar / saltar al cue)",
   "gui.djbooth.loop": "Bucle sí / no",
   "gui.djbooth.tempo": "Tempo (velocidad / tono)",
-  "gui.djbooth.url_hint": "Pega un enlace y pulsa Enter"
+  "gui.djbooth.url_hint": "Busca o pega enlace + Enter"
 }

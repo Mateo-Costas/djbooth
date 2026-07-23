@@ -70,10 +70,18 @@ public class PanelKnob extends AbstractWidget {
         g.fill(px - 1, py - 1, px + 1, py + 1, col);
         g.fill(cx - 1, cy - 1, cx + 1, cy + 1, 0xFF60606A);
 
-        // Caption under the knob so it can be found on top of the busy mixer art.
+        // Small caption to the RIGHT of the knob (never overlaps the knob above/below it).
         if (tag != null && !tag.isEmpty()) {
             var font = net.minecraft.client.Minecraft.getInstance().font;
-            g.drawCenteredString(font, tag, cx, cy + r + 1, isHovered() ? 0xFFFFFFFF : 0xFFB8B8C0);
+            float s = 0.62f; // shrink the font so labels stay tiny
+            int color = isHovered() ? 0xFFFFFFFF : 0xFFB8B8C0;
+            g.pose().pushPose();
+            g.pose().scale(s, s, 1f);
+            g.drawString(font, tag,
+                    Math.round((cx + r + 2) / s),
+                    Math.round((cy - font.lineHeight * s / 2f) / s),
+                    color, false);
+            g.pose().popPose();
         }
     }
 

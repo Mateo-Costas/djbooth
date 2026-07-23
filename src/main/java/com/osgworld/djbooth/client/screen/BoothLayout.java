@@ -24,6 +24,7 @@ public final class BoothLayout {
     public static final Rect DECK_LOOP    = new Rect(0.270f, 0.385f, 0.095f, 0.060f); // reloop/exit
     public static final Rect DECK_TEMPO   = new Rect(0.775f, 0.585f, 0.050f, 0.260f); // vertical tempo fader
     public static final Rect DECK_SCREEN  = new Rect(0.166f, 0.220f, 0.619f, 0.120f); // live readout over the CDJ screen
+    public static final Rect DECK_URLBAR  = new Rect(0.170f, 0.055f, 0.610f, 0.058f); // track URL input, over the CDJ display title bar
 
     // --- Mixer controls (relative to the mixer region, aligned to the DJM-900NXS2 art) ---
     // Measured device fractions: ch1 x=0.251, ch2 x=0.380; channel fader travel y=0.673..0.835;

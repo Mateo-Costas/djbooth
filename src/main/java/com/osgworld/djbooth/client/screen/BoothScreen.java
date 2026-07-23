@@ -13,6 +13,7 @@ import com.osgworld.djbooth.net.JogNudgePayload;
 import com.osgworld.djbooth.net.MixerPayload;
 import com.osgworld.djbooth.net.TransportPayload;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -29,6 +30,9 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     private static final int TEX_H = 440;
     private static final double MS_PER_DEG = 8.0; // jog sensitivity: full turn ≈ 2.9 s scrub
     private static final double JOG_BEND_PER_DEG = 0.05; // jog pitch-bend strength while playing
+
+    /** URL input boxes, so Enter can load the right deck. */
+    private final java.util.Map<EditBox, BlockPos> urlBoxes = new java.util.HashMap<>();
 
     public BoothScreen(BoothMenu menu, Inventory inv, Component title) {
         super(menu, inv, title);
@@ -48,6 +52,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         this.imageHeight = h;
 
         super.init();
+        urlBoxes.clear();
 
         if (menu.refs().deckA() != null) {
             addDeck(menu.refs().deckA(), BoothLayout.REGION_DECK_A);
@@ -162,6 +167,38 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                         new JogNudgePayload(pos, be.state().getRate(), target));
             }
         }));
+
+        // Track URL input over the CDJ display: paste a link, press Enter to load it.
+        int[] u = px(region, BoothLayout.DECK_URLBAR);
+        EditBox urlBox = new EditBox(this.font, u[0], u[1], u[2], u[3], Component.literal("URL"));
+        urlBox.setMaxLength(1024);
+        urlBox.setHint(Component.translatable("gui.djbooth.url_hint"));
+        CdjBlockEntity deckBe = menu.deck(pos);
+        if (deckBe != null) {
+            urlBox.setValue(deckBe.state().getTrackUrl());
+        }
+        addRenderableWidget(urlBox);
+        urlBoxes.put(urlBox, pos);
+    }
+
+    private void loadTrack(BlockPos pos, String url) {
+        PacketDistributor.sendToServer(new com.osgworld.djbooth.net.LoadTrackPayload(pos, url.trim()));
+    }
+
+    @Override
+    public boolean keyPressed(int key, int scan, int mods) {
+        if (this.getFocused() instanceof EditBox eb && urlBoxes.containsKey(eb)) {
+            // Enter loads the track; otherwise let the box handle it and swallow the key so the
+            // inventory hotkey ('e') can't close the screen mid-typing.
+            if (key == 257 || key == 335) {
+                loadTrack(urlBoxes.get(eb), eb.getValue());
+                return true;
+            }
+            if (eb.keyPressed(key, scan, mods) || eb.canConsumeInput()) {
+                return true;
+            }
+        }
+        return super.keyPressed(key, scan, mods);
     }
 
     // --- Mixer ---

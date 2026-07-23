@@ -25,6 +25,9 @@ public final class DeckAudioManager {
     private DeckAudioManager() {}
 
     private static final double RANGE = 24.0; // blocks; audio fully faded beyond this
+    // Beyond RANGE we keep the player alive but silent out to KEEPALIVE, so walking away and back
+    // doesn't tear down + re-stream the track (which restarts it from 0). Only release past this.
+    private static final double KEEPALIVE = 80.0;
     private static final Map<BlockPos, DeckAudio> AUDIO = new HashMap<>();
     private static Boolean waterMediaPresent;
 
@@ -101,7 +104,7 @@ public final class DeckAudioManager {
                     pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
 
             DeckAudio audio = AUDIO.get(pos);
-            if (dist > RANGE) {
+            if (dist > KEEPALIVE) {
                 if (audio != null) {
                     audio.release();
                     AUDIO.remove(pos);
@@ -114,7 +117,9 @@ public final class DeckAudioManager {
                 AUDIO.put(pos, audio);
             }
 
-            float attenuation = (float) (1.0 - dist / RANGE);
+            // Audible with distance falloff inside RANGE; silent (but still streaming + synced)
+            // between RANGE and KEEPALIVE so returning resumes in place instead of restarting.
+            float attenuation = dist < RANGE ? (float) (1.0 - dist / RANGE) : 0f;
             float mixerVol = mixerVolumeFor(mc.level, deck);
             float[] eq = mixerEqFor(mc.level, deck);
             audio.setDsp(eq[0], eq[1], eq[2], eq[3], eq[4], eq[5] > 0.5f);

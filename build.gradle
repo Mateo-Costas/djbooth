@@ -105,6 +105,11 @@ dependencies {
     // For all intends and purposes: You can treat this dependency as if it is a normal library you would use.
     implementation "net.neoforged:neoforge:${neo_version}"
 
+    // MineDMX (optional): loaded only in the dev runClient so we can smoke-test the DMX
+    // bridge against real light fixtures. localRuntime = present at runtime, never compiled
+    // against and never published as a dependency. DJ Booth never links MineDMX classes.
+    localRuntime files("libs/minedmx-1.5.1.jar")
+
     // Plain JUnit for pure-logic unit tests (no Minecraft bootstrap).
     testImplementation platform("org.junit:junit-bom:5.10.2")
     testImplementation "org.junit.jupiter:junit-jupiter"

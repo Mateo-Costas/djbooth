@@ -23,11 +23,13 @@ public final class BoothLayout {
     public static final Rect DECK_CUE     = new Rect(0.150f, 0.705f, 0.110f, 0.110f); // orange cue
     public static final Rect DECK_LOOP    = new Rect(0.270f, 0.385f, 0.095f, 0.060f); // reloop/exit
     public static final Rect DECK_TEMPO   = new Rect(0.775f, 0.585f, 0.050f, 0.260f); // vertical tempo fader
-    public static final Rect DECK_SCREEN  = new Rect(0.120f, 0.150f, 0.620f, 0.190f); // for live readout
+    public static final Rect DECK_SCREEN  = new Rect(0.166f, 0.220f, 0.619f, 0.120f); // live readout over the CDJ screen
 
-    // --- Mixer controls (relative to the mixer region, placeholder panel) ---
-    public static final Rect MIX_FADER_A  = new Rect(0.18f, 0.35f, 0.10f, 0.42f); // vertical
-    public static final Rect MIX_FADER_B  = new Rect(0.45f, 0.35f, 0.10f, 0.42f); // vertical
-    public static final Rect MIX_MASTER   = new Rect(0.75f, 0.15f, 0.10f, 0.42f); // vertical
-    public static final Rect MIX_XFADER   = new Rect(0.15f, 0.82f, 0.60f, 0.08f); // horizontal crossfader
+    // --- Mixer controls (relative to the mixer region, aligned to the DJM-900NXS2 art) ---
+    // Measured device fractions: ch1 x=0.251, ch2 x=0.380; channel fader travel y=0.673..0.835;
+    // crossfader centered x=0.44 y=0.925; master level knob x=0.75 y=0.12.
+    public static final Rect MIX_FADER_A  = new Rect(0.226f, 0.673f, 0.050f, 0.162f); // channel 1 (deck A)
+    public static final Rect MIX_FADER_B  = new Rect(0.355f, 0.673f, 0.050f, 0.162f); // channel 2 (deck B)
+    public static final Rect MIX_MASTER   = new Rect(0.725f, 0.055f, 0.050f, 0.130f); // master level (over knob)
+    public static final Rect MIX_XFADER   = new Rect(0.340f, 0.905f, 0.200f, 0.045f); // MAGVEL crossfader
 }

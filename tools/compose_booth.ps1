@@ -10,12 +10,16 @@
 Add-Type -AssemblyName System.Drawing
 
 $srcCdj = 'C:\Users\Mateo\Downloads\CDJ-3000-top-hero.png'
+$srcDjm = 'C:\Users\Mateo\Downloads\djm-900nxs2.png'
 $out    = 'C:\Users\Mateo\djbooth\src\main\resources\assets\djbooth\textures\gui\booth.png'
 
-# --- Canvas / slot geometry (must match BoothLayout.java region comments) ---
+# --- Canvas / region geometry (must match BoothLayout.java regions EXACTLY) ---
+# Art is drawn into the SAME box the hotspots use (the region, inset 10px top/bottom),
+# so device fractions equal region fractions and nothing sits "a bit high".
 $TEX_W = 1200; $TEX_H = 440
-$deckAX = 10;  $deckBX = 770; $deckW = 420        # deck slots (full height)
-$mixX   = 445; $mixW = 310                        # mixer placeholder
+$inset = 10; $regH = $TEX_H - 2 * $inset           # region top/height (y 10..430)
+$deckAX = 10;  $deckBX = 770; $deckW = 420          # deck regions
+$mixX   = 445; $mixW = 310                          # mixer region
 
 # --- Framing box the original MAIN art used, on a 1000x1000 reference canvas ---
 $refN = 1000
@@ -58,20 +62,16 @@ $g = [System.Drawing.Graphics]::FromImage($booth)
 $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
 $g.Clear([System.Drawing.Color]::FromArgb(255, 26, 26, 30))
 
-# Two decks (framed CDJ scaled into each slot, same as before).
-$g.DrawImage($framed, $deckAX, 0, $deckW, $TEX_H)
-$g.DrawImage($framed, $deckBX, 0, $deckW, $TEX_H)
+# Two decks: framed CDJ drawn into the deck REGION box (inset), not the full slot.
+$g.DrawImage($framed, $deckAX, $inset, $deckW, $regH)
+$g.DrawImage($framed, $deckBX, $inset, $deckW, $regH)
 $framed.Dispose()
 
-# Placeholder mixer: dark panel + 4 channel-strip guide lines (until real DJM art arrives).
-$panel = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 18, 18, 22))
-$g.FillRectangle($panel, $mixX, 12, $mixW, $TEX_H - 24)
-$line = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255, 55, 55, 62), 2)
-for ($i = 1; $i -le 4; $i++) {
-    $lx = $mixX + [int]($mixW * $i / 5)
-    $g.DrawLine($line, $lx, 24, $lx, $TEX_H - 24)
-}
-$panel.Dispose(); $line.Dispose()
+# Real DJM-900NXS2 mixer, drawn to fill the mixer REGION box (no re-framing; it has no
+# white margin). Device fractions therefore equal region fractions for the mixer hotspots.
+$djm = [System.Drawing.Bitmap]::FromFile($srcDjm)
+$g.DrawImage($djm, $mixX, $inset, $mixW, $regH)
+$djm.Dispose()
 
 $g.Dispose()
 $booth.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)

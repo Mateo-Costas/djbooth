@@ -21,5 +21,9 @@
   "gui.djbooth.loop_out": "Loop: marcar fin y activar",
   "gui.djbooth.loop_exit": "Salir del loop",
   "gui.djbooth.loop_halve": "Loop mitad de largo",
-  "gui.djbooth.loop_double": "Loop doble de largo"
+  "gui.djbooth.loop_double": "Loop doble de largo",
+  "gui.djbooth.eq_hi": "EQ agudos (arrastra; clic der = plano, abajo del todo = kill)",
+  "gui.djbooth.eq_mid": "EQ medios (arrastra; clic der = plano, abajo del todo = kill)",
+  "gui.djbooth.eq_low": "EQ graves (arrastra; clic der = plano, abajo del todo = kill)",
+  "gui.djbooth.filter": "Filtro de color (izq = paso bajo, der = paso alto, centro = off)"
 }

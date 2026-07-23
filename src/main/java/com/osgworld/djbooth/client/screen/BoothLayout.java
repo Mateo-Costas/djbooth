@@ -33,4 +33,18 @@ public final class BoothLayout {
     public static final Rect MIX_FADER_B  = new Rect(0.355f, 0.673f, 0.050f, 0.162f); // channel 2 (deck B)
     public static final Rect MIX_MASTER   = new Rect(0.725f, 0.055f, 0.050f, 0.130f); // master level (over knob)
     public static final Rect MIX_XFADER   = new Rect(0.340f, 0.905f, 0.200f, 0.045f); // MAGVEL crossfader
+
+    // EQ + COLOUR filter knobs, stacked above each channel fader (DJM strip: filter, HI, MID, LOW).
+    // Channel columns align with the faders (A x≈0.226, B x≈0.355); tweak Y to match the art.
+    private static final float KNOB_W = 0.050f, KNOB_H = 0.045f;
+    private static Rect knob(float x, float y) { return new Rect(x, y, KNOB_W, KNOB_H); }
+
+    public static final Rect MIX_FILTER_A = knob(0.226f, 0.270f); // COLOR
+    public static final Rect MIX_HI_A     = knob(0.226f, 0.395f);
+    public static final Rect MIX_MID_A    = knob(0.226f, 0.495f);
+    public static final Rect MIX_LOW_A    = knob(0.226f, 0.595f);
+    public static final Rect MIX_FILTER_B = knob(0.355f, 0.270f);
+    public static final Rect MIX_HI_B     = knob(0.355f, 0.395f);
+    public static final Rect MIX_MID_B    = knob(0.355f, 0.495f);
+    public static final Rect MIX_LOW_B    = knob(0.355f, 0.595f);
 }

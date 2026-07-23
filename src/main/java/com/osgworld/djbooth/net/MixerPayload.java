@@ -18,6 +18,15 @@ public record MixerPayload(BlockPos pos, int channel, float value) implements Cu
     public static final int FADER_B = 1;
     public static final int CROSSFADER = 2;
     public static final int MASTER = 3;
+    // EQ + colour filter per deck (0..1, 0.5 = flat).
+    public static final int EQ_LOW_A = 4;
+    public static final int EQ_MID_A = 5;
+    public static final int EQ_HI_A = 6;
+    public static final int FILTER_A = 7;
+    public static final int EQ_LOW_B = 8;
+    public static final int EQ_MID_B = 9;
+    public static final int EQ_HI_B = 10;
+    public static final int FILTER_B = 11;
 
     public static final Type<MixerPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(DJBooth.MODID, "mixer"));

@@ -334,6 +334,42 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 m -> m.getMaster(), Component.translatable("gui.djbooth.master"));
         addMixerFader(BoothLayout.MIX_XFADER, false, MixerPayload.CROSSFADER,
                 m -> m.getCrossfader(), Component.translatable("gui.djbooth.crossfader"));
+
+        // Channel A EQ + colour filter.
+        addMixerKnob(BoothLayout.MIX_HI_A, MixerPayload.EQ_HI_A,
+                m -> m.getEqHiA(), Component.translatable("gui.djbooth.eq_hi"));
+        addMixerKnob(BoothLayout.MIX_MID_A, MixerPayload.EQ_MID_A,
+                m -> m.getEqMidA(), Component.translatable("gui.djbooth.eq_mid"));
+        addMixerKnob(BoothLayout.MIX_LOW_A, MixerPayload.EQ_LOW_A,
+                m -> m.getEqLowA(), Component.translatable("gui.djbooth.eq_low"));
+        addMixerKnob(BoothLayout.MIX_FILTER_A, MixerPayload.FILTER_A,
+                m -> m.getFilterA(), Component.translatable("gui.djbooth.filter"));
+        // Channel B EQ + colour filter.
+        addMixerKnob(BoothLayout.MIX_HI_B, MixerPayload.EQ_HI_B,
+                m -> m.getEqHiB(), Component.translatable("gui.djbooth.eq_hi"));
+        addMixerKnob(BoothLayout.MIX_MID_B, MixerPayload.EQ_MID_B,
+                m -> m.getEqMidB(), Component.translatable("gui.djbooth.eq_mid"));
+        addMixerKnob(BoothLayout.MIX_LOW_B, MixerPayload.EQ_LOW_B,
+                m -> m.getEqLowB(), Component.translatable("gui.djbooth.eq_low"));
+        addMixerKnob(BoothLayout.MIX_FILTER_B, MixerPayload.FILTER_B,
+                m -> m.getFilterB(), Component.translatable("gui.djbooth.filter"));
+    }
+
+    private void addMixerKnob(BoothLayout.Rect ctrl, int channel,
+                              java.util.function.Function<MixerBlockEntity, Float> getter,
+                              Component label) {
+        BlockPos mix = menu.refs().mixer();
+        int[] k = px(BoothLayout.REGION_MIXER, ctrl);
+        com.osgworld.djbooth.client.screen.widget.PanelKnob knob =
+                new com.osgworld.djbooth.client.screen.widget.PanelKnob(k[0], k[1], k[2], k[3],
+                        () -> {
+                            MixerBlockEntity be = menu.mixer();
+                            return be != null ? getter.apply(be) : 0.5;
+                        },
+                        v -> PacketDistributor.sendToServer(
+                                new MixerPayload(mix, channel, (float) v)));
+        knob.setTooltip(net.minecraft.client.gui.components.Tooltip.create(label));
+        addRenderableWidget(knob);
     }
 
     private void addMixerFader(BoothLayout.Rect ctrl, boolean vertical, int channel,

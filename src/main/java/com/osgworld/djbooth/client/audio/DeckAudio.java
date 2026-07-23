@@ -1,6 +1,7 @@
 package com.osgworld.djbooth.client.audio;
 
 import com.osgworld.djbooth.DJBooth;
+import com.osgworld.djbooth.client.audio.dsp.DspSfxEngine;
 import com.osgworld.djbooth.deck.DeckState;
 import com.osgworld.djbooth.deck.PlayState;
 import org.watermedia.api.media.MRL;
@@ -28,8 +29,20 @@ public class DeckAudio {
     private MRL mrl;
     private volatile boolean mrlReady;
     private MediaPlayer player;
+    private DspSfxEngine dsp; // non-null when the FFmpeg path built our EQ engine
     private double lastSpeed = -1.0;
     private int lastVolume = -1;
+
+    // EQ/filter knob values (0..1, 0.5 = flat), set by the mixer each tick.
+    private volatile float eqLow = 0.5f, eqMid = 0.5f, eqHigh = 0.5f, eqFilter = 0.5f;
+
+    /** Point the deck's EQ/colour filter at the mixer's current knob values (0..1, 0.5 = flat). */
+    public void setEq(float low, float mid, float high, float filter) {
+        this.eqLow = low;
+        this.eqMid = mid;
+        this.eqHigh = high;
+        this.eqFilter = filter;
+    }
 
     // Discontinuity tracking: where the server clock said we were last tick.
     private boolean freshPlayer = true;
@@ -94,10 +107,12 @@ public class DeckAudio {
                 // carries the audio. This avoids WaterMedia routing a "video" URL (e.g. YouTube)
                 // to the VLC/texture player, which we don't want for an audio-only deck.
                 int idx = audioSourceIndex(mrl);
-                player = new FFMediaPlayer(mrl, idx, null, ALEngine.buildDefault());
+                dsp = new DspSfxEngine();
+                player = new FFMediaPlayer(mrl, idx, null, dsp);
                 player.startPaused();
             } catch (Throwable t) {
                 DJBooth.LOGGER.warn("DeckAudio: FFmpeg player failed for {}, trying default", url, t);
+                dsp = null; // fallback player owns its own engine; no EQ on this path
                 try {
                     player = MediaAPI.createPlayer(mrl, () -> null, ALEngine::buildDefault);
                     if (player == null) {
@@ -110,6 +125,11 @@ public class DeckAudio {
                     return;
                 }
             }
+        }
+
+        // EQ / colour filter (only the FFmpeg path carries our DSP engine).
+        if (dsp != null) {
+            dsp.setParams(eqLow, eqMid, eqHigh, eqFilter);
         }
 
         // Volume (0..100).
@@ -178,6 +198,7 @@ public class DeckAudio {
             }
             player = null;
         }
+        dsp = null;
         mrl = null;
         mrlReady = false;
         lastVolume = -1;

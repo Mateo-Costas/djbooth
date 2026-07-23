@@ -42,3 +42,8 @@ repo/
 # local build logs
 build*.log
 libs/
+
+# Architectury / Loom
+.gradle/
+**/build/
+run/

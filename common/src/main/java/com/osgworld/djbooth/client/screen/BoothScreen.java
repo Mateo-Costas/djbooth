@@ -1,0 +1,624 @@
+package com.osgworld.djbooth.client.screen;
+
+import com.osgworld.djbooth.DJBooth;
+import com.osgworld.djbooth.blockentity.CdjBlockEntity;
+import com.osgworld.djbooth.blockentity.MixerBlockEntity;
+import com.osgworld.djbooth.client.screen.widget.PanelButton;
+import com.osgworld.djbooth.client.screen.widget.PanelFader;
+import com.osgworld.djbooth.client.screen.widget.PanelJog;
+import com.osgworld.djbooth.client.audio.DeckAudioManager;
+import com.osgworld.djbooth.deck.PlayState;
+import com.osgworld.djbooth.menu.BoothMenu;
+import com.osgworld.djbooth.net.HotCuePayload;
+import com.osgworld.djbooth.net.JogNudgePayload;
+import com.osgworld.djbooth.net.MixerPayload;
+import com.osgworld.djbooth.net.TransportPayload;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Inventory;
+import dev.architectury.networking.NetworkManager;
+
+/** The combined booth GUI: two decks flanking a mixer, drawn over a panel texture. */
+public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
+
+    private static final ResourceLocation TEXTURE =
+            ResourceLocation.fromNamespaceAndPath(DJBooth.MODID, "textures/gui/booth.png");
+    private static final int TEX_W = 1200;
+    private static final int TEX_H = 440;
+    private static final double MS_PER_DEG = 8.0; // jog sensitivity: full turn ≈ 2.9 s scrub
+    private static final double JOG_BEND_PER_DEG = 0.05; // jog pitch-bend strength while playing
+
+    private static final int BOTTOM_STRIP = 108; // reserved height below panel: search + perf pads + guide
+
+    /** URL input boxes, so Enter can load the right deck. */
+    private final java.util.Map<EditBox, BlockPos> urlBoxes = new java.util.HashMap<>();
+
+    /** Recently loaded tracks (query text or URL), newest first, shared across the session. */
+    private static final java.util.List<String> RECENTS = new java.util.ArrayList<>();
+    private static final int MAX_RECENTS = 6;
+
+    // Tempo range per deck (client-only feel, like the CDJ TEMPO RANGE button): ±6/±10/±16/WIDE.
+    private static final double[] TEMPO_RANGES = {0.06, 0.10, 0.16, 0.60};
+    private static final String[] TEMPO_RANGE_NAMES = {"±6", "±10", "±16", "WIDE"};
+    private final java.util.Map<BlockPos, Integer> tempoRangeIdx = new java.util.HashMap<>();
+
+    // Tap-tempo per deck: recent tap times -> a measured BPM shown on the deck readout.
+    private static final long TAP_RESET_MS = 2000; // gap that starts a fresh count
+    private final java.util.Map<BlockPos, java.util.ArrayDeque<Long>> taps = new java.util.HashMap<>();
+    private final java.util.Map<BlockPos, Double> bpm = new java.util.HashMap<>();
+
+    private double tempoRangeFor(BlockPos pos) {
+        return TEMPO_RANGES[tempoRangeIdx.getOrDefault(pos, 2)]; // default ±16
+    }
+
+    public BoothScreen(BoothMenu menu, Inventory inv, Component title) {
+        super(menu, inv, title);
+    }
+
+    @Override
+    protected void init() {
+        // Scale the panel to the window, keeping aspect and reserving a strip below the panel
+        // for the search boxes + recent chips (so they never sit on top of the CDJ artwork).
+        float aspect = (float) TEX_W / TEX_H;
+        int w = Math.min(this.width - 20, 1040);
+        int h = Math.round(w / aspect);
+        if (h > this.height - 40 - BOTTOM_STRIP) {
+            h = this.height - 40 - BOTTOM_STRIP;
+            w = Math.round(h * aspect);
+        }
+        this.imageWidth = w;
+        this.imageHeight = h;
+
+        super.init();
+        // Shift the panel up so the reserved strip fits below it on screen.
+        this.topPos = Math.max(10, (this.height - BOTTOM_STRIP - imageHeight) / 2);
+        urlBoxes.clear();
+
+        if (menu.refs().deckA() != null) {
+            addDeck(menu.refs().deckA(), BoothLayout.REGION_DECK_A);
+        }
+        if (menu.refs().deckB() != null) {
+            addDeck(menu.refs().deckB(), BoothLayout.REGION_DECK_B);
+        }
+        if (menu.refs().mixer() != null) {
+            addMixer();
+        }
+        addSearchBar();
+    }
+
+    /** URL box, hot-cue / loop / beat-jump rows per deck, and recent chips, below the panel. */
+    private void addSearchBar() {
+        int stripY = topPos + imageHeight + 4;
+        int gap = 8;
+        int half = (imageWidth - gap) / 2;
+        int rightX = leftPos + half + gap;
+
+        if (menu.refs().deckA() != null) {
+            addUrlBox(menu.refs().deckA(), leftPos, stripY, half);
+            addPerfRows(menu.refs().deckA(), leftPos, half, stripY + 18);
+        }
+        if (menu.refs().deckB() != null) {
+            addUrlBox(menu.refs().deckB(), rightX, stripY, half);
+            addPerfRows(menu.refs().deckB(), rightX, half, stripY + 18);
+        }
+
+        // Recent tracks: quick chips to reload the last songs onto the focused (or A) deck.
+        int chipY = stripY + 18 + 3 * 15 + 2;
+        int chipW = Math.min(150, (imageWidth - 5 * 4) / Math.max(1, RECENTS.size() + 1));
+        int cx = leftPos;
+        for (String recent : RECENTS) {
+            String label = recent.length() > 22 ? recent.substring(0, 21) + "…" : recent;
+            addRenderableWidget(net.minecraft.client.gui.components.Button.builder(
+                            Component.literal(label), b -> submitTrack(targetDeck(), recent))
+                    .bounds(cx, chipY, chipW, 13)
+                    .tooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(recent)))
+                    .build());
+            cx += chipW + 4;
+            if (cx + chipW > leftPos + imageWidth) {
+                break;
+            }
+        }
+    }
+
+    /** Two rows of performance controls for a deck: hot cues + beat jump, then the loop tools. */
+    private void addPerfRows(BlockPos pos, int x0, int width, int y) {
+        // Row 1: hot cues 1..4 then beat-jump back/forward.
+        int n = com.osgworld.djbooth.deck.DeckState.HOT_CUES + 2;
+        int bw = (width - (n - 1) * 2) / n;
+        int x = x0;
+        for (int i = 0; i < com.osgworld.djbooth.deck.DeckState.HOT_CUES; i++) {
+            final int idx = i;
+            addRenderableWidget(perfButton(String.valueOf(i + 1),
+                    Component.translatable("gui.djbooth.hotcue", i + 1), x, y, bw, () -> {
+                        CdjBlockEntity be = menu.deck(pos);
+                        int action = (be != null && be.state().hasHotCue(idx))
+                                ? HotCuePayload.JUMP : HotCuePayload.SET;
+                        NetworkManager.sendToServer(new HotCuePayload(pos, idx, action));
+                    }));
+            x += bw + 2;
+        }
+        addRenderableWidget(perfButton("◀", Component.translatable("gui.djbooth.jump_back"),
+                x, y, bw, () -> NetworkManager.sendToServer(
+                        new TransportPayload(pos, TransportPayload.JUMP_BACK))));
+        x += bw + 2;
+        addRenderableWidget(perfButton("▶", Component.translatable("gui.djbooth.jump_fwd"),
+                x, y, bw, () -> NetworkManager.sendToServer(
+                        new TransportPayload(pos, TransportPayload.JUMP_FWD))));
+
+        // Row 2: loop IN / OUT / EXIT / halve / double.
+        int y2 = y + 15;
+        String[] labels = {"IN", "OUT", "EXIT", "½", "2×"};
+        int[] actions = {TransportPayload.LOOP_IN, TransportPayload.LOOP_OUT,
+                TransportPayload.LOOP_EXIT, TransportPayload.LOOP_HALVE, TransportPayload.LOOP_DOUBLE};
+        String[] keys = {"loop_in", "loop_out", "loop_exit", "loop_halve", "loop_double"};
+        int lw = (width - 4 * 2) / 5;
+        int lx = x0;
+        for (int i = 0; i < labels.length; i++) {
+            final int action = actions[i];
+            addRenderableWidget(perfButton(labels[i], Component.translatable("gui.djbooth." + keys[i]),
+                    lx, y2, lw, () -> NetworkManager.sendToServer(new TransportPayload(pos, action))));
+            lx += lw + 2;
+        }
+
+        // Row 3: tempo RANGE selector + TAP tempo (client-side feel/measure).
+        int y3 = y + 30;
+        int hw = (width - 2) / 2;
+        int idx0 = tempoRangeIdx.getOrDefault(pos, 2);
+        net.minecraft.client.gui.components.Button rangeBtn = net.minecraft.client.gui.components.Button.builder(
+                Component.literal("RANGE " + TEMPO_RANGE_NAMES[idx0]), b -> {
+                    int idx = (tempoRangeIdx.getOrDefault(pos, 2) + 1) % TEMPO_RANGES.length;
+                    tempoRangeIdx.put(pos, idx);
+                    b.setMessage(Component.literal("RANGE " + TEMPO_RANGE_NAMES[idx]));
+                })
+                .bounds(x0, y3, hw, 13)
+                .tooltip(net.minecraft.client.gui.components.Tooltip.create(
+                        Component.translatable("gui.djbooth.tempo_range")))
+                .build();
+        addRenderableWidget(rangeBtn);
+        addRenderableWidget(net.minecraft.client.gui.components.Button.builder(
+                        Component.literal("TAP BPM"), b -> tapTempo(pos))
+                .bounds(x0 + hw + 2, y3, hw, 13)
+                .tooltip(net.minecraft.client.gui.components.Tooltip.create(
+                        Component.translatable("gui.djbooth.tap")))
+                .build());
+    }
+
+    private net.minecraft.client.gui.components.Button perfButton(
+            String label, Component tip, int x, int y, int w, Runnable action) {
+        return net.minecraft.client.gui.components.Button.builder(
+                        Component.literal(label), b -> action.run())
+                .bounds(x, y, w, 13)
+                .tooltip(net.minecraft.client.gui.components.Tooltip.create(tip))
+                .build();
+    }
+
+    private void addUrlBox(BlockPos pos, int x, int y, int width) {
+        EditBox box = new EditBox(this.font, x, y, width, 16, Component.literal("URL"));
+        box.setMaxLength(1024);
+        box.setHint(Component.translatable("gui.djbooth.url_hint"));
+        CdjBlockEntity be = menu.deck(pos);
+        if (be != null) {
+            box.setValue(be.state().getTrackUrl());
+        }
+        addRenderableWidget(box);
+        urlBoxes.put(box, pos);
+    }
+
+    /** Deck whose box is focused, else deck A, else deck B. */
+    private BlockPos targetDeck() {
+        if (this.getFocused() instanceof EditBox eb && urlBoxes.containsKey(eb)) {
+            return urlBoxes.get(eb);
+        }
+        return menu.refs().deckA() != null ? menu.refs().deckA() : menu.refs().deckB();
+    }
+
+    // --- Region/control geometry ---
+
+    private int[] px(BoothLayout.Rect region, BoothLayout.Rect ctrl) {
+        float rx = leftPos + region.x() * imageWidth;
+        float ry = topPos + region.y() * imageHeight;
+        float rw = region.w() * imageWidth;
+        float rh = region.h() * imageHeight;
+        int x = Math.round(rx + ctrl.x() * rw);
+        int y = Math.round(ry + ctrl.y() * rh);
+        int cw = Math.round(ctrl.w() * rw);
+        int ch = Math.round(ctrl.h() * rh);
+        return new int[]{x, y, cw, ch};
+    }
+
+    // --- Deck ---
+
+    private void addDeck(BlockPos pos, BoothLayout.Rect region) {
+        // PLAY / PAUSE toggle (green): one button like the real CDJ.
+        int[] play = px(region, BoothLayout.DECK_PLAY);
+        PanelButton playBtn = new PanelButton(play[0], play[1], play[2], play[3],
+                Component.translatable("gui.djbooth.play"), 0xFF1DB954,
+                () -> {
+                    CdjBlockEntity be = menu.deck(pos);
+                    if (be == null) return;
+                    int action = be.state().getPlayState() == PlayState.PLAY
+                            ? TransportPayload.PAUSE : TransportPayload.PLAY;
+                    NetworkManager.sendToServer(new TransportPayload(pos, action));
+                },
+                () -> {
+                    CdjBlockEntity be = menu.deck(pos);
+                    return be != null && be.state().getPlayState() == PlayState.PLAY;
+                });
+        playBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("gui.djbooth.play")));
+        addRenderableWidget(playBtn);
+
+        // CUE (orange): left-click cues/previews, right-click sets the cue point here.
+        int[] cue = px(region, BoothLayout.DECK_CUE);
+        PanelButton cueBtn = new PanelButton(cue[0], cue[1], cue[2], cue[3],
+                Component.translatable("gui.djbooth.cue"), 0xFFF2A900,
+                () -> NetworkManager.sendToServer(new TransportPayload(pos, TransportPayload.CUE)),
+                () -> {
+                    CdjBlockEntity be = menu.deck(pos);
+                    return be != null && be.state().getPlayState() == PlayState.CUE;
+                }).withSecondary(
+                () -> NetworkManager.sendToServer(new TransportPayload(pos, TransportPayload.SET_CUE)));
+        cueBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("gui.djbooth.cue")));
+        addRenderableWidget(cueBtn);
+
+        // LOOP toggle.
+        int[] loop = px(region, BoothLayout.DECK_LOOP);
+        PanelButton loopBtn = new PanelButton(loop[0], loop[1], loop[2], loop[3],
+                Component.translatable("gui.djbooth.loop"), 0xFFC03AA0,
+                () -> NetworkManager.sendToServer(
+                        new TransportPayload(pos, TransportPayload.LOOP_TOGGLE)),
+                () -> {
+                    CdjBlockEntity be = menu.deck(pos);
+                    return be != null && be.state().isLoopOn();
+                });
+        loopBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("gui.djbooth.loop")));
+        addRenderableWidget(loopBtn);
+
+        // Tempo fader (vertical): centre = 100%, full throw = +/- the selected range, like a real CDJ.
+        int[] t = px(region, BoothLayout.DECK_TEMPO);
+        PanelFader tempo = new PanelFader(t[0], t[1], t[2], t[3], true,
+                () -> {
+                    CdjBlockEntity be = menu.deck(pos);
+                    double rate = be != null ? be.state().getRate() : 1.0;
+                    return 0.5 + (rate - 1.0) / (2 * tempoRangeFor(pos)); // rate -> fader 0..1
+                },
+                v -> NetworkManager.sendToServer(
+                        new JogNudgePayload(pos, 1.0 + (v - 0.5) * 2 * tempoRangeFor(pos), -1L)));
+        tempo.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("gui.djbooth.tempo")));
+        addRenderableWidget(tempo);
+
+        // Jog wheel. While playing it bends the pitch like a real CDJ jog (smooth, client-local,
+        // no seek). While parked it scrubs the position by seeking on the server.
+        int[] j = px(region, BoothLayout.DECK_JOG);
+        addRenderableWidget(new PanelJog(j[0], j[1], j[2], j[3], deg -> {
+            CdjBlockEntity be = menu.deck(pos);
+            if (be == null || minecraft == null || minecraft.level == null) {
+                return;
+            }
+            if (be.state().getPlayState() == PlayState.PLAY) {
+                // deg is the per-drag angle; turn it into a momentary speed multiplier.
+                DeckAudioManager.nudgeBend(pos, 1.0 + deg * JOG_BEND_PER_DEG);
+            } else {
+                long now = minecraft.level.getGameTime() * 50L;
+                long cur = be.state().positionMsAt(now);
+                long target = Math.max(0, cur + Math.round(deg * MS_PER_DEG));
+                NetworkManager.sendToServer(
+                        new JogNudgePayload(pos, be.state().getRate(), target));
+            }
+        }));
+    }
+
+    /** Register a beat tap; average the recent intervals into a BPM for this deck. */
+    private void tapTempo(BlockPos pos) {
+        long now = System.currentTimeMillis();
+        java.util.ArrayDeque<Long> q = taps.computeIfAbsent(pos, k -> new java.util.ArrayDeque<>());
+        if (!q.isEmpty() && now - q.peekLast() > TAP_RESET_MS) {
+            q.clear();
+        }
+        q.addLast(now);
+        while (q.size() > 8) {
+            q.removeFirst();
+        }
+        if (q.size() >= 2) {
+            long span = q.peekLast() - q.peekFirst();
+            double avgInterval = (double) span / (q.size() - 1);
+            if (avgInterval > 0) {
+                bpm.put(pos, 60000.0 / avgInterval);
+            }
+        }
+    }
+
+    /** A pasted link loads directly; anything else is a YouTube search for the top hit. */
+    private void submitTrack(BlockPos pos, String input) {
+        String q = input.trim();
+        if (q.isEmpty()) {
+            return;
+        }
+        rememberRecent(q);
+        if (q.startsWith("http://") || q.startsWith("https://")) {
+            loadTrack(pos, q);
+        } else {
+            DeckAudioManager.searchTop(q, url -> loadTrack(pos, url));
+        }
+    }
+
+    private void rememberRecent(String q) {
+        RECENTS.remove(q);
+        RECENTS.add(0, q);
+        while (RECENTS.size() > MAX_RECENTS) {
+            RECENTS.remove(RECENTS.size() - 1);
+        }
+        this.rebuildWidgets(); // refresh the recent chips
+    }
+
+    private void loadTrack(BlockPos pos, String url) {
+        NetworkManager.sendToServer(new com.osgworld.djbooth.net.LoadTrackPayload(pos, url.trim()));
+    }
+
+    @Override
+    public boolean keyPressed(int key, int scan, int mods) {
+        if (this.getFocused() instanceof EditBox eb && urlBoxes.containsKey(eb)) {
+            // Enter loads the track; otherwise let the box handle it and swallow the key so the
+            // inventory hotkey ('e') can't close the screen mid-typing.
+            if (key == 257 || key == 335) {
+                submitTrack(urlBoxes.get(eb), eb.getValue());
+                return true;
+            }
+            if (eb.keyPressed(key, scan, mods) || eb.canConsumeInput()) {
+                return true;
+            }
+        }
+        return super.keyPressed(key, scan, mods);
+    }
+
+    // --- Mixer ---
+
+    private void addMixer() {
+        addMixerFader(BoothLayout.MIX_FADER_A, true, MixerPayload.FADER_A,
+                m -> m.getFaderA(), Component.translatable("gui.djbooth.fader_a"));
+        addMixerFader(BoothLayout.MIX_FADER_B, true, MixerPayload.FADER_B,
+                m -> m.getFaderB(), Component.translatable("gui.djbooth.fader_b"));
+        addMixerFader(BoothLayout.MIX_MASTER, true, MixerPayload.MASTER,
+                m -> m.getMaster(), Component.translatable("gui.djbooth.master"));
+        addMixerFader(BoothLayout.MIX_XFADER, false, MixerPayload.CROSSFADER,
+                m -> m.getCrossfader(), Component.translatable("gui.djbooth.crossfader"));
+
+        // Channel A EQ + colour filter (labels to the left).
+        addMixerKnob(BoothLayout.MIX_HI_A, "HI", true, MixerPayload.EQ_HI_A,
+                m -> m.getEqHiA(), Component.translatable("gui.djbooth.eq_hi"));
+        addMixerKnob(BoothLayout.MIX_MID_A, "MID", true, MixerPayload.EQ_MID_A,
+                m -> m.getEqMidA(), Component.translatable("gui.djbooth.eq_mid"));
+        addMixerKnob(BoothLayout.MIX_LOW_A, "LOW", true, MixerPayload.EQ_LOW_A,
+                m -> m.getEqLowA(), Component.translatable("gui.djbooth.eq_low"));
+        addMixerKnob(BoothLayout.MIX_FILTER_A, "FLT", true, MixerPayload.FILTER_A,
+                m -> m.getFilterA(), Component.translatable("gui.djbooth.filter"));
+        // Channel B EQ + colour filter (labels to the right).
+        addMixerKnob(BoothLayout.MIX_HI_B, "HI", false, MixerPayload.EQ_HI_B,
+                m -> m.getEqHiB(), Component.translatable("gui.djbooth.eq_hi"));
+        addMixerKnob(BoothLayout.MIX_MID_B, "MID", false, MixerPayload.EQ_MID_B,
+                m -> m.getEqMidB(), Component.translatable("gui.djbooth.eq_mid"));
+        addMixerKnob(BoothLayout.MIX_LOW_B, "LOW", false, MixerPayload.EQ_LOW_B,
+                m -> m.getEqLowB(), Component.translatable("gui.djbooth.eq_low"));
+        addMixerKnob(BoothLayout.MIX_FILTER_B, "FLT", false, MixerPayload.FILTER_B,
+                m -> m.getFilterB(), Component.translatable("gui.djbooth.filter"));
+
+        // Echo (Beat FX) per channel.
+        addMixerKnob(BoothLayout.MIX_ECHO_A, "FX", true, MixerPayload.FX_ECHO_A,
+                m -> m.getEchoA(), Component.translatable("gui.djbooth.echo"));
+        addMixerKnob(BoothLayout.MIX_ECHO_B, "FX", false, MixerPayload.FX_ECHO_B,
+                m -> m.getEchoB(), Component.translatable("gui.djbooth.echo"));
+
+        // Global switches: EQ curve (isolator/EQ) and channel fader curve.
+        addMixerToggle(BoothLayout.MIX_ISOLATOR, MixerPayload.ISOLATOR,
+                MixerBlockEntity::isIsolator, "ISO", "EQ", "gui.djbooth.eq_curve");
+        addMixerToggle(BoothLayout.MIX_FADERCURVE, MixerPayload.FADER_CURVE,
+                MixerBlockEntity::isFaderSharp, "SHARP", "LIN", "gui.djbooth.fader_curve");
+    }
+
+    /** A two-state switch on the mixer (isolator/EQ, sharp/linear fader), synced to the server. */
+    private void addMixerToggle(BoothLayout.Rect ctrl, int channel,
+                                java.util.function.Predicate<MixerBlockEntity> state,
+                                String onLabel, String offLabel, String tipKey) {
+        BlockPos mix = menu.refs().mixer();
+        int[] k = px(BoothLayout.REGION_MIXER, ctrl);
+        java.util.function.Supplier<Boolean> cur = () -> {
+            MixerBlockEntity be = menu.mixer();
+            return be != null && state.test(be);
+        };
+        net.minecraft.client.gui.components.Button btn =
+                net.minecraft.client.gui.components.Button.builder(
+                        Component.literal(cur.get() ? onLabel : offLabel), b -> {
+                            boolean next = !cur.get();
+                            NetworkManager.sendToServer(
+                                    new MixerPayload(mix, channel, next ? 1f : 0f));
+                            b.setMessage(Component.literal(next ? onLabel : offLabel));
+                        })
+                        .bounds(k[0], k[1], k[2], k[3])
+                        .tooltip(net.minecraft.client.gui.components.Tooltip.create(
+                                Component.translatable(tipKey)))
+                        .build();
+        addRenderableWidget(btn);
+    }
+
+    private void addMixerKnob(BoothLayout.Rect ctrl, String tag, boolean labelLeft, int channel,
+                              java.util.function.Function<MixerBlockEntity, Float> getter,
+                              Component label) {
+        BlockPos mix = menu.refs().mixer();
+        int[] k = px(BoothLayout.REGION_MIXER, ctrl);
+        com.osgworld.djbooth.client.screen.widget.PanelKnob knob =
+                new com.osgworld.djbooth.client.screen.widget.PanelKnob(k[0], k[1], k[2], k[3], tag, labelLeft,
+                        () -> {
+                            MixerBlockEntity be = menu.mixer();
+                            return be != null ? getter.apply(be) : 0.5;
+                        },
+                        v -> NetworkManager.sendToServer(
+                                new MixerPayload(mix, channel, (float) v)));
+        knob.setTooltip(net.minecraft.client.gui.components.Tooltip.create(label));
+        addRenderableWidget(knob);
+    }
+
+    private void addMixerFader(BoothLayout.Rect ctrl, boolean vertical, int channel,
+                               java.util.function.Function<MixerBlockEntity, Float> getter,
+                               Component label) {
+        BlockPos mix = menu.refs().mixer();
+        int[] f = px(BoothLayout.REGION_MIXER, ctrl);
+        PanelFader fader = new PanelFader(f[0], f[1], f[2], f[3], vertical,
+                () -> {
+                    MixerBlockEntity be = menu.mixer();
+                    return be != null ? getter.apply(be) : 0.0;
+                },
+                v -> NetworkManager.sendToServer(
+                        new MixerPayload(mix, channel, (float) v)));
+        fader.setTooltip(net.minecraft.client.gui.components.Tooltip.create(label));
+        fader.setMessage(label);
+        addRenderableWidget(fader);
+    }
+
+    // --- Rendering ---
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (super.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        // Needle search: click on a CDJ screen to jump to that point in the track.
+        if (button == 0) {
+            if (trySeekOnScreen(menu.refs().deckA(), BoothLayout.REGION_DECK_A, mouseX, mouseY)
+                    || trySeekOnScreen(menu.refs().deckB(), BoothLayout.REGION_DECK_B, mouseX, mouseY)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean trySeekOnScreen(BlockPos pos, BoothLayout.Rect region, double mx, double my) {
+        if (pos == null) {
+            return false;
+        }
+        int[] scr = px(region, BoothLayout.DECK_SCREEN);
+        if (mx < scr[0] || mx > scr[0] + scr[2] || my < scr[1] || my > scr[1] + scr[3]) {
+            return false;
+        }
+        long dur = DeckAudioManager.durationMs(pos);
+        if (dur <= 0) {
+            return false;
+        }
+        CdjBlockEntity be = menu.deck(pos);
+        if (be == null) {
+            return false;
+        }
+        double frac = Math.max(0, Math.min(1, (mx - scr[0]) / scr[2]));
+        long target = Math.round(frac * dur);
+        NetworkManager.sendToServer(new JogNudgePayload(pos, be.state().getRate(), target));
+        return true;
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        // Container screens swallow drags for slot handling; forward them to our widgets
+        // so faders and the jog wheel respond to click-and-drag.
+        if (this.getFocused() != null && button == 0) {
+            return this.getFocused().mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
+        g.blit(TEXTURE, leftPos, topPos, imageWidth, imageHeight, 0f, 0f, TEX_W, TEX_H, TEX_W, TEX_H);
+    }
+
+    @Override
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        super.render(g, mouseX, mouseY, partialTick);
+        drawDeckReadout(g, menu.refs().deckA(), BoothLayout.REGION_DECK_A);
+        drawDeckReadout(g, menu.refs().deckB(), BoothLayout.REGION_DECK_B);
+        drawGuide(g);
+        renderTooltip(g, mouseX, mouseY);
+    }
+
+    /** Two-line "how to use" hint below the panel (off the artwork). */
+    private void drawGuide(GuiGraphics g) {
+        int cx = leftPos + imageWidth / 2;
+        int y = topPos + imageHeight + BOTTOM_STRIP - 2 * (this.font.lineHeight + 1);
+        g.drawCenteredString(this.font, Component.translatable("gui.djbooth.guide1"), cx, y, 0xFF1DB954);
+        g.drawCenteredString(this.font, Component.translatable("gui.djbooth.guide2"),
+                cx, y + this.font.lineHeight + 1, 0xFFB8B8C0);
+    }
+
+    private void drawDeckReadout(GuiGraphics g, BlockPos pos, BoothLayout.Rect region) {
+        if (pos == null || minecraft == null || minecraft.level == null) {
+            return;
+        }
+        CdjBlockEntity be = menu.deck(pos);
+        if (be == null) {
+            return;
+        }
+        long now = minecraft.level.getGameTime() * 50L;
+        long ms = be.state().positionMsAt(now);
+        long dur = DeckAudioManager.durationMs(pos);
+        boolean playing = be.state().getPlayState() == PlayState.PLAY;
+
+        int[] scr = px(region, BoothLayout.DECK_SCREEN);
+        int x0 = scr[0], y0 = scr[1], sw = scr[2], sh = scr[3];
+
+        // Scrolling waveform, brighter behind the playhead. Procedural but tied to position so it
+        // actually moves with the track; it is decoration, not the real audio samples.
+        int bars = Math.max(8, sw / 3);
+        int barGap = sw / bars;
+        int mid = y0 + sh * 2 / 5;
+        int maxAmp = sh / 3;
+        long scroll = ms / 40; // advances as the track plays
+        float progress = dur > 0 ? Math.min(1f, (float) ms / dur) : 0f;
+        for (int i = 0; i < bars; i++) {
+            long seed = i + scroll;
+            float n = (float) ((Math.sin(seed * 0.7) + Math.sin(seed * 0.29 + 1.3)
+                    + Math.sin(seed * 0.13 + 2.1)) / 3.0);
+            int amp = 2 + Math.round(Math.abs(n) * maxAmp);
+            int bx = x0 + i * barGap;
+            boolean passed = (float) i / bars <= progress;
+            int col = passed ? (playing ? 0xFF25E0C0 : 0xFF1B9E8C) : 0x556070A0;
+            g.fill(bx, mid - amp, bx + Math.max(1, barGap - 1), mid + amp, col);
+        }
+
+        // Progress line under the waveform.
+        int pline = y0 + sh - 6;
+        g.fill(x0, pline, x0 + sw, pline + 1, 0x33FFFFFF);
+        int px = x0 + Math.round(sw * progress);
+        g.fill(px - 1, pline - 2, px + 1, pline + 3, 0xFFFFFFFF);
+
+        // BPM from tap-tempo, top-right of the screen.
+        Double b = bpm.get(pos);
+        if (b != null) {
+            String bpmStr = String.format("%.1f BPM", b);
+            g.drawString(this.font, bpmStr, x0 + sw - this.font.width(bpmStr) - 1, y0 + 1,
+                    0xFF35E070, false);
+        }
+
+        // Elapsed (left) and remaining (right).
+        String elapsed = fmtTime(ms);
+        g.drawString(this.font, elapsed, x0 + 1, pline + 4, 0xFF00E0A0, false);
+        if (dur > 0) {
+            String remaining = "-" + fmtTime(Math.max(0, dur - ms));
+            g.drawString(this.font, remaining, x0 + sw - this.font.width(remaining) - 1,
+                    pline + 4, 0xFFE0A000, false);
+        }
+    }
+
+    private static String fmtTime(long ms) {
+        return String.format("%d:%02d", ms / 60000, (ms / 1000) % 60);
+    }
+
+    @Override
+    protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
+        // Only the title; no inventory label (this menu has no slots).
+        g.drawString(this.font, this.title, 6, -10, 0xFFFFFFFF, false);
+    }
+}

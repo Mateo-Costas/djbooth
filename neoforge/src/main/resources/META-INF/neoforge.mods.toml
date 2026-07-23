@@ -1,0 +1,60 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="All Rights Reserved"
+issueTrackerURL="https://modrinth.com/mod/dj-booth"
+
+[[mods]]
+modId="djbooth"
+version="${version}"
+displayName="DJ Booth"
+logoFile="djbooth_logo.png"
+authors="OSGWORLD"
+credits="Built with WaterMedia (audio) and MineDMX (lighting)."
+description='''
+An interactive Pioneer-style DJ booth for Minecraft.
+
+Place two CDJ decks around a mixer and right-click to open one full booth GUI drawn over the real
+gear. Load any track by pasting a link or typing a song name (YouTube search), then play, cue, loop,
+set hot cues, beat-jump, ride the jog for pitch-bends, and scrub by clicking the deck screen.
+
+The mixer is a working DJM: channel faders, crossfader, master, a real 3-band isolator EQ, a colour
+sweep filter and an echo FX, all processed live. Plus tap-tempo BPM and a selectable tempo range.
+
+Audio streaming needs WaterMedia (+ its binaries); DMX stage lighting needs MineDMX. Both are
+optional soft dependencies: the booth loads and works without them.
+'''
+
+[[dependencies.djbooth]]
+    modId="neoforge"
+    type="required"
+    versionRange="${neo_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.djbooth]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.djbooth]]
+    modId="architectury"
+    type="required"
+    versionRange="[13.0.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.djbooth]]
+    modId="watermedia"
+    type="optional"
+    versionRange="*"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.djbooth]]
+    modId="minedmx"
+    type="optional"
+    versionRange="*"
+    ordering="AFTER"
+    side="BOTH"

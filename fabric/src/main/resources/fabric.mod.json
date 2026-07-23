@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "djbooth",
+  "version": "${version}",
+  "name": "DJ Booth",
+  "description": "An interactive Pioneer-style DJ booth: two CDJ decks and a mixer in one GUI.",
+  "authors": ["OSGWORLD"],
+  "contact": {},
+  "license": "All Rights Reserved",
+  "icon": "djbooth_logo.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.osgworld.djbooth.fabric.DJBoothFabric"],
+    "client": ["com.osgworld.djbooth.fabric.client.DJBoothFabricClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "architectury": ">=13.0.0",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "watermedia": "*",
+    "minedmx": "*"
+  }
+}

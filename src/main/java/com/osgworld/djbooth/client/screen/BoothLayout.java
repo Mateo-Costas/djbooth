@@ -19,11 +19,11 @@ public final class BoothLayout {
 
     // --- Deck controls (relative to a deck region, aligned to the CDJ-3000 art) ---
     public static final Rect DECK_JOG     = new Rect(0.250f, 0.400f, 0.520f, 0.520f);
-    public static final Rect DECK_PLAY    = new Rect(0.150f, 0.850f, 0.110f, 0.110f); // green play/pause
-    public static final Rect DECK_CUE     = new Rect(0.150f, 0.705f, 0.110f, 0.110f); // orange cue
+    public static final Rect DECK_PLAY    = new Rect(0.168f, 0.865f, 0.075f, 0.075f); // green play/pause
+    public static final Rect DECK_CUE     = new Rect(0.168f, 0.735f, 0.075f, 0.075f); // orange cue
     public static final Rect DECK_LOOP    = new Rect(0.270f, 0.385f, 0.095f, 0.060f); // reloop/exit
     public static final Rect DECK_TEMPO   = new Rect(0.775f, 0.585f, 0.050f, 0.260f); // vertical tempo fader
-    public static final Rect DECK_SCREEN  = new Rect(0.166f, 0.220f, 0.619f, 0.120f); // live readout over the CDJ screen
+    public static final Rect DECK_SCREEN  = new Rect(0.166f, 0.180f, 0.619f, 0.120f); // live readout over the CDJ screen
     public static final Rect DECK_URLBAR  = new Rect(0.170f, 0.055f, 0.610f, 0.058f); // track URL input, over the CDJ display title bar
 
     // --- Mixer controls (relative to the mixer region, aligned to the DJM-900NXS2 art) ---

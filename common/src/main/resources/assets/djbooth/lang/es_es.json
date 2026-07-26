@@ -22,14 +22,15 @@
   "gui.djbooth.loop_exit": "Salir del loop",
   "gui.djbooth.loop_halve": "Loop mitad de largo",
   "gui.djbooth.loop_double": "Loop doble de largo",
-  "gui.djbooth.eq_hi": "Barrido AGUDOS: cierra un paso-bajo (20 kHz → 25 Hz). Doble clic = abierto",
-  "gui.djbooth.eq_mid": "Barrido MEDIOS: campana de 20 kHz → 100 Hz. Doble clic = abierto",
-  "gui.djbooth.eq_low": "Barrido GRAVES: paso-bajo 100 Hz → 20 Hz. Doble clic = abierto",
-  "gui.djbooth.filter": "Filtro de color (izq = paso-bajo, der = paso-alto, doble clic = off)",
+  "gui.djbooth.eq_hi": "EQ AGUDOS: -26 dB (mata con ISO) .. +6 dB. Doble clic = plano",
+  "gui.djbooth.eq_mid": "EQ MEDIOS: -26 dB (mata con ISO) .. +6 dB. Doble clic = plano",
+  "gui.djbooth.eq_low": "EQ GRAVES: -26 dB (mata con ISO) .. +6 dB. Doble clic = plano",
+  "gui.djbooth.filter": "Filtro COLOR (izq = paso-bajo, der = paso-alto, doble clic = off)",
   "gui.djbooth.echo": "Echo FX (arrastra arriba para más; doble clic = off)",
-  "gui.djbooth.eq_curve": "Resonancia del barrido: ISO = seca, EQ = suave",
+  "gui.djbooth.eq_curve": "EQ CURVE: ISO mata la banda, EQ corta a -26 dB",
   "gui.djbooth.fader_curve": "Fader de canal: SHARP = pronunciado, LIN = lineal",
   "gui.djbooth.tempo_range": "Rango tempo: ±6 / ±10 / ±16 / WIDE",
   "gui.djbooth.tap": "Toca al ritmo para medir BPM",
-  "gui.djbooth.gain": "Ganancia / trim del canal (doble clic = unidad)"
+  "gui.djbooth.gain": "Ganancia / trim del canal (doble clic = unidad)",
+  "gui.djbooth.xf_assign": "CROSS FADER ASSIGN: A / THRU (fuera del crossfader) / B"
 }

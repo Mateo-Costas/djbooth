@@ -410,22 +410,21 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         addMixerFader(BoothLayout.MIX_XFADER, false, MixerPayload.CROSSFADER,
                 m -> m.getCrossfader(), Component.translatable("gui.djbooth.crossfader"));
 
-        // Channel A EQ + colour filter (labels to the left). The EQ knobs sweep a filter frequency,
-        // so their default (and double-click reset) is fully open at 1.0, not centre.
-        addMixerKnob(BoothLayout.MIX_HI_A, "HI", true, MixerPayload.EQ_HI_A, 1.0,
+        // Channel A EQ + COLOR filter (labels to the left). Band gains, flat at centre.
+        addMixerKnob(BoothLayout.MIX_HI_A, "HI", true, MixerPayload.EQ_HI_A, 0.5,
                 m -> m.getEqHiA(), Component.translatable("gui.djbooth.eq_hi"));
-        addMixerKnob(BoothLayout.MIX_MID_A, "MID", true, MixerPayload.EQ_MID_A, 1.0,
+        addMixerKnob(BoothLayout.MIX_MID_A, "MID", true, MixerPayload.EQ_MID_A, 0.5,
                 m -> m.getEqMidA(), Component.translatable("gui.djbooth.eq_mid"));
-        addMixerKnob(BoothLayout.MIX_LOW_A, "LOW", true, MixerPayload.EQ_LOW_A, 1.0,
+        addMixerKnob(BoothLayout.MIX_LOW_A, "LOW", true, MixerPayload.EQ_LOW_A, 0.5,
                 m -> m.getEqLowA(), Component.translatable("gui.djbooth.eq_low"));
         addMixerKnob(BoothLayout.MIX_FILTER_A, "FLT", true, MixerPayload.FILTER_A, 0.5,
                 m -> m.getFilterA(), Component.translatable("gui.djbooth.filter"));
         // Channel B EQ + colour filter (labels to the right).
-        addMixerKnob(BoothLayout.MIX_HI_B, "HI", false, MixerPayload.EQ_HI_B, 1.0,
+        addMixerKnob(BoothLayout.MIX_HI_B, "HI", false, MixerPayload.EQ_HI_B, 0.5,
                 m -> m.getEqHiB(), Component.translatable("gui.djbooth.eq_hi"));
-        addMixerKnob(BoothLayout.MIX_MID_B, "MID", false, MixerPayload.EQ_MID_B, 1.0,
+        addMixerKnob(BoothLayout.MIX_MID_B, "MID", false, MixerPayload.EQ_MID_B, 0.5,
                 m -> m.getEqMidB(), Component.translatable("gui.djbooth.eq_mid"));
-        addMixerKnob(BoothLayout.MIX_LOW_B, "LOW", false, MixerPayload.EQ_LOW_B, 1.0,
+        addMixerKnob(BoothLayout.MIX_LOW_B, "LOW", false, MixerPayload.EQ_LOW_B, 0.5,
                 m -> m.getEqLowB(), Component.translatable("gui.djbooth.eq_low"));
         addMixerKnob(BoothLayout.MIX_FILTER_B, "FLT", false, MixerPayload.FILTER_B, 0.5,
                 m -> m.getFilterB(), Component.translatable("gui.djbooth.filter"));
@@ -442,11 +441,42 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         addMixerKnob(BoothLayout.MIX_ECHO_B, "FX", false, MixerPayload.FX_ECHO_B, 0.0,
                 m -> m.getEchoB(), Component.translatable("gui.djbooth.echo"));
 
+        // CROSS FADER ASSIGN under each channel fader: A / THRU / B, like the hardware switch.
+        addMixerCycle(BoothLayout.MIX_XF_ASSIGN_A, MixerPayload.XF_ASSIGN_A,
+                MixerBlockEntity::getXfAssignA, "gui.djbooth.xf_assign");
+        addMixerCycle(BoothLayout.MIX_XF_ASSIGN_B, MixerPayload.XF_ASSIGN_B,
+                MixerBlockEntity::getXfAssignB, "gui.djbooth.xf_assign");
+
         // Global switches: EQ curve (isolator/EQ) and channel fader curve.
         addMixerToggle(BoothLayout.MIX_ISOLATOR, MixerPayload.ISOLATOR,
                 MixerBlockEntity::isIsolator, "ISO", "EQ", "gui.djbooth.eq_curve");
         addMixerToggle(BoothLayout.MIX_FADERCURVE, MixerPayload.FADER_CURVE,
                 MixerBlockEntity::isFaderSharp, "SHARP", "LIN", "gui.djbooth.fader_curve");
+    }
+
+    /** Labels for the CROSS FADER ASSIGN positions, in switch order. */
+    private static final String[] XF_ASSIGN_LABELS = {"A", "THRU", "B"};
+
+    /** A three-position switch that cycles through its positions on click, synced to the server. */
+    private void addMixerCycle(BoothLayout.Rect ctrl, int channel,
+                               java.util.function.ToIntFunction<MixerBlockEntity> state,
+                               String tipKey) {
+        BlockPos mix = menu.refs().mixer();
+        int[] k = px(BoothLayout.REGION_MIXER, ctrl);
+        java.util.function.Supplier<Integer> cur = () -> {
+            MixerBlockEntity be = menu.mixer();
+            return be != null ? state.applyAsInt(be) : 0;
+        };
+        addRenderableWidget(net.minecraft.client.gui.components.Button.builder(
+                        Component.literal(XF_ASSIGN_LABELS[cur.get()]), b -> {
+                            int next = (cur.get() + 1) % XF_ASSIGN_LABELS.length;
+                            NetworkManager.sendToServer(new MixerPayload(mix, channel, next));
+                            b.setMessage(Component.literal(XF_ASSIGN_LABELS[next]));
+                        })
+                .bounds(k[0], k[1], k[2], k[3])
+                .tooltip(net.minecraft.client.gui.components.Tooltip.create(
+                        Component.translatable(tipKey)))
+                .build());
     }
 
     /** A two-state switch on the mixer (isolator/EQ, sharp/linear fader), synced to the server. */

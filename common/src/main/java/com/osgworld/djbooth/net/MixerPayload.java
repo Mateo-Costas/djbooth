@@ -35,6 +35,9 @@ public record MixerPayload(BlockPos pos, int channel, float value) implements Cu
     // Channel trim/gain, the knob at the top of each strip on a real DJM (0.5 = unity).
     public static final int GAIN_A = 16;
     public static final int GAIN_B = 17;
+    // CROSS FADER ASSIGN switch per channel, sent as the position index (0 = A, 1 = THRU, 2 = B).
+    public static final int XF_ASSIGN_A = 18;
+    public static final int XF_ASSIGN_B = 19;
 
     public static final Type<MixerPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(DJBooth.MODID, "mixer"));

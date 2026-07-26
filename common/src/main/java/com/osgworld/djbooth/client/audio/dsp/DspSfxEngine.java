@@ -18,19 +18,17 @@ import java.nio.ByteOrder;
  * through untouched so nothing breaks.
  */
 public final class DspSfxEngine extends SFXEngine {
-    // The three "EQ" knobs sweep a filter frequency rather than a band gain: each one is fully
-    // open (bypassed) at the top of its travel and closes in as it is turned down.
-    private static final double LOW_MIN_HZ = 20.0;    // LOW: low-pass, 20 Hz .. 100 Hz, bypass at 1.0
-    private static final double LOW_MAX_HZ = 100.0;
-    private static final double MID_MIN_HZ = 100.0;   // MID: swept bell, 100 Hz .. 20 kHz
-    private static final double MID_MAX_HZ = 20000.0;
-    private static final double HIGH_MIN_HZ = 25.0;   // HIGH: low-pass, 25 Hz .. 20 kHz
-    private static final double HIGH_MAX_HZ = 20000.0;
-    private static final double MID_Q = 1.2;
-    private static final double MID_GAIN_DB = 9.0; // bell boost, so the swept mid is audible
-    private static final double SWEEP_Q = 0.9;     // resonance of the EQ low-pass sweeps
-    private static final double BYPASS_ABOVE = 0.995; // knob position that means "wide open"
-    private static final double FILTER_Q = 2.0;    // resonance of the colour sweep
+    // Channel EQ band split, matching how a DJM-900NXS2 behaves: LOW below 200 Hz, MID in
+    // between, HI above 2 kHz. Pioneer doesn't publish the exact corners, so these are the
+    // figures the manual and measurements point at.
+    private static final double F_LOW = 200.0;
+    private static final double F_HIGH = 2000.0;
+    private static final double F_MID = Math.sqrt(F_LOW * F_HIGH); // bell sits between the shelves
+    private static final double MID_Q = 0.9;
+    private static final double EQ_BOOST_DB = 6.0;  // printed on the panel: +6 at the top
+    private static final double EQ_CUT_DB = 26.0;   // ... and -26 at the bottom in EQ mode
+    private static final double ISO_CUT_DB = 60.0;  // ISOLATOR mode kills the band instead (-inf)
+    private static final double FILTER_Q = 2.0;    // resonance of the COLOR sweep
     private static final double ECHO_SECONDS = 0.35; // fixed delay time (matches a slow beat echo)
     private static final double GAIN_MAX = 2.0;    // trim: knob 0.5 = unity, 1.0 = +6 dB
 
@@ -46,14 +44,15 @@ public final class DspSfxEngine extends SFXEngine {
     private int delayLen;
 
     // Knob params (0..1). Written from the client thread, read on the audio thread.
-    private volatile float pLow = 1f, pMid = 1f, pHigh = 1f, pFilter = 0.5f, pEcho = 0f, pGain = 0.5f;
-    private volatile boolean pIsolator = false; // steeper sweep resonance when true
+    private volatile float pLow = 0.5f, pMid = 0.5f, pHigh = 0.5f, pFilter = 0.5f, pEcho = 0f;
+    private volatile float pGain = 0.5f;
+    private volatile boolean pIsolator = false; // EQ curve: false = -26 dB EQ, true = -inf kill
     // Last params baked into coefficients, so we only recompute when a knob actually moves.
     private float aLow = -1, aMid = -1, aHigh = -1, aFilter = -1;
     private boolean aIsolator;
 
-    /** Update the EQ/filter/echo/trim knobs (0..1). EQ knobs are open at 1.0, the colour filter is
-     *  bypassed at 0.5, echo is off at 0 and the trim is unity at 0.5. */
+    /** Update the EQ/filter/echo/trim knobs (0..1). EQ bands and the colour filter are flat at 0.5,
+     *  echo is off at 0 and the trim is unity at 0.5. */
     public void setParams(float lowV, float midV, float highV, float filterV, float echoV,
                           float gainV, boolean isolator) {
         this.pLow = lowV;
@@ -108,45 +107,22 @@ public final class DspSfxEngine extends SFXEngine {
             return;
         }
         double fs = sampleRate;
-        double nyq = fs / 2.0;
-        double q = iso ? SWEEP_Q * 2.0 : SWEEP_Q; // isolator mode = sharper, more resonant sweeps
         for (int c = 0; c < channels; c++) {
-            configureLowPass(low[c], fs, nyq, l, LOW_MIN_HZ, LOW_MAX_HZ, q);
-            configureBell(mid[c], fs, nyq, m);
-            configureLowPass(high[c], fs, nyq, h, HIGH_MIN_HZ, HIGH_MAX_HZ, q);
+            low[c].lowShelf(fs, F_LOW, dbForBand(l, iso));
+            mid[c].peaking(fs, F_MID, dbForBand(m, iso), MID_Q);
+            high[c].highShelf(fs, F_HIGH, dbForBand(h, iso));
             configureSweep(sweep[c], fs, f);
         }
         aLow = l; aMid = m; aHigh = h; aFilter = f; aIsolator = iso;
     }
 
-    /** Map a knob logarithmically onto {@code [minHz, maxHz]} so the sweep sounds even. */
-    private static double sweepHz(double v, double minHz, double maxHz) {
-        return minHz * Math.pow(maxHz / minHz, clamp01(v));
-    }
-
-    /** A knob that opens up as it is turned clockwise: bypassed at the top, closing in below it. */
-    private static void configureLowPass(Biquad bq, double fs, double nyq, double v,
-                                         double minHz, double maxHz, double q) {
-        if (v >= BYPASS_ABOVE) {
-            bq.identity();
-            return;
+    /** Knob 0..1 -&gt; band gain in dB, as printed on the DJM-900NXS2: centre is flat, the top of the
+     *  travel is +6 dB, and the bottom is -26 dB in EQ mode or a kill in ISOLATOR mode. */
+    private static double dbForBand(double v, boolean isolator) {
+        if (v >= 0.5) {
+            return (v - 0.5) / 0.5 * EQ_BOOST_DB;
         }
-        double cutoff = sweepHz(v / BYPASS_ABOVE, minHz, maxHz);
-        bq.lowpass(fs, Math.min(cutoff, nyq * 0.98), q);
-    }
-
-    /** MID knob: a bell whose centre frequency sweeps 100 Hz .. 20 kHz (inaudible, so flat, at the top). */
-    private static void configureBell(Biquad bq, double fs, double nyq, double v) {
-        if (v >= BYPASS_ABOVE) {
-            bq.identity();
-            return;
-        }
-        double centre = sweepHz(v / BYPASS_ABOVE, MID_MIN_HZ, MID_MAX_HZ);
-        bq.peaking(fs, Math.min(centre, nyq * 0.98), MID_GAIN_DB, MID_Q);
-    }
-
-    private static double clamp01(double v) {
-        return v < 0 ? 0 : (v > 1 ? 1 : v);
+        return (v / 0.5 - 1.0) * (isolator ? ISO_CUT_DB : EQ_CUT_DB);
     }
 
     /** Colour knob: centre = bypass, left = low-pass sweep down, right = high-pass sweep up. */

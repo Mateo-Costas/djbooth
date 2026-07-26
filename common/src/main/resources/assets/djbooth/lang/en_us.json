@@ -22,14 +22,15 @@
   "gui.djbooth.loop_exit": "Exit loop",
   "gui.djbooth.loop_halve": "Halve loop length",
   "gui.djbooth.loop_double": "Double loop length",
-  "gui.djbooth.eq_hi": "HIGH sweep: turn down to close a low-pass (20 kHz → 25 Hz). Double-click = open",
-  "gui.djbooth.eq_mid": "MID sweep: bell centre 20 kHz → 100 Hz. Double-click = open",
-  "gui.djbooth.eq_low": "LOW sweep: low-pass 100 Hz → 20 Hz. Double-click = open",
-  "gui.djbooth.filter": "Colour filter (left = low-pass, right = high-pass, double-click = off)",
+  "gui.djbooth.eq_hi": "HI EQ: -26 dB (kill with ISO) .. +6 dB. Double-click = flat",
+  "gui.djbooth.eq_mid": "MID EQ: -26 dB (kill with ISO) .. +6 dB. Double-click = flat",
+  "gui.djbooth.eq_low": "LOW EQ: -26 dB (kill with ISO) .. +6 dB. Double-click = flat",
+  "gui.djbooth.filter": "COLOR filter (left = low-pass, right = high-pass, double-click = off)",
   "gui.djbooth.echo": "Echo FX (drag up for more; double-click = off)",
-  "gui.djbooth.eq_curve": "Sweep resonance: ISO = sharp, EQ = gentle",
+  "gui.djbooth.eq_curve": "EQ CURVE: ISO kills the band, EQ cuts to -26 dB",
   "gui.djbooth.fader_curve": "Channel fader: SHARP = steep, LIN = linear",
   "gui.djbooth.tempo_range": "Tempo range: ±6 / ±10 / ±16 / WIDE",
   "gui.djbooth.tap": "Tap on the beat to measure BPM",
-  "gui.djbooth.gain": "Channel trim / gain (double-click = unity)"
+  "gui.djbooth.gain": "Channel trim / gain (double-click = unity)",
+  "gui.djbooth.xf_assign": "CROSS FADER ASSIGN: A / THRU (off the crossfader) / B"
 }

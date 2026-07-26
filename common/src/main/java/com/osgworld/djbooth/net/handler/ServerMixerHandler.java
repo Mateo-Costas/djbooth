@@ -44,6 +44,8 @@ public final class ServerMixerHandler {
                 case MixerPayload.FADER_CURVE -> be.setFaderSharp(msg.value() > 0.5f);
                 case MixerPayload.GAIN_A -> be.setGainA(msg.value());
                 case MixerPayload.GAIN_B -> be.setGainB(msg.value());
+                case MixerPayload.XF_ASSIGN_A -> be.setXfAssignA(Math.round(msg.value()));
+                case MixerPayload.XF_ASSIGN_B -> be.setXfAssignB(Math.round(msg.value()));
                 default -> { return; }
             }
             be.applyAndSync();

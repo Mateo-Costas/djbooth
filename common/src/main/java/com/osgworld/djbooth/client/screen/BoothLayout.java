@@ -29,26 +29,33 @@ public final class BoothLayout {
     // --- Mixer controls (relative to the mixer region, aligned to the DJM-900NXS2 art) ---
     // Measured device fractions: ch1 x=0.251, ch2 x=0.380; channel fader travel y=0.673..0.835;
     // crossfader centered x=0.44 y=0.925; master level knob x=0.75 y=0.12.
-    public static final Rect MIX_FADER_A  = new Rect(0.226f, 0.673f, 0.050f, 0.162f); // channel 1 (deck A)
-    public static final Rect MIX_FADER_B  = new Rect(0.355f, 0.673f, 0.050f, 0.162f); // channel 2 (deck B)
+    // Channel fader travel measured off the printed 10..0 scale: y 0.673 (10) .. 0.784 (0).
+    public static final Rect MIX_FADER_A  = new Rect(0.222f, 0.673f, 0.050f, 0.111f); // channel 1 (deck A)
+    public static final Rect MIX_FADER_B  = new Rect(0.352f, 0.673f, 0.050f, 0.111f); // channel 2 (deck B)
     public static final Rect MIX_MASTER   = new Rect(0.715f, 0.185f, 0.065f, 0.230f); // master level (lower + bigger)
     public static final Rect MIX_XFADER   = new Rect(0.340f, 0.905f, 0.200f, 0.045f); // MAGVEL crossfader
 
-    // EQ + COLOUR knobs, measured off the DJM-900NXS2 art (the mixer image fills the region exactly,
-    // so image fractions equal these control fractions). Real strip order top->bottom: HI, MID, LOW,
-    // then the larger COLOR filter. Channel columns: A (ch1) centre x≈0.250, B (ch2) centre x≈0.379.
-    public static final Rect MIX_HI_A     = new Rect(0.215f, 0.230f, 0.070f, 0.057f);
-    public static final Rect MIX_MID_A    = new Rect(0.215f, 0.305f, 0.070f, 0.057f);
-    public static final Rect MIX_LOW_A    = new Rect(0.215f, 0.382f, 0.070f, 0.057f);
-    public static final Rect MIX_FILTER_A = new Rect(0.210f, 0.467f, 0.080f, 0.065f); // COLOR
-    public static final Rect MIX_HI_B     = new Rect(0.344f, 0.230f, 0.070f, 0.057f);
-    public static final Rect MIX_MID_B    = new Rect(0.344f, 0.305f, 0.070f, 0.057f);
-    public static final Rect MIX_LOW_B    = new Rect(0.344f, 0.382f, 0.070f, 0.057f);
-    public static final Rect MIX_FILTER_B = new Rect(0.339f, 0.467f, 0.080f, 0.065f); // COLOR
+    // EQ + COLOR knobs, measured off the DJM-900NXS2 art with a percentage grid (the mixer image
+    // fills the region exactly, so image fractions equal these control fractions). Real strip order
+    // top->bottom: TRIM, HI, MID, LOW, then the larger COLOR filter. Measured knob centres:
+    // channel 1 x=0.246, channel 2 x=0.376; TRIM y=0.178, HI y=0.257, MID y=0.331, LOW y=0.404,
+    // COLOR y=0.501. EQ knobs are 0.050 wide, COLOR is 0.065.
+    public static final Rect MIX_HI_A     = new Rect(0.221f, 0.236f, 0.050f, 0.041f);
+    public static final Rect MIX_MID_A    = new Rect(0.221f, 0.310f, 0.050f, 0.041f);
+    public static final Rect MIX_LOW_A    = new Rect(0.221f, 0.383f, 0.050f, 0.041f);
+    public static final Rect MIX_FILTER_A = new Rect(0.214f, 0.474f, 0.065f, 0.053f); // COLOR
+    public static final Rect MIX_HI_B     = new Rect(0.351f, 0.236f, 0.050f, 0.041f);
+    public static final Rect MIX_MID_B    = new Rect(0.351f, 0.310f, 0.050f, 0.041f);
+    public static final Rect MIX_LOW_B    = new Rect(0.351f, 0.383f, 0.050f, 0.041f);
+    public static final Rect MIX_FILTER_B = new Rect(0.344f, 0.474f, 0.065f, 0.053f); // COLOR
 
-    // TRIM/GAIN knob per channel: top of each strip, where the real DJM puts it.
-    public static final Rect MIX_GAIN_A   = new Rect(0.215f, 0.150f, 0.070f, 0.055f);
-    public static final Rect MIX_GAIN_B   = new Rect(0.344f, 0.150f, 0.070f, 0.055f);
+    // TRIM/GAIN knob per channel: top of each strip, where the real DJM puts it (measured y=0.178).
+    public static final Rect MIX_GAIN_A   = new Rect(0.224f, 0.161f, 0.044f, 0.035f);
+    public static final Rect MIX_GAIN_B   = new Rect(0.354f, 0.161f, 0.044f, 0.035f);
+
+    // CROSS FADER ASSIGN switch under each channel fader (A / THRU / B), measured y=0.845.
+    public static final Rect MIX_XF_ASSIGN_A = new Rect(0.224f, 0.833f, 0.045f, 0.025f);
+    public static final Rect MIX_XF_ASSIGN_B = new Rect(0.354f, 0.833f, 0.045f, 0.025f);
 
     // Echo (Beat FX) knob per channel. Not a DJM strip control, so it lives on the right-hand
     // FX panel above the global switches rather than stealing the TRIM position.

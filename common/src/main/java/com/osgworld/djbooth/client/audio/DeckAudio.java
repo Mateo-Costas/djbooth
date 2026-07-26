@@ -34,7 +34,7 @@ public class DeckAudio {
     private int lastVolume = -1;
 
     // EQ/filter/echo knob values (0..1) + isolator mode, set by the mixer each tick.
-    private volatile float eqLow = 1f, eqMid = 1f, eqHigh = 1f, eqFilter = 0.5f, eqEcho = 0f;
+    private volatile float eqLow = 0.5f, eqMid = 0.5f, eqHigh = 0.5f, eqFilter = 0.5f, eqEcho = 0f;
     private volatile float eqGain = 0.5f;
     private volatile boolean isolator = false;
 

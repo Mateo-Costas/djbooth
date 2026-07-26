@@ -21,16 +21,22 @@ public class MixerBlockEntity extends BlockEntity {
     private float crossfader = 0.5f; // 0 = full A, 1 = full B
     private float master = 1.0f;
 
-    // Per-channel EQ + colour filter + echo + trim, all 0..1.
-    // The EQ knobs sweep a filter frequency (not a band gain), so their open/bypass position is
-    // fully clockwise (1.0), not centre. Colour filter stays centre-bypass, echo 0 = off,
-    // trim 0.5 = unity gain.
-    private float eqLowA = 1.0f, eqMidA = 1.0f, eqHiA = 1.0f, filterA = 0.5f, echoA = 0f, gainA = 0.5f;
-    private float eqLowB = 1.0f, eqMidB = 1.0f, eqHiB = 1.0f, filterB = 0.5f, echoB = 0f, gainB = 0.5f;
+    // Per-channel EQ + colour filter + echo + trim, all 0..1. The EQ bands and the COLOR filter
+    // rest flat at centre, echo 0 = off, trim 0.5 = unity gain.
+    private float eqLowA = 0.5f, eqMidA = 0.5f, eqHiA = 0.5f, filterA = 0.5f, echoA = 0f, gainA = 0.5f;
+    private float eqLowB = 0.5f, eqMidB = 0.5f, eqHiB = 0.5f, filterB = 0.5f, echoB = 0f, gainB = 0.5f;
     // Global switches, like the real DJM. isolator: EQ knobs kill to -inf vs -26 dB.
     // faderSharp: steep channel-fader curve vs linear.
     private boolean isolator = false;
     private boolean faderSharp = false;
+
+    /** CROSS FADER ASSIGN positions, as printed on the switch under each channel fader. */
+    public static final int XF_A = 0;
+    public static final int XF_THRU = 1;
+    public static final int XF_B = 2;
+    // Channel 1 defaults to the A side and channel 2 to the B side, the usual club setup.
+    private int xfAssignA = XF_A;
+    private int xfAssignB = XF_B;
 
     public MixerBlockEntity(BlockPos pos, BlockState blockState) {
         super(ModBlockEntities.MIXER.get(), pos, blockState);
@@ -90,10 +96,18 @@ public class MixerBlockEntity extends BlockEntity {
         return Math.max(0.0f, Math.min(1.0f, v));
     }
 
+    public int getXfAssignA() { return xfAssignA; }
+    public int getXfAssignB() { return xfAssignB; }
+    public void setXfAssignA(int v) { this.xfAssignA = clampAssign(v); }
+    public void setXfAssignB(int v) { this.xfAssignB = clampAssign(v); }
+
+    private static int clampAssign(int v) {
+        return v < XF_A ? XF_A : (v > XF_B ? XF_B : v);
+    }
+
     /**
      * Effective output volume (0..1) for one deck, folding in its channel fader, the
-     * crossfader weight and the master. Crossfader 0 = full A, 1 = full B. This is the
-     * value the per-deck audio player scales its gain by (Plan 02b).
+     * crossfader weight and the master. Crossfader 0 = full A, 1 = full B.
      */
     public float volumeForDeck(boolean deckA) {
         float channel = deckA ? faderA : faderB;
@@ -102,8 +116,17 @@ public class MixerBlockEntity extends BlockEntity {
         if (faderSharp) {
             channel = channel * channel;
         }
-        float xf = deckA ? (1.0f - crossfader) : crossfader;
-        return clamp01(channel * xf * master);
+        return clamp01(channel * crossfaderWeight(deckA ? xfAssignA : xfAssignB) * master);
+    }
+
+    /** How much the crossfader lets a channel through, given which side it is assigned to.
+     *  THRU takes the channel off the crossfader entirely, exactly like the hardware switch. */
+    private float crossfaderWeight(int assign) {
+        return switch (assign) {
+            case XF_A -> 1.0f - crossfader;
+            case XF_B -> crossfader;
+            default -> 1.0f; // THRU
+        };
     }
 
     public void applyAndSync() {
@@ -132,6 +155,8 @@ public class MixerBlockEntity extends BlockEntity {
         tag.putFloat("EchoB", echoB);
         tag.putFloat("GainA", gainA);
         tag.putFloat("GainB", gainB);
+        tag.putInt("XfAssignA", xfAssignA);
+        tag.putInt("XfAssignB", xfAssignB);
         tag.putBoolean("Isolator", isolator);
         tag.putBoolean("FaderSharp", faderSharp);
     }
@@ -143,18 +168,20 @@ public class MixerBlockEntity extends BlockEntity {
         faderB = tag.contains("FaderB") ? tag.getFloat("FaderB") : 1.0f;
         crossfader = tag.contains("Crossfader") ? tag.getFloat("Crossfader") : 0.5f;
         master = tag.contains("Master") ? tag.getFloat("Master") : 1.0f;
-        eqLowA = tag.contains("EqLowA") ? tag.getFloat("EqLowA") : 1.0f;
-        eqMidA = tag.contains("EqMidA") ? tag.getFloat("EqMidA") : 1.0f;
-        eqHiA = tag.contains("EqHiA") ? tag.getFloat("EqHiA") : 1.0f;
+        eqLowA = tag.contains("EqLowA") ? tag.getFloat("EqLowA") : 0.5f;
+        eqMidA = tag.contains("EqMidA") ? tag.getFloat("EqMidA") : 0.5f;
+        eqHiA = tag.contains("EqHiA") ? tag.getFloat("EqHiA") : 0.5f;
         filterA = tag.contains("FilterA") ? tag.getFloat("FilterA") : 0.5f;
-        eqLowB = tag.contains("EqLowB") ? tag.getFloat("EqLowB") : 1.0f;
-        eqMidB = tag.contains("EqMidB") ? tag.getFloat("EqMidB") : 1.0f;
-        eqHiB = tag.contains("EqHiB") ? tag.getFloat("EqHiB") : 1.0f;
+        eqLowB = tag.contains("EqLowB") ? tag.getFloat("EqLowB") : 0.5f;
+        eqMidB = tag.contains("EqMidB") ? tag.getFloat("EqMidB") : 0.5f;
+        eqHiB = tag.contains("EqHiB") ? tag.getFloat("EqHiB") : 0.5f;
         filterB = tag.contains("FilterB") ? tag.getFloat("FilterB") : 0.5f;
         echoA = tag.contains("EchoA") ? tag.getFloat("EchoA") : 0f;
         echoB = tag.contains("EchoB") ? tag.getFloat("EchoB") : 0f;
         gainA = tag.contains("GainA") ? tag.getFloat("GainA") : 0.5f;
         gainB = tag.contains("GainB") ? tag.getFloat("GainB") : 0.5f;
+        xfAssignA = clampAssign(tag.contains("XfAssignA") ? tag.getInt("XfAssignA") : XF_A);
+        xfAssignB = clampAssign(tag.contains("XfAssignB") ? tag.getInt("XfAssignB") : XF_B);
         isolator = tag.contains("Isolator") && tag.getBoolean("Isolator");
         faderSharp = tag.contains("FaderSharp") && tag.getBoolean("FaderSharp");
     }

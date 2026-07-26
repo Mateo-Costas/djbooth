@@ -151,12 +151,12 @@ public final class DeckAudioManager {
     }
 
     /** DSP knobs for this deck's channel: {low, mid, high, filter, echo, isolator, gain};
-     *  wide open with unity trim if there is no mixer. */
+     *  flat with unity trim if there is no mixer. */
     private static float[] mixerEqFor(Level level, CdjBlockEntity deck) {
         BoothRefs refs = BoothRefs.scan(level, deck.getBlockPos());
         if (refs.mixer() == null
                 || !(level.getBlockEntity(refs.mixer()) instanceof MixerBlockEntity mixer)) {
-            return new float[]{1f, 1f, 1f, 0.5f, 0f, 0f, 0.5f};
+            return new float[]{0.5f, 0.5f, 0.5f, 0.5f, 0f, 0f, 0.5f};
         }
         boolean isA = deck.getBlockPos().equals(refs.deckA());
         float[] eq = mixer.eqForDeck(isA); // {low, mid, high, filter, echo, gain}

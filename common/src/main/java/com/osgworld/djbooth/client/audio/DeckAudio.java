@@ -24,6 +24,7 @@ public class DeckAudio {
     // small drift, because seeking a live FFmpeg stream every tick stutters badly.
     private static final long JUMP_MS = 400;   // server-position jump that counts as a seek
     private static final long BEND_HOLD_MS = 160; // how long a jog nudge keeps bending the pitch
+    private static final long REVERSE_SEEK_MS = 250; // how often reverse playback re-seeks
 
     private String url = "";
     private MRL mrl;
@@ -146,6 +147,11 @@ public class DeckAudio {
         boolean shouldPlay = state.getPlayState() == PlayState.PLAY;
         double rate = state.getRate();
         double effSpeed = rate * (isBending() ? bend : 1.0);
+        // Neither FFmpeg nor OpenAL will run a stream backwards, so REVERSE is played as a
+        // succession of short backward seeks: the deck's clock is already running the other way,
+        // and the seek below chases it. It sounds like a tape rewind rather than a reversed
+        // record, which is the honest limit of streaming playback.
+        boolean reverse = state.isReverse();
         if (Math.abs(effSpeed - lastSpeed) > 1e-3) {
             player.speed((float) effSpeed);
             lastSpeed = effSpeed;
@@ -158,6 +164,12 @@ public class DeckAudio {
         if (freshPlayer) {
             player.seek(target);
             freshPlayer = false;
+        } else if (reverse) {
+            // Chase the backwards clock often enough to follow it, rarely enough not to stutter
+            // on every tick.
+            if (nowMs - lastNow >= REVERSE_SEEK_MS) {
+                player.seek(target);
+            }
         } else if (!isBending()) {
             long expected = lastTarget + (shouldPlay ? Math.round((nowMs - lastNow) * rate) : 0);
             if (Math.abs(target - expected) > JUMP_MS) {
@@ -165,7 +177,9 @@ public class DeckAudio {
             }
         }
         lastTarget = target;
-        lastNow = nowMs;
+        if (!reverse || nowMs - lastNow >= REVERSE_SEEK_MS) {
+            lastNow = nowMs;
+        }
 
         if (shouldPlay) {
             if (player.status() != MediaPlayer.Status.PLAYING) {

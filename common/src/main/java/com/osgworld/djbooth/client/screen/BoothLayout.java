@@ -26,6 +26,23 @@ public final class BoothLayout {
     public static final Rect DECK_SCREEN  = new Rect(0.166f, 0.148f, 0.619f, 0.120f); // live readout over the CDJ screen
     public static final Rect DECK_URLBAR  = new Rect(0.170f, 0.055f, 0.610f, 0.058f); // track URL input, over the CDJ display title bar
 
+    // CDJ-3000 controls measured off the panel art: the DIRECTION switch and the transport
+    // buttons run down the left edge, SLIP/QUANTIZE sit under the USB slot, and the tempo
+    // buttons flank the fader on the right.
+    public static final Rect DECK_DIRECTION = new Rect(0.045f, 0.545f, 0.085f, 0.045f);
+    public static final Rect DECK_SLIP      = new Rect(0.040f, 0.205f, 0.055f, 0.026f);
+    public static final Rect DECK_QUANTIZE  = new Rect(0.103f, 0.205f, 0.062f, 0.026f);
+    public static final Rect DECK_JOGMODE   = new Rect(0.880f, 0.430f, 0.070f, 0.030f);
+    public static final Rect DECK_TEMPO_RESET = new Rect(0.795f, 0.640f, 0.045f, 0.030f);
+    public static final Rect DECK_BEAT_SYNC = new Rect(0.855f, 0.348f, 0.062f, 0.028f);
+    public static final Rect DECK_TRACK_START = new Rect(0.045f, 0.612f, 0.085f, 0.030f);
+    public static final Rect DECK_SEARCH_BACK = new Rect(0.045f, 0.652f, 0.040f, 0.030f);
+    public static final Rect DECK_SEARCH_FWD  = new Rect(0.090f, 0.652f, 0.040f, 0.030f);
+    public static final Rect DECK_CALL_PREV = new Rect(0.560f, 0.348f, 0.038f, 0.026f);
+    public static final Rect DECK_CALL_NEXT = new Rect(0.602f, 0.348f, 0.038f, 0.026f);
+    public static final Rect DECK_MEM_DELETE = new Rect(0.660f, 0.348f, 0.045f, 0.026f);
+    public static final Rect DECK_MEMORY    = new Rect(0.712f, 0.348f, 0.052f, 0.026f);
+
     // --- Mixer controls (relative to the mixer region, aligned to the DJM-900NXS2 art) ---
     // Measured device fractions: ch1 x=0.251, ch2 x=0.380; channel fader travel y=0.673..0.835;
     // crossfader centered x=0.44 y=0.925; master level knob x=0.75 y=0.12.

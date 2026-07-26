@@ -1,6 +1,7 @@
 package com.osgworld.djbooth.net.handler;
 
 import com.osgworld.djbooth.blockentity.CdjBlockEntity;
+import com.osgworld.djbooth.deck.DeckState;
 import com.osgworld.djbooth.deck.PlayState;
 import com.osgworld.djbooth.net.TransportPayload;
 import net.minecraft.server.level.ServerPlayer;
@@ -10,6 +11,7 @@ import dev.architectury.networking.NetworkManager;
 public final class ServerTransportHandler {
     private static final double MAX_DIST_SQR = 64.0; // 8 blocks
     private static final long JUMP_MS = 4000; // beat-jump step (no BPM analysis, so a fixed hop)
+    private static final long SEARCH_MS = 15000; // SEARCH scan step, a bigger hop than beat-jump
 
     private ServerTransportHandler() {}
 
@@ -33,6 +35,44 @@ public final class ServerTransportHandler {
                 case TransportPayload.PAUSE -> be.state().press(PlayState.PAUSE, now);
                 case TransportPayload.CUE -> be.state().cue(now);
                 case TransportPayload.SET_CUE -> be.state().setCueHere(now);
+                case TransportPayload.DIRECTION -> {
+                    // Stepping into or out of reverse re-anchors the clock, otherwise the
+                    // position jumps by however long the deck has been playing.
+                    long p = be.state().positionMsAt(now);
+                    be.state().setDirection(be.state().getDirection() + 1);
+                    be.state().jumpTo(p, now);
+                    // SLIP REV keeps the untouched timeline running underneath.
+                    if (be.state().getDirection() == DeckState.DIR_SLIP_REV) {
+                        be.state().setSlip(true);
+                        be.state().beginSlip(now);
+                    } else {
+                        be.state().endSlip(now);
+                    }
+                }
+                case TransportPayload.JOG_MODE ->
+                        be.state().setJogMode(be.state().getJogMode() + 1);
+                case TransportPayload.SLIP -> {
+                    boolean next = !be.state().isSlip();
+                    be.state().setSlip(next);
+                    if (next) {
+                        be.state().beginSlip(now);
+                    } else {
+                        be.state().endSlip(now);
+                    }
+                }
+                case TransportPayload.QUANTIZE ->
+                        be.state().setQuantize(!be.state().isQuantize());
+                case TransportPayload.TEMPO_RESET -> be.state().resetTempo(now);
+                case TransportPayload.BEAT_SYNC -> syncToOtherDeck(player, be, now);
+                case TransportPayload.TRACK_START -> be.state().jumpTo(0, now);
+                case TransportPayload.SEARCH_BACK ->
+                        be.state().jumpTo(be.state().positionMsAt(now) - SEARCH_MS, now);
+                case TransportPayload.SEARCH_FWD ->
+                        be.state().jumpTo(be.state().positionMsAt(now) + SEARCH_MS, now);
+                case TransportPayload.MEMORY -> be.state().memorise(now);
+                case TransportPayload.CALL_PREV -> be.state().callMemory(-1, now);
+                case TransportPayload.CALL_NEXT -> be.state().callMemory(1, now);
+                case TransportPayload.MEMORY_DELETE -> be.state().deleteMemory(now);
                 case TransportPayload.LOOP_TOGGLE -> {
                     long p = be.state().positionMsAt(now);
                     if (be.state().isLoopOn()) {
@@ -57,5 +97,18 @@ public final class ServerTransportHandler {
             }
             be.applyAndSync();
         });
+    }
+
+    /** BEAT SYNC: pull this deck's tempo onto the other deck in the same booth. */
+    private static void syncToOtherDeck(net.minecraft.world.entity.player.Player player,
+                                        CdjBlockEntity deck, long now) {
+        var refs = com.osgworld.djbooth.booth.BoothRefs.scan(player.level(), deck.getBlockPos());
+        net.minecraft.core.BlockPos otherPos = deck.getBlockPos().equals(refs.deckA())
+                ? refs.deckB() : refs.deckA();
+        if (otherPos == null
+                || !(player.level().getBlockEntity(otherPos) instanceof CdjBlockEntity other)) {
+            return;
+        }
+        deck.state().syncTo(other.state().getBpm(), now);
     }
 }

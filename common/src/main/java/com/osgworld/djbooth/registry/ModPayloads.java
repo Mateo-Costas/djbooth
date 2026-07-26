@@ -1,10 +1,12 @@
 package com.osgworld.djbooth.registry;
 
+import com.osgworld.djbooth.net.DeckBpmPayload;
 import com.osgworld.djbooth.net.HotCuePayload;
 import com.osgworld.djbooth.net.JogNudgePayload;
 import com.osgworld.djbooth.net.LoadTrackPayload;
 import com.osgworld.djbooth.net.MixerPayload;
 import com.osgworld.djbooth.net.TransportPayload;
+import com.osgworld.djbooth.net.handler.ServerDeckBpmHandler;
 import com.osgworld.djbooth.net.handler.ServerHotCueHandler;
 import com.osgworld.djbooth.net.handler.ServerJogHandler;
 import com.osgworld.djbooth.net.handler.ServerLoadTrackHandler;
@@ -27,5 +29,7 @@ public final class ModPayloads {
                 LoadTrackPayload.TYPE, LoadTrackPayload.CODEC, ServerLoadTrackHandler::handle);
         NetworkManager.registerReceiver(NetworkManager.Side.C2S,
                 HotCuePayload.TYPE, HotCuePayload.CODEC, ServerHotCueHandler::handle);
+        NetworkManager.registerReceiver(NetworkManager.Side.C2S,
+                DeckBpmPayload.TYPE, DeckBpmPayload.CODEC, ServerDeckBpmHandler::handle);
     }
 }

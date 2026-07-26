@@ -65,6 +65,13 @@ public class CdjBlockEntity extends BlockEntity {
         tag.putBoolean("LoopOn", state.isLoopOn());
         tag.putLong("LoopIn", state.getLoopInMs());
         tag.putLong("LoopOut", state.getLoopOutMs());
+        tag.putInt("Direction", state.getDirection());
+        tag.putInt("JogMode", state.getJogMode());
+        tag.putBoolean("Slip", state.isSlip());
+        tag.putBoolean("Quantize", state.isQuantize());
+        tag.putDouble("Bpm", state.getBpm());
+        tag.putLongArray("MemoryCues",
+                state.getMemoryCues().stream().mapToLong(Long::longValue).toArray());
         long[] hc = new long[DeckState.HOT_CUES];
         for (int i = 0; i < hc.length; i++) {
             hc[i] = state.getHotCue(i);
@@ -84,6 +91,12 @@ public class CdjBlockEntity extends BlockEntity {
         state.setStartEpochMs(tag.getLong("Start"));
         state.setLoop(tag.getLong("LoopIn"), tag.getLong("LoopOut"), tag.getBoolean("LoopOn"));
         long[] hc = tag.getLongArray("HotCues");
+        state.setDirection(tag.getInt("Direction"));
+        state.setJogMode(tag.contains("JogMode") ? tag.getInt("JogMode") : DeckState.JOG_VINYL);
+        state.setSlip(tag.getBoolean("Slip"));
+        state.setQuantize(!tag.contains("Quantize") || tag.getBoolean("Quantize"));
+        state.setBpm(tag.getDouble("Bpm"));
+        state.loadMemoryCues(tag.getLongArray("MemoryCues"));
         for (int i = 0; i < DeckState.HOT_CUES && i < hc.length; i++) {
             state.loadHotCue(i, hc[i]);
         }

@@ -285,6 +285,8 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 Component.translatable("gui.djbooth.loop")));
         addRenderableWidget(loopBtn);
 
+        addDeckCdjControls(pos, region);
+
         // Tempo fader (vertical): centre = 100%, full throw = +/- the selected range. The travel is
         // inverted like a real Pioneer pitch fader — pushing it up slows the track down (-%), pulling
         // it down speeds it up (+%).
@@ -335,6 +337,125 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         }));
     }
 
+    /** The CDJ-3000 controls that aren't transport: direction, slip/quantize, jog mode, tempo
+     *  and the memory-cue tools. Each one sits where the panel prints it. */
+    private void addDeckCdjControls(BlockPos pos, BoothLayout.Rect region) {
+        // DIRECTION steps FWD -> REV -> SLIP REV, so its caption has to say where it is.
+        deckButton(pos, region, BoothLayout.DECK_DIRECTION, "gui.djbooth.direction",
+                TransportPayload.DIRECTION, 0xFFFF3B30,
+                () -> {
+                    CdjBlockEntity be = menu.deck(pos);
+                    return be != null && be.state().isReverse();
+                },
+                () -> {
+                    CdjBlockEntity be = menu.deck(pos);
+                    int d = be != null ? be.state().getDirection() : DeckStateDir.FWD;
+                    return switch (d) {
+                        case DeckStateDir.REV -> "REV";
+                        case DeckStateDir.SLIP_REV -> "SLIP REV";
+                        default -> "FWD";
+                    };
+                });
+
+        deckToggle(pos, region, BoothLayout.DECK_SLIP, "SLIP", "gui.djbooth.slip",
+                TransportPayload.SLIP, 0xFFFF8A1F, s -> s.isSlip());
+        deckToggle(pos, region, BoothLayout.DECK_QUANTIZE, "QUANT", "gui.djbooth.quantize",
+                TransportPayload.QUANTIZE, 0xFF2A7BFF, s -> s.isQuantize());
+
+        // JOG MODE: VINYL means grabbing the platter stops it, CDJ means the jog only bends.
+        deckButton(pos, region, BoothLayout.DECK_JOGMODE, "gui.djbooth.jog_mode",
+                TransportPayload.JOG_MODE, 0xFF2A7BFF,
+                () -> {
+                    CdjBlockEntity be = menu.deck(pos);
+                    return be != null && be.state().getJogMode() == DeckStateDir.JOG_VINYL;
+                },
+                () -> {
+                    CdjBlockEntity be = menu.deck(pos);
+                    return be != null && be.state().getJogMode() == DeckStateDir.JOG_VINYL
+                            ? "VINYL" : "CDJ";
+                });
+
+        simpleDeckButton(pos, region, BoothLayout.DECK_TEMPO_RESET, "RESET",
+                "gui.djbooth.tempo_reset", TransportPayload.TEMPO_RESET);
+        simpleDeckButton(pos, region, BoothLayout.DECK_BEAT_SYNC, "SYNC",
+                "gui.djbooth.beat_sync", TransportPayload.BEAT_SYNC);
+        simpleDeckButton(pos, region, BoothLayout.DECK_TRACK_START, "|◀ TRACK",
+                "gui.djbooth.track_start", TransportPayload.TRACK_START);
+        simpleDeckButton(pos, region, BoothLayout.DECK_SEARCH_BACK, "◀◀",
+                "gui.djbooth.search_back", TransportPayload.SEARCH_BACK);
+        simpleDeckButton(pos, region, BoothLayout.DECK_SEARCH_FWD, "▶▶",
+                "gui.djbooth.search_fwd", TransportPayload.SEARCH_FWD);
+        simpleDeckButton(pos, region, BoothLayout.DECK_CALL_PREV, "◀",
+                "gui.djbooth.call_prev", TransportPayload.CALL_PREV);
+        simpleDeckButton(pos, region, BoothLayout.DECK_CALL_NEXT, "▶",
+                "gui.djbooth.call_next", TransportPayload.CALL_NEXT);
+        simpleDeckButton(pos, region, BoothLayout.DECK_MEM_DELETE, "DEL",
+                "gui.djbooth.memory_delete", TransportPayload.MEMORY_DELETE);
+        simpleDeckButton(pos, region, BoothLayout.DECK_MEMORY, "MEMORY",
+                "gui.djbooth.memory", TransportPayload.MEMORY);
+    }
+
+    /** Mirrors DeckState's switch positions without importing them into every lambda. */
+    private static final class DeckStateDir {
+        static final int FWD = com.osgworld.djbooth.deck.DeckState.DIR_FWD;
+        static final int REV = com.osgworld.djbooth.deck.DeckState.DIR_REV;
+        static final int SLIP_REV = com.osgworld.djbooth.deck.DeckState.DIR_SLIP_REV;
+        static final int JOG_VINYL = com.osgworld.djbooth.deck.DeckState.JOG_VINYL;
+    }
+
+    /** A deck button whose caption changes with the state behind it. */
+    private void deckButton(BlockPos pos, BoothLayout.Rect region, BoothLayout.Rect ctrl,
+                            String tipKey, int action, int accent,
+                            java.util.function.BooleanSupplier lit,
+                            java.util.function.Supplier<String> caption) {
+        int[] k = px(region, ctrl);
+        PanelButton b = new PanelButton(k[0], k[1], k[2], k[3],
+                Component.literal(caption.get()), accent,
+                () -> NetworkManager.sendToServer(new TransportPayload(pos, action)),
+                lit) {
+            @Override
+            protected void renderWidget(net.minecraft.client.gui.GuiGraphics g,
+                                        int mouseX, int mouseY, float partialTick) {
+                setMessage(Component.literal(caption.get()));
+                super.renderWidget(g, mouseX, mouseY, partialTick);
+            }
+        };
+        b.withCaption();
+        b.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable(tipKey)));
+        addRenderableWidget(b);
+    }
+
+    /** A deck button that lights while some flag on the deck is set. */
+    private void deckToggle(BlockPos pos, BoothLayout.Rect region, BoothLayout.Rect ctrl,
+                            String label, String tipKey, int action, int accent,
+                            java.util.function.Predicate<com.osgworld.djbooth.deck.DeckState> lit) {
+        int[] k = px(region, ctrl);
+        PanelButton b = new PanelButton(k[0], k[1], k[2], k[3],
+                Component.literal(label), accent,
+                () -> NetworkManager.sendToServer(new TransportPayload(pos, action)),
+                () -> {
+                    CdjBlockEntity be = menu.deck(pos);
+                    return be != null && lit.test(be.state());
+                }).withCaption();
+        b.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable(tipKey)));
+        addRenderableWidget(b);
+    }
+
+    /** A deck button that just fires an action. */
+    private void simpleDeckButton(BlockPos pos, BoothLayout.Rect region, BoothLayout.Rect ctrl,
+                                  String label, String tipKey, int action) {
+        int[] k = px(region, ctrl);
+        PanelButton b = new PanelButton(k[0], k[1], k[2], k[3],
+                Component.literal(label), 0xFF25E0C0,
+                () -> NetworkManager.sendToServer(new TransportPayload(pos, action)),
+                () -> false).withCaption();
+        b.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable(tipKey)));
+        addRenderableWidget(b);
+    }
+
     /** Register a beat tap; average the recent intervals into a BPM for this deck. */
     private void tapTempo(BlockPos pos) {
         long now = System.currentTimeMillis();
@@ -350,7 +471,11 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
             long span = q.peekLast() - q.peekFirst();
             double avgInterval = (double) span / (q.size() - 1);
             if (avgInterval > 0) {
-                bpm.put(pos, 60000.0 / avgInterval);
+                double measured = 60000.0 / avgInterval;
+                bpm.put(pos, measured);
+                // The deck needs the tempo too: QUANTIZE snaps to it and BEAT SYNC matches it.
+                NetworkManager.sendToServer(new com.osgworld.djbooth.net.DeckBpmPayload(
+                        pos, (float) measured));
             }
         }
     }

@@ -62,5 +62,18 @@
   "gui.djbooth.fx_onoff": "Switch the BEAT FX in and out",
   "gui.djbooth.balance": "BALANCE: master left/right. Double-click = centre",
   "gui.djbooth.cue_channel": "CUE: preview this channel for the person at the booth only",
-  "gui.djbooth.xfader_curve": "CROSS FADER curve: SLOW / LIN / SHARP"
+  "gui.djbooth.xfader_curve": "CROSS FADER curve: SLOW / LIN / SHARP",
+  "gui.djbooth.direction": "DIRECTION: FWD / REV / SLIP REV (reverse with the track running underneath)",
+  "gui.djbooth.slip": "SLIP: loops and scratches happen on top; the track carries on underneath",
+  "gui.djbooth.quantize": "QUANTIZE: cues, hot cues and loops snap to the beat. Needs a tapped BPM",
+  "gui.djbooth.jog_mode": "JOG MODE: VINYL grabs the platter, CDJ only bends the pitch",
+  "gui.djbooth.tempo_reset": "TEMPO RESET: back to the track's own speed",
+  "gui.djbooth.beat_sync": "BEAT SYNC: match the other deck's tempo. Tap both decks first",
+  "gui.djbooth.track_start": "TRACK SEARCH: back to the start of the track",
+  "gui.djbooth.search_back": "SEARCH: scan backwards",
+  "gui.djbooth.search_fwd": "SEARCH: scan forwards",
+  "gui.djbooth.memory": "MEMORY: save this spot as a cue you can call back",
+  "gui.djbooth.call_prev": "CUE/LOOP CALL: jump to the previous saved cue",
+  "gui.djbooth.call_next": "CUE/LOOP CALL: jump to the next saved cue",
+  "gui.djbooth.memory_delete": "DELETE: forget the saved cue nearest the playhead"
 }

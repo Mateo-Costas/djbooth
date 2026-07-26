@@ -42,6 +42,8 @@ public final class ServerMixerHandler {
                 case MixerPayload.FX_ECHO_B -> be.setEchoB(msg.value());
                 case MixerPayload.ISOLATOR -> be.setIsolator(msg.value() > 0.5f);
                 case MixerPayload.FADER_CURVE -> be.setFaderSharp(msg.value() > 0.5f);
+                case MixerPayload.GAIN_A -> be.setGainA(msg.value());
+                case MixerPayload.GAIN_B -> be.setGainB(msg.value());
                 default -> { return; }
             }
             be.applyAndSync();

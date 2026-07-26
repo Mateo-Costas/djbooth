@@ -32,6 +32,9 @@ public record MixerPayload(BlockPos pos, int channel, float value) implements Cu
     // Global switches sent as 0/1: isolator EQ curve, steep fader curve.
     public static final int ISOLATOR = 14;
     public static final int FADER_CURVE = 15;
+    // Channel trim/gain, the knob at the top of each strip on a real DJM (0.5 = unity).
+    public static final int GAIN_A = 16;
+    public static final int GAIN_B = 17;
 
     public static final Type<MixerPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(DJBooth.MODID, "mixer"));

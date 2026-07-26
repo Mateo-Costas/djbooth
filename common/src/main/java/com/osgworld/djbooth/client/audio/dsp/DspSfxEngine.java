@@ -18,13 +18,21 @@ import java.nio.ByteOrder;
  * through untouched so nothing breaks.
  */
 public final class DspSfxEngine extends SFXEngine {
-    // Fixed EQ corner frequencies (Hz) — typical DJ isolator bands.
-    private static final double F_LOW = 200.0;
-    private static final double F_MID = 1000.0;
-    private static final double F_HIGH = 4000.0;
-    private static final double MID_Q = 0.9;
+    // The three "EQ" knobs sweep a filter frequency rather than a band gain: each one is fully
+    // open (bypassed) at the top of its travel and closes in as it is turned down.
+    private static final double LOW_MIN_HZ = 20.0;    // LOW: low-pass, 20 Hz .. 100 Hz, bypass at 1.0
+    private static final double LOW_MAX_HZ = 100.0;
+    private static final double MID_MIN_HZ = 100.0;   // MID: swept bell, 100 Hz .. 20 kHz
+    private static final double MID_MAX_HZ = 20000.0;
+    private static final double HIGH_MIN_HZ = 25.0;   // HIGH: low-pass, 25 Hz .. 20 kHz
+    private static final double HIGH_MAX_HZ = 20000.0;
+    private static final double MID_Q = 1.2;
+    private static final double MID_GAIN_DB = 9.0; // bell boost, so the swept mid is audible
+    private static final double SWEEP_Q = 0.9;     // resonance of the EQ low-pass sweeps
+    private static final double BYPASS_ABOVE = 0.995; // knob position that means "wide open"
     private static final double FILTER_Q = 2.0;    // resonance of the colour sweep
     private static final double ECHO_SECONDS = 0.35; // fixed delay time (matches a slow beat echo)
+    private static final double GAIN_MAX = 2.0;    // trim: knob 0.5 = unity, 1.0 = +6 dB
 
     private final ALEngine inner = ALEngine.buildDefault();
 
@@ -38,20 +46,22 @@ public final class DspSfxEngine extends SFXEngine {
     private int delayLen;
 
     // Knob params (0..1). Written from the client thread, read on the audio thread.
-    private volatile float pLow = 0.5f, pMid = 0.5f, pHigh = 0.5f, pFilter = 0.5f, pEcho = 0f;
-    private volatile boolean pIsolator = false; // EQ curve: false = -26 dB EQ, true = -inf kill
+    private volatile float pLow = 1f, pMid = 1f, pHigh = 1f, pFilter = 0.5f, pEcho = 0f, pGain = 0.5f;
+    private volatile boolean pIsolator = false; // steeper sweep resonance when true
     // Last params baked into coefficients, so we only recompute when a knob actually moves.
     private float aLow = -1, aMid = -1, aHigh = -1, aFilter = -1;
     private boolean aIsolator;
 
-    /** Update the EQ/filter/echo knobs (0..1, 0.5 = flat for EQ) and the isolator curve mode. */
+    /** Update the EQ/filter/echo/trim knobs (0..1). EQ knobs are open at 1.0, the colour filter is
+     *  bypassed at 0.5, echo is off at 0 and the trim is unity at 0.5. */
     public void setParams(float lowV, float midV, float highV, float filterV, float echoV,
-                          boolean isolator) {
+                          float gainV, boolean isolator) {
         this.pLow = lowV;
         this.pMid = midV;
         this.pHigh = highV;
         this.pFilter = filterV;
         this.pEcho = echoV;
+        this.pGain = gainV;
         this.pIsolator = isolator;
     }
 
@@ -98,23 +108,45 @@ public final class DspSfxEngine extends SFXEngine {
             return;
         }
         double fs = sampleRate;
+        double nyq = fs / 2.0;
+        double q = iso ? SWEEP_Q * 2.0 : SWEEP_Q; // isolator mode = sharper, more resonant sweeps
         for (int c = 0; c < channels; c++) {
-            low[c].lowShelf(fs, F_LOW, dbForBand(l, iso));
-            mid[c].peaking(fs, F_MID, dbForBand(m, iso), MID_Q);
-            high[c].highShelf(fs, F_HIGH, dbForBand(h, iso));
+            configureLowPass(low[c], fs, nyq, l, LOW_MIN_HZ, LOW_MAX_HZ, q);
+            configureBell(mid[c], fs, nyq, m);
+            configureLowPass(high[c], fs, nyq, h, HIGH_MIN_HZ, HIGH_MAX_HZ, q);
             configureSweep(sweep[c], fs, f);
         }
         aLow = l; aMid = m; aHigh = h; aFilter = f; aIsolator = iso;
     }
 
-    /** Knob 0..1 -> gain in dB, matching the DJM-900NXS2: 0.5 = flat, up to +6 dB boost, and down to
-     *  -26 dB in EQ mode or a near -inf kill in isolator mode. */
-    private static double dbForBand(double v, boolean isolator) {
-        if (v >= 0.5) {
-            return (v - 0.5) / 0.5 * 6.0;
+    /** Map a knob logarithmically onto {@code [minHz, maxHz]} so the sweep sounds even. */
+    private static double sweepHz(double v, double minHz, double maxHz) {
+        return minHz * Math.pow(maxHz / minHz, clamp01(v));
+    }
+
+    /** A knob that opens up as it is turned clockwise: bypassed at the top, closing in below it. */
+    private static void configureLowPass(Biquad bq, double fs, double nyq, double v,
+                                         double minHz, double maxHz, double q) {
+        if (v >= BYPASS_ABOVE) {
+            bq.identity();
+            return;
         }
-        double floorDb = isolator ? 60.0 : 26.0;
-        return (v / 0.5 - 1.0) * floorDb;
+        double cutoff = sweepHz(v / BYPASS_ABOVE, minHz, maxHz);
+        bq.lowpass(fs, Math.min(cutoff, nyq * 0.98), q);
+    }
+
+    /** MID knob: a bell whose centre frequency sweeps 100 Hz .. 20 kHz (inaudible, so flat, at the top). */
+    private static void configureBell(Biquad bq, double fs, double nyq, double v) {
+        if (v >= BYPASS_ABOVE) {
+            bq.identity();
+            return;
+        }
+        double centre = sweepHz(v / BYPASS_ABOVE, MID_MIN_HZ, MID_MAX_HZ);
+        bq.peaking(fs, Math.min(centre, nyq * 0.98), MID_GAIN_DB, MID_Q);
+    }
+
+    private static double clamp01(double v) {
+        return v < 0 ? 0 : (v > 1 ? 1 : v);
     }
 
     /** Colour knob: centre = bypass, left = low-pass sweep down, right = high-pass sweep up. */
@@ -141,6 +173,7 @@ public final class DspSfxEngine extends SFXEngine {
         rebakeIfNeeded();
         float echoMix = pEcho * 0.6f;       // wet level
         float echoFb = pEcho * 0.5f;        // feedback
+        double gain = pGain * GAIN_MAX;     // channel trim, 0.5 = unity
         int pos = buf.position();
         int lim = buf.limit();
         ByteBuffer v = buf.duplicate().order(ByteOrder.LITTLE_ENDIAN);
@@ -149,7 +182,7 @@ public final class DspSfxEngine extends SFXEngine {
             for (int i = pos; i + frameBytes <= lim; i += frameBytes) {
                 for (int c = 0; c < channels; c++) {
                     int idx = i + c * 2;
-                    double s = filter(c, v.getShort(idx) / 32768.0, echoMix, echoFb);
+                    double s = gain * filter(c, v.getShort(idx) / 32768.0, echoMix, echoFb);
                     v.putShort(idx, (short) Math.round(clamp(s) * 32767.0));
                 }
             }
@@ -158,7 +191,7 @@ public final class DspSfxEngine extends SFXEngine {
             for (int i = pos; i + frameBytes <= lim; i += frameBytes) {
                 for (int c = 0; c < channels; c++) {
                     int idx = i + c * 4;
-                    double s = filter(c, v.getFloat(idx), echoMix, echoFb);
+                    double s = gain * filter(c, v.getFloat(idx), echoMix, echoFb);
                     v.putFloat(idx, (float) clamp(s));
                 }
             }

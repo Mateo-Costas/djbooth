@@ -21,9 +21,12 @@ public class MixerBlockEntity extends BlockEntity {
     private float crossfader = 0.5f; // 0 = full A, 1 = full B
     private float master = 1.0f;
 
-    // Per-channel EQ + colour filter + echo, 0..1 with 0.5 = flat/bypass (echo 0 = off).
-    private float eqLowA = 0.5f, eqMidA = 0.5f, eqHiA = 0.5f, filterA = 0.5f, echoA = 0f;
-    private float eqLowB = 0.5f, eqMidB = 0.5f, eqHiB = 0.5f, filterB = 0.5f, echoB = 0f;
+    // Per-channel EQ + colour filter + echo + trim, all 0..1.
+    // The EQ knobs sweep a filter frequency (not a band gain), so their open/bypass position is
+    // fully clockwise (1.0), not centre. Colour filter stays centre-bypass, echo 0 = off,
+    // trim 0.5 = unity gain.
+    private float eqLowA = 1.0f, eqMidA = 1.0f, eqHiA = 1.0f, filterA = 0.5f, echoA = 0f, gainA = 0.5f;
+    private float eqLowB = 1.0f, eqMidB = 1.0f, eqHiB = 1.0f, filterB = 0.5f, echoB = 0f, gainB = 0.5f;
     // Global switches, like the real DJM. isolator: EQ knobs kill to -inf vs -26 dB.
     // faderSharp: steep channel-fader curve vs linear.
     private boolean isolator = false;
@@ -66,16 +69,21 @@ public class MixerBlockEntity extends BlockEntity {
     public void setEchoA(float v) { this.echoA = clamp01(v); }
     public void setEchoB(float v) { this.echoB = clamp01(v); }
 
+    public float getGainA() { return gainA; }
+    public float getGainB() { return gainB; }
+    public void setGainA(float v) { this.gainA = clamp01(v); }
+    public void setGainB(float v) { this.gainB = clamp01(v); }
+
     public boolean isIsolator() { return isolator; }
     public boolean isFaderSharp() { return faderSharp; }
     public void setIsolator(boolean v) { this.isolator = v; }
     public void setFaderSharp(boolean v) { this.faderSharp = v; }
 
-    /** Deck's DSP knobs as {low, mid, high, filter, echo}, each 0..1 (0.5 = flat, echo 0 = off). */
+    /** Deck's DSP knobs as {low, mid, high, filter, echo, gain}, each 0..1. */
     public float[] eqForDeck(boolean deckA) {
         return deckA
-                ? new float[]{eqLowA, eqMidA, eqHiA, filterA, echoA}
-                : new float[]{eqLowB, eqMidB, eqHiB, filterB, echoB};
+                ? new float[]{eqLowA, eqMidA, eqHiA, filterA, echoA, gainA}
+                : new float[]{eqLowB, eqMidB, eqHiB, filterB, echoB, gainB};
     }
 
     private static float clamp01(float v) {
@@ -122,6 +130,8 @@ public class MixerBlockEntity extends BlockEntity {
         tag.putFloat("FilterB", filterB);
         tag.putFloat("EchoA", echoA);
         tag.putFloat("EchoB", echoB);
+        tag.putFloat("GainA", gainA);
+        tag.putFloat("GainB", gainB);
         tag.putBoolean("Isolator", isolator);
         tag.putBoolean("FaderSharp", faderSharp);
     }
@@ -133,16 +143,18 @@ public class MixerBlockEntity extends BlockEntity {
         faderB = tag.contains("FaderB") ? tag.getFloat("FaderB") : 1.0f;
         crossfader = tag.contains("Crossfader") ? tag.getFloat("Crossfader") : 0.5f;
         master = tag.contains("Master") ? tag.getFloat("Master") : 1.0f;
-        eqLowA = tag.contains("EqLowA") ? tag.getFloat("EqLowA") : 0.5f;
-        eqMidA = tag.contains("EqMidA") ? tag.getFloat("EqMidA") : 0.5f;
-        eqHiA = tag.contains("EqHiA") ? tag.getFloat("EqHiA") : 0.5f;
+        eqLowA = tag.contains("EqLowA") ? tag.getFloat("EqLowA") : 1.0f;
+        eqMidA = tag.contains("EqMidA") ? tag.getFloat("EqMidA") : 1.0f;
+        eqHiA = tag.contains("EqHiA") ? tag.getFloat("EqHiA") : 1.0f;
         filterA = tag.contains("FilterA") ? tag.getFloat("FilterA") : 0.5f;
-        eqLowB = tag.contains("EqLowB") ? tag.getFloat("EqLowB") : 0.5f;
-        eqMidB = tag.contains("EqMidB") ? tag.getFloat("EqMidB") : 0.5f;
-        eqHiB = tag.contains("EqHiB") ? tag.getFloat("EqHiB") : 0.5f;
+        eqLowB = tag.contains("EqLowB") ? tag.getFloat("EqLowB") : 1.0f;
+        eqMidB = tag.contains("EqMidB") ? tag.getFloat("EqMidB") : 1.0f;
+        eqHiB = tag.contains("EqHiB") ? tag.getFloat("EqHiB") : 1.0f;
         filterB = tag.contains("FilterB") ? tag.getFloat("FilterB") : 0.5f;
         echoA = tag.contains("EchoA") ? tag.getFloat("EchoA") : 0f;
         echoB = tag.contains("EchoB") ? tag.getFloat("EchoB") : 0f;
+        gainA = tag.contains("GainA") ? tag.getFloat("GainA") : 0.5f;
+        gainB = tag.contains("GainB") ? tag.getFloat("GainB") : 0.5f;
         isolator = tag.contains("Isolator") && tag.getBoolean("Isolator");
         faderSharp = tag.contains("FaderSharp") && tag.getBoolean("FaderSharp");
     }

@@ -31,6 +31,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     private static final int TEX_H = 440;
     private static final double MS_PER_DEG = 8.0; // jog sensitivity: full turn ≈ 2.9 s scrub
     private static final double JOG_BEND_PER_DEG = 0.05; // jog pitch-bend strength while playing
+    private static final long JOG_SEND_MS = 60; // min gap between jog scrub packets
 
     private static final int BOTTOM_STRIP = 108; // reserved height below panel: search + perf pads + guide
 
@@ -50,6 +51,10 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     private static final long TAP_RESET_MS = 2000; // gap that starts a fresh count
     private final java.util.Map<BlockPos, java.util.ArrayDeque<Long>> taps = new java.util.HashMap<>();
     private final java.util.Map<BlockPos, Double> bpm = new java.util.HashMap<>();
+
+    // Jog scrub accumulator per deck: leftover degrees, and when we last sent a scrub packet.
+    private final java.util.Map<BlockPos, Double> jogPending = new java.util.HashMap<>();
+    private final java.util.Map<BlockPos, Long> jogLastSent = new java.util.HashMap<>();
 
     private double tempoRangeFor(BlockPos pos) {
         return TEMPO_RANGES[tempoRangeIdx.getOrDefault(pos, 2)]; // default ±16
@@ -280,38 +285,53 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 Component.translatable("gui.djbooth.loop")));
         addRenderableWidget(loopBtn);
 
-        // Tempo fader (vertical): centre = 100%, full throw = +/- the selected range, like a real CDJ.
+        // Tempo fader (vertical): centre = 100%, full throw = +/- the selected range. The travel is
+        // inverted like a real Pioneer pitch fader — pushing it up slows the track down (-%), pulling
+        // it down speeds it up (+%).
         int[] t = px(region, BoothLayout.DECK_TEMPO);
-        PanelFader tempo = new PanelFader(t[0], t[1], t[2], t[3], true,
+        PanelFader tempo = new PanelFader(t[0], t[1], t[2], t[3], true, 0.5,
                 () -> {
                     CdjBlockEntity be = menu.deck(pos);
                     double rate = be != null ? be.state().getRate() : 1.0;
-                    return 0.5 + (rate - 1.0) / (2 * tempoRangeFor(pos)); // rate -> fader 0..1
+                    return 0.5 - (rate - 1.0) / (2 * tempoRangeFor(pos)); // rate -> fader 0..1
                 },
                 v -> NetworkManager.sendToServer(
-                        new JogNudgePayload(pos, 1.0 + (v - 0.5) * 2 * tempoRangeFor(pos), -1L)));
+                        new JogNudgePayload(pos, 1.0 - (v - 0.5) * 2 * tempoRangeFor(pos), -1L)));
         tempo.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 Component.translatable("gui.djbooth.tempo")));
         addRenderableWidget(tempo);
 
-        // Jog wheel. While playing it bends the pitch like a real CDJ jog (smooth, client-local,
-        // no seek). While parked it scrubs the position by seeking on the server.
+        // Jog wheel. It scrubs the position in both directions like a vinyl-mode CDJ jog; while
+        // playing it also bends the pitch so forward nudges still feel smooth. Scrub packets are
+        // throttled and the leftover angle is carried over, so slow turns aren't lost to rounding.
         int[] j = px(region, BoothLayout.DECK_JOG);
         addRenderableWidget(new PanelJog(j[0], j[1], j[2], j[3], deg -> {
             CdjBlockEntity be = menu.deck(pos);
             if (be == null || minecraft == null || minecraft.level == null) {
                 return;
             }
-            if (be.state().getPlayState() == PlayState.PLAY) {
-                // deg is the per-drag angle; turn it into a momentary speed multiplier.
-                DeckAudioManager.nudgeBend(pos, 1.0 + deg * JOG_BEND_PER_DEG);
-            } else {
-                long now = minecraft.level.getGameTime() * 50L;
-                long cur = be.state().positionMsAt(now);
-                long target = Math.max(0, cur + Math.round(deg * MS_PER_DEG));
-                NetworkManager.sendToServer(
-                        new JogNudgePayload(pos, be.state().getRate(), target));
+            boolean playing = be.state().getPlayState() == PlayState.PLAY;
+            if (playing) {
+                // deg is the per-drag angle; turn it into a momentary speed multiplier. Clamped so a
+                // hard backwards flick slows down instead of asking for a negative playback rate.
+                double factor = Math.max(0.25, Math.min(2.0, 1.0 + deg * JOG_BEND_PER_DEG));
+                DeckAudioManager.nudgeBend(pos, factor);
             }
+            jogPending.merge(pos, deg, Double::sum);
+            long now = net.minecraft.Util.getMillis();
+            if (now - jogLastSent.getOrDefault(pos, 0L) < JOG_SEND_MS) {
+                return;
+            }
+            double pending = jogPending.getOrDefault(pos, 0.0);
+            long deltaMs = Math.round(pending * MS_PER_DEG);
+            if (deltaMs == 0) {
+                return; // keep accumulating; a tiny turn shouldn't be rounded away to nothing
+            }
+            jogPending.put(pos, pending - deltaMs / MS_PER_DEG);
+            jogLastSent.put(pos, now);
+            long clock = minecraft.level.getGameTime() * 50L;
+            long target = Math.max(0, be.state().positionMsAt(clock) + deltaMs);
+            NetworkManager.sendToServer(new JogNudgePayload(pos, be.state().getRate(), target));
         }));
     }
 
@@ -390,29 +410,36 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         addMixerFader(BoothLayout.MIX_XFADER, false, MixerPayload.CROSSFADER,
                 m -> m.getCrossfader(), Component.translatable("gui.djbooth.crossfader"));
 
-        // Channel A EQ + colour filter (labels to the left).
-        addMixerKnob(BoothLayout.MIX_HI_A, "HI", true, MixerPayload.EQ_HI_A,
+        // Channel A EQ + colour filter (labels to the left). The EQ knobs sweep a filter frequency,
+        // so their default (and double-click reset) is fully open at 1.0, not centre.
+        addMixerKnob(BoothLayout.MIX_HI_A, "HI", true, MixerPayload.EQ_HI_A, 1.0,
                 m -> m.getEqHiA(), Component.translatable("gui.djbooth.eq_hi"));
-        addMixerKnob(BoothLayout.MIX_MID_A, "MID", true, MixerPayload.EQ_MID_A,
+        addMixerKnob(BoothLayout.MIX_MID_A, "MID", true, MixerPayload.EQ_MID_A, 1.0,
                 m -> m.getEqMidA(), Component.translatable("gui.djbooth.eq_mid"));
-        addMixerKnob(BoothLayout.MIX_LOW_A, "LOW", true, MixerPayload.EQ_LOW_A,
+        addMixerKnob(BoothLayout.MIX_LOW_A, "LOW", true, MixerPayload.EQ_LOW_A, 1.0,
                 m -> m.getEqLowA(), Component.translatable("gui.djbooth.eq_low"));
-        addMixerKnob(BoothLayout.MIX_FILTER_A, "FLT", true, MixerPayload.FILTER_A,
+        addMixerKnob(BoothLayout.MIX_FILTER_A, "FLT", true, MixerPayload.FILTER_A, 0.5,
                 m -> m.getFilterA(), Component.translatable("gui.djbooth.filter"));
         // Channel B EQ + colour filter (labels to the right).
-        addMixerKnob(BoothLayout.MIX_HI_B, "HI", false, MixerPayload.EQ_HI_B,
+        addMixerKnob(BoothLayout.MIX_HI_B, "HI", false, MixerPayload.EQ_HI_B, 1.0,
                 m -> m.getEqHiB(), Component.translatable("gui.djbooth.eq_hi"));
-        addMixerKnob(BoothLayout.MIX_MID_B, "MID", false, MixerPayload.EQ_MID_B,
+        addMixerKnob(BoothLayout.MIX_MID_B, "MID", false, MixerPayload.EQ_MID_B, 1.0,
                 m -> m.getEqMidB(), Component.translatable("gui.djbooth.eq_mid"));
-        addMixerKnob(BoothLayout.MIX_LOW_B, "LOW", false, MixerPayload.EQ_LOW_B,
+        addMixerKnob(BoothLayout.MIX_LOW_B, "LOW", false, MixerPayload.EQ_LOW_B, 1.0,
                 m -> m.getEqLowB(), Component.translatable("gui.djbooth.eq_low"));
-        addMixerKnob(BoothLayout.MIX_FILTER_B, "FLT", false, MixerPayload.FILTER_B,
+        addMixerKnob(BoothLayout.MIX_FILTER_B, "FLT", false, MixerPayload.FILTER_B, 0.5,
                 m -> m.getFilterB(), Component.translatable("gui.djbooth.filter"));
 
-        // Echo (Beat FX) per channel.
-        addMixerKnob(BoothLayout.MIX_ECHO_A, "FX", true, MixerPayload.FX_ECHO_A,
+        // Channel trim, in the spot the real mixer puts GAIN: top of each strip, unity at centre.
+        addMixerKnob(BoothLayout.MIX_GAIN_A, "GAIN", true, MixerPayload.GAIN_A, 0.5,
+                m -> m.getGainA(), Component.translatable("gui.djbooth.gain"));
+        addMixerKnob(BoothLayout.MIX_GAIN_B, "GAIN", false, MixerPayload.GAIN_B, 0.5,
+                m -> m.getGainB(), Component.translatable("gui.djbooth.gain"));
+
+        // Echo (Beat FX) per channel, off at rest.
+        addMixerKnob(BoothLayout.MIX_ECHO_A, "FX", true, MixerPayload.FX_ECHO_A, 0.0,
                 m -> m.getEchoA(), Component.translatable("gui.djbooth.echo"));
-        addMixerKnob(BoothLayout.MIX_ECHO_B, "FX", false, MixerPayload.FX_ECHO_B,
+        addMixerKnob(BoothLayout.MIX_ECHO_B, "FX", false, MixerPayload.FX_ECHO_B, 0.0,
                 m -> m.getEchoB(), Component.translatable("gui.djbooth.echo"));
 
         // Global switches: EQ curve (isolator/EQ) and channel fader curve.
@@ -448,15 +475,17 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     }
 
     private void addMixerKnob(BoothLayout.Rect ctrl, String tag, boolean labelLeft, int channel,
+                              double defaultValue,
                               java.util.function.Function<MixerBlockEntity, Float> getter,
                               Component label) {
         BlockPos mix = menu.refs().mixer();
         int[] k = px(BoothLayout.REGION_MIXER, ctrl);
         com.osgworld.djbooth.client.screen.widget.PanelKnob knob =
                 new com.osgworld.djbooth.client.screen.widget.PanelKnob(k[0], k[1], k[2], k[3], tag, labelLeft,
+                        defaultValue,
                         () -> {
                             MixerBlockEntity be = menu.mixer();
-                            return be != null ? getter.apply(be) : 0.5;
+                            return be != null ? getter.apply(be) : defaultValue;
                         },
                         v -> NetworkManager.sendToServer(
                                 new MixerPayload(mix, channel, (float) v)));

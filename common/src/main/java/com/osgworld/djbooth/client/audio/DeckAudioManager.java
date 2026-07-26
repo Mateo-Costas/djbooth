@@ -122,7 +122,7 @@ public final class DeckAudioManager {
             float attenuation = dist < RANGE ? (float) (1.0 - dist / RANGE) : 0f;
             float mixerVol = mixerVolumeFor(mc.level, deck);
             float[] eq = mixerEqFor(mc.level, deck);
-            audio.setDsp(eq[0], eq[1], eq[2], eq[3], eq[4], eq[5] > 0.5f);
+            audio.setDsp(eq[0], eq[1], eq[2], eq[3], eq[4], eq[6], eq[5] > 0.5f);
             audio.syncTo(deck.state(), now, mixerVol * attenuation);
         }
 
@@ -150,16 +150,17 @@ public final class DeckAudioManager {
         return mixer.volumeForDeck(isA);
     }
 
-    /** DSP knobs for this deck's channel: {low, mid, high, filter, echo, isolator}, flat if no mixer. */
+    /** DSP knobs for this deck's channel: {low, mid, high, filter, echo, isolator, gain};
+     *  wide open with unity trim if there is no mixer. */
     private static float[] mixerEqFor(Level level, CdjBlockEntity deck) {
         BoothRefs refs = BoothRefs.scan(level, deck.getBlockPos());
         if (refs.mixer() == null
                 || !(level.getBlockEntity(refs.mixer()) instanceof MixerBlockEntity mixer)) {
-            return new float[]{0.5f, 0.5f, 0.5f, 0.5f, 0f, 0f};
+            return new float[]{1f, 1f, 1f, 0.5f, 0f, 0f, 0.5f};
         }
         boolean isA = deck.getBlockPos().equals(refs.deckA());
-        float[] eq = mixer.eqForDeck(isA); // {low, mid, high, filter, echo}
-        return new float[]{eq[0], eq[1], eq[2], eq[3], eq[4], mixer.isIsolator() ? 1f : 0f};
+        float[] eq = mixer.eqForDeck(isA); // {low, mid, high, filter, echo, gain}
+        return new float[]{eq[0], eq[1], eq[2], eq[3], eq[4], mixer.isIsolator() ? 1f : 0f, eq[5]};
     }
 
     private static void releaseAll() {

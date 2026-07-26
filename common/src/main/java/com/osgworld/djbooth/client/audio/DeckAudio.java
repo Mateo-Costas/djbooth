@@ -34,16 +34,19 @@ public class DeckAudio {
     private int lastVolume = -1;
 
     // EQ/filter/echo knob values (0..1) + isolator mode, set by the mixer each tick.
-    private volatile float eqLow = 0.5f, eqMid = 0.5f, eqHigh = 0.5f, eqFilter = 0.5f, eqEcho = 0f;
+    private volatile float eqLow = 1f, eqMid = 1f, eqHigh = 1f, eqFilter = 0.5f, eqEcho = 0f;
+    private volatile float eqGain = 0.5f;
     private volatile boolean isolator = false;
 
-    /** Point the deck's EQ / colour filter / echo at the mixer's current values (0..1, 0.5 = flat). */
-    public void setDsp(float low, float mid, float high, float filter, float echo, boolean isolator) {
+    /** Point the deck's EQ / colour filter / echo / trim at the mixer's current values (0..1). */
+    public void setDsp(float low, float mid, float high, float filter, float echo, float gain,
+                       boolean isolator) {
         this.eqLow = low;
         this.eqMid = mid;
         this.eqHigh = high;
         this.eqFilter = filter;
         this.eqEcho = echo;
+        this.eqGain = gain;
         this.isolator = isolator;
     }
 
@@ -132,7 +135,7 @@ public class DeckAudio {
 
         // EQ / colour filter / echo (only the FFmpeg path carries our DSP engine).
         if (dsp != null) {
-            dsp.setParams(eqLow, eqMid, eqHigh, eqFilter, eqEcho, isolator);
+            dsp.setParams(eqLow, eqMid, eqHigh, eqFilter, eqEcho, eqGain, isolator);
         }
 
         // Volume (0..100).

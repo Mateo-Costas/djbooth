@@ -10,17 +10,29 @@ import java.util.function.DoubleSupplier;
 
 /**
  * A draggable fader. Value is 0..1. Reads its live value from {@code getter} so it stays
- * in sync with server state, and reports changes through {@code setter}.
+ * in sync with server state, and reports changes through {@code setter}. Double-click or
+ * right-click parks it back at its default position.
  */
 public class PanelFader extends AbstractWidget {
+    private static final long DOUBLE_CLICK_MS = 300;
+
     private final boolean vertical;
     private final DoubleSupplier getter;
     private final DoubleConsumer setter;
+    private final double defaultValue;
+
+    private long lastClickMs;
 
     public PanelFader(int x, int y, int w, int h, boolean vertical,
                       DoubleSupplier getter, DoubleConsumer setter) {
+        this(x, y, w, h, vertical, 0.5, getter, setter);
+    }
+
+    public PanelFader(int x, int y, int w, int h, boolean vertical, double defaultValue,
+                      DoubleSupplier getter, DoubleConsumer setter) {
         super(x, y, w, h, Component.empty());
         this.vertical = vertical;
+        this.defaultValue = Math.max(0.0, Math.min(1.0, defaultValue));
         this.getter = getter;
         this.setter = setter;
     }
@@ -37,7 +49,23 @@ public class PanelFader extends AbstractWidget {
     }
 
     @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 1 && isMouseOver(mouseX, mouseY)) {
+            setter.accept(defaultValue);
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
     public void onClick(double mouseX, double mouseY) {
+        long now = net.minecraft.Util.getMillis();
+        if (now - lastClickMs <= DOUBLE_CLICK_MS) {
+            setter.accept(defaultValue);
+            lastClickMs = 0;
+            return;
+        }
+        lastClickMs = now;
         setFromMouse(mouseX, mouseY);
     }
 

@@ -46,9 +46,14 @@ public final class BoothLayout {
     public static final Rect MIX_LOW_B    = new Rect(0.344f, 0.382f, 0.070f, 0.057f);
     public static final Rect MIX_FILTER_B = new Rect(0.339f, 0.467f, 0.080f, 0.065f); // COLOR
 
-    // Echo (Beat FX) knob per channel, over the TRIM position at the top of each strip.
-    public static final Rect MIX_ECHO_A   = new Rect(0.215f, 0.150f, 0.070f, 0.055f);
-    public static final Rect MIX_ECHO_B   = new Rect(0.344f, 0.150f, 0.070f, 0.055f);
+    // TRIM/GAIN knob per channel: top of each strip, where the real DJM puts it.
+    public static final Rect MIX_GAIN_A   = new Rect(0.215f, 0.150f, 0.070f, 0.055f);
+    public static final Rect MIX_GAIN_B   = new Rect(0.344f, 0.150f, 0.070f, 0.055f);
+
+    // Echo (Beat FX) knob per channel. Not a DJM strip control, so it lives on the right-hand
+    // FX panel above the global switches rather than stealing the TRIM position.
+    public static final Rect MIX_ECHO_A   = new Rect(0.700f, 0.500f, 0.060f, 0.048f);
+    public static final Rect MIX_ECHO_B   = new Rect(0.700f, 0.585f, 0.060f, 0.048f);
     // Global switches (bottom-right of the DJM: EQ CURVE + CH FADER curve).
     public static final Rect MIX_ISOLATOR    = new Rect(0.718f, 0.700f, 0.070f, 0.040f);
     public static final Rect MIX_FADERCURVE  = new Rect(0.718f, 0.770f, 0.070f, 0.040f);

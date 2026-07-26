@@ -10,23 +10,34 @@ import java.util.function.DoubleSupplier;
 
 /**
  * A rotary knob. Value is 0..1 (0.5 = 12 o'clock). Drag up to turn clockwise, down to turn
- * anticlockwise, like grabbing a real EQ/filter knob. Right-click snaps back to centre. Reads its
- * live value from {@code getter} so it tracks server state, and reports turns through {@code setter}.
+ * anticlockwise, like grabbing a real EQ/filter knob. Double-click (or right-click) snaps back to
+ * this knob's default position. Reads its live value from {@code getter} so it tracks server state,
+ * and reports turns through {@code setter}.
  */
 public class PanelKnob extends AbstractWidget {
     private static final double SWEEP_DEG = 135.0; // +/- travel from centre
     private static final double DRAG_SENS = 150.0; // pixels of drag for a full 0..1 turn
+    private static final long DOUBLE_CLICK_MS = 300;
 
     private final DoubleSupplier getter;
     private final DoubleConsumer setter;
     private final String tag;       // short caption (HI / MID / LOW / FLT)
     private final boolean labelLeft; // draw the caption on the left (deck A) vs right (deck B)
+    private final double defaultValue; // where a double-click / right-click parks the knob
+
+    private long lastClickMs;
 
     public PanelKnob(int x, int y, int w, int h, String tag, boolean labelLeft,
+                     DoubleSupplier getter, DoubleConsumer setter) {
+        this(x, y, w, h, tag, labelLeft, 0.5, getter, setter);
+    }
+
+    public PanelKnob(int x, int y, int w, int h, String tag, boolean labelLeft, double defaultValue,
                      DoubleSupplier getter, DoubleConsumer setter) {
         super(x, y, w, h, Component.empty());
         this.tag = tag;
         this.labelLeft = labelLeft;
+        this.defaultValue = clamp01(defaultValue);
         this.getter = getter;
         this.setter = setter;
     }
@@ -38,7 +49,7 @@ public class PanelKnob extends AbstractWidget {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 1 && isMouseOver(mouseX, mouseY)) {
-            setter.accept(0.5); // right-click resets to flat/centre
+            setter.accept(defaultValue); // right-click resets
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -46,7 +57,14 @@ public class PanelKnob extends AbstractWidget {
 
     @Override
     public void onClick(double mouseX, double mouseY) {
-        // Turning happens on drag; a bare click leaves the value alone.
+        // Turning happens on drag; a bare click leaves the value alone, but a double-click resets.
+        long now = net.minecraft.Util.getMillis();
+        if (now - lastClickMs <= DOUBLE_CLICK_MS) {
+            setter.accept(defaultValue);
+            lastClickMs = 0;
+        } else {
+            lastClickMs = now;
+        }
     }
 
     @Override

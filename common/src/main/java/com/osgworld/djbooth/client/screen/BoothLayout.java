@@ -66,6 +66,18 @@ public final class BoothLayout {
     public static final Rect MIX_COLOR_MODES = new Rect(0.040f, 0.452f, 0.110f, 0.105f);
     public static final Rect MIX_COLOR_PARAM = new Rect(0.073f, 0.576f, 0.044f, 0.035f);
 
+    // BEAT FX panel down the right-hand edge of the DJM, measured off the panel art:
+    // beat-fraction buttons y≈0.363..0.410, TAP y≈0.494, FX FREQUENCY y≈0.555, the effect
+    // selector y≈0.625, channel selector y≈0.681, TIME y≈0.756, LEVEL/DEPTH y≈0.836,
+    // and the big ON/OFF at y≈0.915.
+    public static final Rect FX_BEATS     = new Rect(0.812f, 0.360f, 0.160f, 0.052f);
+    public static final Rect FX_TAP       = new Rect(0.862f, 0.478f, 0.060f, 0.032f);
+    public static final Rect FX_FREQ      = new Rect(0.812f, 0.542f, 0.160f, 0.026f);
+    public static final Rect FX_TYPES     = new Rect(0.800f, 0.590f, 0.185f, 0.075f);
+    public static final Rect FX_CHANNEL   = new Rect(0.862f, 0.672f, 0.060f, 0.028f);
+    public static final Rect FX_DEPTH     = new Rect(0.870f, 0.820f, 0.044f, 0.035f);
+    public static final Rect FX_ONOFF     = new Rect(0.858f, 0.898f, 0.068f, 0.038f);
+
     // Global switches (bottom-right of the DJM: EQ CURVE + CH FADER curve).
     public static final Rect MIX_ISOLATOR    = new Rect(0.718f, 0.700f, 0.070f, 0.040f);
     public static final Rect MIX_FADERCURVE  = new Rect(0.718f, 0.770f, 0.070f, 0.040f);

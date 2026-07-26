@@ -41,6 +41,14 @@ public record MixerPayload(BlockPos pos, int channel, float value) implements Cu
     // SOUND COLOR FX mode (sent as the mode index) and its PARAMETER knob.
     public static final int COLOR_MODE = 20;
     public static final int COLOR_PARAM = 21;
+    // BEAT FX: effect selector, beat fraction, LEVEL/DEPTH, FX FREQUENCY mask, channel, ON/OFF, BPM.
+    public static final int BEATFX_TYPE = 22;
+    public static final int BEATFX_BEAT = 23;
+    public static final int BEATFX_DEPTH = 24;
+    public static final int BEATFX_BANDS = 25;
+    public static final int BEATFX_CHANNEL = 26;
+    public static final int BEATFX_ON = 27;
+    public static final int BPM = 28;
 
     public static final Type<MixerPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(DJBooth.MODID, "mixer"));

@@ -447,6 +447,8 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 v -> Math.round(v * 100) + "%",
                 m -> m.getColorParam(), Component.translatable("gui.djbooth.color_param"));
 
+        addBeatFxPanel();
+
         // CROSS FADER ASSIGN under each channel fader: A / THRU / B, like the hardware switch.
         addMixerCycle(BoothLayout.MIX_XF_ASSIGN_A, MixerPayload.XF_ASSIGN_A,
                 MixerBlockEntity::getXfAssignA, "gui.djbooth.xf_assign");
@@ -494,6 +496,145 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
             default -> off < 0 ? "LOW" : "HIGH";
         };
         return side + " " + Math.round(Math.abs(off) * 200) + "%";
+    }
+
+    /** The BEAT FX panel: pick an effect, a beat fraction and a channel, set how much of it you
+     *  want, tap the tempo, and switch it in. Laid out where the hardware puts each group. */
+    private void addBeatFxPanel() {
+        BlockPos mix = menu.refs().mixer();
+
+        // Effect selector: the fourteen types the selector knob steps through, as a grid.
+        gridButtons(BoothLayout.FX_TYPES, com.osgworld.djbooth.mixer.BeatFxTypes.NAMES.length, 5,
+                i -> com.osgworld.djbooth.mixer.BeatFxTypes.NAMES[i],
+                i -> Component.translatable(com.osgworld.djbooth.mixer.BeatFxTypes.tipKey(i)),
+                i -> NetworkManager.sendToServer(new MixerPayload(mix, MixerPayload.BEATFX_TYPE, i)),
+                i -> {
+                    MixerBlockEntity be = menu.mixer();
+                    return be != null && be.getBeatFxType() == i;
+                });
+
+        // Beat fraction: 1/16 .. 4, exactly the buttons on the panel.
+        gridButtons(BoothLayout.FX_BEATS,
+                com.osgworld.djbooth.mixer.BeatFxTypes.BEAT_NAMES.length, 4,
+                i -> com.osgworld.djbooth.mixer.BeatFxTypes.BEAT_NAMES[i],
+                i -> Component.translatable("gui.djbooth.beat_fraction"),
+                i -> NetworkManager.sendToServer(new MixerPayload(mix, MixerPayload.BEATFX_BEAT, i)),
+                i -> {
+                    MixerBlockEntity be = menu.mixer();
+                    return be != null && be.getBeatFxBeat() == i;
+                });
+
+        // FX FREQUENCY: mute a band out of the effect send, like the three lit buttons.
+        int[] bandBits = {com.osgworld.djbooth.mixer.BeatFxTypes.BAND_LOW,
+                com.osgworld.djbooth.mixer.BeatFxTypes.BAND_MID,
+                com.osgworld.djbooth.mixer.BeatFxTypes.BAND_HI};
+        String[] bandNames = {"LOW", "MID", "HI"};
+        gridButtons(BoothLayout.FX_FREQ, 3, 3,
+                i -> bandNames[i],
+                i -> Component.translatable("gui.djbooth.fx_freq"),
+                i -> {
+                    MixerBlockEntity be = menu.mixer();
+                    int bands = be != null ? be.getBeatFxBands()
+                            : com.osgworld.djbooth.mixer.BeatFxTypes.BANDS_ALL;
+                    NetworkManager.sendToServer(
+                            new MixerPayload(mix, MixerPayload.BEATFX_BANDS, bands ^ bandBits[i]));
+                },
+                i -> {
+                    MixerBlockEntity be = menu.mixer();
+                    return be != null && (be.getBeatFxBands() & bandBits[i]) != 0;
+                });
+
+        // Which channel the effect is patched across.
+        gridButtons(BoothLayout.FX_CHANNEL,
+                com.osgworld.djbooth.mixer.BeatFxTypes.CHANNEL_NAMES.length, 3,
+                i -> com.osgworld.djbooth.mixer.BeatFxTypes.CHANNEL_NAMES[i],
+                i -> Component.translatable("gui.djbooth.fx_channel"),
+                i -> NetworkManager.sendToServer(
+                        new MixerPayload(mix, MixerPayload.BEATFX_CHANNEL, i)),
+                i -> {
+                    MixerBlockEntity be = menu.mixer();
+                    return be != null && be.getBeatFxChannel() == i;
+                });
+
+        addMixerKnob(BoothLayout.FX_DEPTH, "DEPTH", true, MixerPayload.BEATFX_DEPTH, 0.5,
+                v -> Math.round(v * 100) + "%",
+                m -> m.getBeatFxDepth(), Component.translatable("gui.djbooth.fx_depth"));
+
+        // TAP sets the BPM the beat fractions are measured against.
+        int[] tap = px(BoothLayout.REGION_MIXER, BoothLayout.FX_TAP);
+        PanelButton tapBtn = new PanelButton(tap[0], tap[1], tap[2], tap[3],
+                Component.literal("TAP"), 0xFF25E0C0,
+                () -> {
+                    Double measured = tapBeatFx();
+                    if (measured != null) {
+                        NetworkManager.sendToServer(
+                                new MixerPayload(mix, MixerPayload.BPM, measured.floatValue()));
+                    }
+                },
+                () -> false).withCaption();
+        tapBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("gui.djbooth.fx_tap")));
+        addRenderableWidget(tapBtn);
+
+        // The big ON/OFF at the bottom of the panel.
+        int[] onoff = px(BoothLayout.REGION_MIXER, BoothLayout.FX_ONOFF);
+        PanelButton onBtn = new PanelButton(onoff[0], onoff[1], onoff[2], onoff[3],
+                Component.literal("ON/OFF"), 0xFF2A7BFF,
+                () -> {
+                    MixerBlockEntity be = menu.mixer();
+                    boolean next = be == null || !be.isBeatFxOn();
+                    NetworkManager.sendToServer(
+                            new MixerPayload(mix, MixerPayload.BEATFX_ON, next ? 1f : 0f));
+                },
+                () -> {
+                    MixerBlockEntity be = menu.mixer();
+                    return be != null && be.isBeatFxOn();
+                }).withCaption();
+        onBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("gui.djbooth.fx_onoff")));
+        addRenderableWidget(onBtn);
+    }
+
+    /** Lay {@code count} lit-when-selected buttons into a box, wrapping every {@code cols}. */
+    private void gridButtons(BoothLayout.Rect box, int count, int cols,
+                             java.util.function.IntFunction<String> label,
+                             java.util.function.IntFunction<Component> tip,
+                             java.util.function.IntConsumer onPress,
+                             java.util.function.IntPredicate lit) {
+        int[] b = px(BoothLayout.REGION_MIXER, box);
+        int rows = (count + cols - 1) / cols;
+        int gap = 1;
+        int bw = (b[2] - (cols - 1) * gap) / cols;
+        int bh = (b[3] - (rows - 1) * gap) / rows;
+        for (int i = 0; i < count; i++) {
+            final int idx = i;
+            PanelButton btn = new PanelButton(
+                    b[0] + (i % cols) * (bw + gap), b[1] + (i / cols) * (bh + gap), bw, bh,
+                    Component.literal(label.apply(i)), 0xFF25E0C0,
+                    () -> onPress.accept(idx), () -> lit.test(idx)).withCaption();
+            btn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(tip.apply(i)));
+            addRenderableWidget(btn);
+        }
+    }
+
+    // Tap history for the mixer's BEAT FX tempo (separate from the per-deck tap readouts).
+    private final java.util.ArrayDeque<Long> fxTaps = new java.util.ArrayDeque<>();
+
+    /** Register a tap on the BEAT FX TAP button; returns the measured BPM once there are enough. */
+    private Double tapBeatFx() {
+        long now = System.currentTimeMillis();
+        if (!fxTaps.isEmpty() && now - fxTaps.peekLast() > TAP_RESET_MS) {
+            fxTaps.clear();
+        }
+        fxTaps.addLast(now);
+        while (fxTaps.size() > 8) {
+            fxTaps.removeFirst();
+        }
+        if (fxTaps.size() < 2) {
+            return null;
+        }
+        double avg = (double) (fxTaps.peekLast() - fxTaps.peekFirst()) / (fxTaps.size() - 1);
+        return avg > 0 ? 60000.0 / avg : null;
     }
 
     /** The six SOUND COLOR FX buttons, laid out two columns by three rows like the panel.

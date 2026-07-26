@@ -37,11 +37,17 @@ public class DeckAudio {
     private volatile float eqLow = 0.5f, eqMid = 0.5f, eqHigh = 0.5f, eqFilter = 0.5f, eqEcho = 0f;
     private volatile float eqGain = 0.5f, colorParam = 0.5f;
     private volatile int colorMode = com.osgworld.djbooth.mixer.ColorFxModes.FILTER;
+    private volatile int beatType = com.osgworld.djbooth.mixer.BeatFxTypes.DELAY;
+    private volatile int beatBands = com.osgworld.djbooth.mixer.BeatFxTypes.BANDS_ALL;
+    private volatile float beatSeconds = 0.5f, beatDepth = 0.5f;
+    private volatile boolean beatOn = false;
     private volatile boolean isolator = false;
 
     /** Point the deck's EQ / colour filter / echo / trim at the mixer's current values (0..1). */
     public void setDsp(float low, float mid, float high, float filter, float echo, float gain,
-                       boolean isolator, int colorMode, float colorParam) {
+                       boolean isolator, int colorMode, float colorParam,
+                       int beatType, boolean beatOn, float beatSeconds, float beatDepth,
+                       int beatBands) {
         this.eqLow = low;
         this.eqMid = mid;
         this.eqHigh = high;
@@ -51,6 +57,11 @@ public class DeckAudio {
         this.isolator = isolator;
         this.colorMode = colorMode;
         this.colorParam = colorParam;
+        this.beatType = beatType;
+        this.beatOn = beatOn;
+        this.beatSeconds = beatSeconds;
+        this.beatDepth = beatDepth;
+        this.beatBands = beatBands;
     }
 
     // Discontinuity tracking: where the server clock said we were last tick.
@@ -139,7 +150,7 @@ public class DeckAudio {
         // EQ / colour filter / echo (only the FFmpeg path carries our DSP engine).
         if (dsp != null) {
             dsp.setParams(eqLow, eqMid, eqHigh, eqFilter, eqEcho, eqGain, isolator,
-                    colorMode, colorParam);
+                    colorMode, colorParam, beatType, beatOn, beatSeconds, beatDepth, beatBands);
         }
 
         // Volume (0..100).

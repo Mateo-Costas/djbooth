@@ -48,6 +48,13 @@ public final class ServerMixerHandler {
                 case MixerPayload.XF_ASSIGN_B -> be.setXfAssignB(Math.round(msg.value()));
                 case MixerPayload.COLOR_MODE -> be.setColorMode(Math.round(msg.value()));
                 case MixerPayload.COLOR_PARAM -> be.setColorParam(msg.value());
+                case MixerPayload.BEATFX_TYPE -> be.setBeatFxType(Math.round(msg.value()));
+                case MixerPayload.BEATFX_BEAT -> be.setBeatFxBeat(Math.round(msg.value()));
+                case MixerPayload.BEATFX_DEPTH -> be.setBeatFxDepth(msg.value());
+                case MixerPayload.BEATFX_BANDS -> be.setBeatFxBands(Math.round(msg.value()));
+                case MixerPayload.BEATFX_CHANNEL -> be.setBeatFxChannel(Math.round(msg.value()));
+                case MixerPayload.BEATFX_ON -> be.setBeatFxOn(msg.value() > 0.5f);
+                case MixerPayload.BPM -> be.setBpm(msg.value());
                 default -> { return; }
             }
             be.applyAndSync();

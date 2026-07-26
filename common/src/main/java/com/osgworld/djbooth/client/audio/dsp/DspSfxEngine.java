@@ -36,6 +36,7 @@ public final class DspSfxEngine extends SFXEngine {
     // Per-channel filter chains: [ch] -> {low shelf, mid peak, high shelf} + a COLOR FX stage.
     private Biquad[] low, mid, high;
     private ColorFx[] color;
+    private BeatFx[] beat;
     private boolean supported; // true when the negotiated format is one we filter
 
     // Per-channel echo delay lines.
@@ -48,6 +49,10 @@ public final class DspSfxEngine extends SFXEngine {
     private volatile float pGain = 0.5f;
     private volatile int pColorMode = com.osgworld.djbooth.mixer.ColorFxModes.FILTER;
     private volatile float pColorParam = 0.5f;
+    private volatile int pBeatType = com.osgworld.djbooth.mixer.BeatFxTypes.DELAY;
+    private volatile int pBeatBands = com.osgworld.djbooth.mixer.BeatFxTypes.BANDS_ALL;
+    private volatile float pBeatSeconds = 0.5f, pBeatDepth = 0.5f;
+    private volatile boolean pBeatOn = false;
     private volatile boolean pIsolator = false; // EQ curve: false = -26 dB EQ, true = -inf kill
     // Last params baked into coefficients, so we only recompute when a knob actually moves.
     private float aLow = -1, aMid = -1, aHigh = -1;
@@ -56,7 +61,9 @@ public final class DspSfxEngine extends SFXEngine {
     /** Update the EQ/filter/echo/trim knobs (0..1). EQ bands and the colour filter are flat at 0.5,
      *  echo is off at 0 and the trim is unity at 0.5. */
     public void setParams(float lowV, float midV, float highV, float filterV, float echoV,
-                          float gainV, boolean isolator, int colorMode, float colorParam) {
+                          float gainV, boolean isolator, int colorMode, float colorParam,
+                          int beatType, boolean beatOn, float beatSeconds, float beatDepth,
+                          int beatBands) {
         this.pLow = lowV;
         this.pMid = midV;
         this.pHigh = highV;
@@ -66,6 +73,11 @@ public final class DspSfxEngine extends SFXEngine {
         this.pIsolator = isolator;
         this.pColorMode = colorMode;
         this.pColorParam = colorParam;
+        this.pBeatType = beatType;
+        this.pBeatOn = beatOn;
+        this.pBeatSeconds = beatSeconds;
+        this.pBeatDepth = beatDepth;
+        this.pBeatBands = beatBands;
     }
 
     @Override
@@ -89,6 +101,7 @@ public final class DspSfxEngine extends SFXEngine {
             mid = new Biquad[channels];
             high = new Biquad[channels];
             color = new ColorFx[channels];
+            beat = new BeatFx[channels];
             delayLen = Math.max(1, (int) (sampleRate * ECHO_SECONDS));
             delay = new float[channels][delayLen];
             delayPos = new int[channels];
@@ -98,6 +111,9 @@ public final class DspSfxEngine extends SFXEngine {
                 high[c] = new Biquad();
                 color[c] = new ColorFx();
                 color[c].setup(sampleRate);
+                // Odd channels are the right-hand side, which PING PONG offsets against the left.
+                beat[c] = new BeatFx(c % 2 == 1);
+                beat[c].setup(sampleRate);
             }
             aLow = aMid = aHigh = -1; // force a rebake
         }
@@ -109,6 +125,7 @@ public final class DspSfxEngine extends SFXEngine {
     private void rebakeIfNeeded() {
         for (int c = 0; c < channels; c++) {
             color[c].set(pColorMode, pFilter, pColorParam);
+            beat[c].set(pBeatType, pBeatOn, pBeatSeconds, pBeatDepth, pBeatBands);
         }
         float l = pLow, m = pMid, h = pHigh;
         boolean iso = pIsolator;
@@ -173,6 +190,7 @@ public final class DspSfxEngine extends SFXEngine {
         s = mid[c].process(s);
         s = high[c].process(s);
         s = color[c].process(s);
+        s = beat[c].process(s);
         if (echoMix > 1e-4f) {
             int p = delayPos[c];
             float echoed = delay[c][p];
@@ -200,7 +218,8 @@ public final class DspSfxEngine extends SFXEngine {
     @Override public void flush() {
         if (supported) {
             for (int c = 0; c < channels; c++) {
-                low[c].reset(); mid[c].reset(); high[c].reset(); color[c].reset();
+                low[c].reset(); mid[c].reset(); high[c].reset();
+                color[c].reset(); beat[c].reset();
                 java.util.Arrays.fill(delay[c], 0f);
             }
         }

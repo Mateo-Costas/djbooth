@@ -123,7 +123,8 @@ public final class DeckAudioManager {
             float mixerVol = mixerVolumeFor(mc.level, deck);
             float[] eq = mixerEqFor(mc.level, deck);
             audio.setDsp(eq[0], eq[1], eq[2], eq[3], eq[4], eq[6], eq[5] > 0.5f,
-                    Math.round(eq[7]), eq[8]);
+                    Math.round(eq[7]), eq[8],
+                    Math.round(eq[9]), eq[10] > 0.5f, eq[11], eq[12], Math.round(eq[13]));
             audio.syncTo(deck.state(), now, mixerVol * attenuation);
         }
 
@@ -151,20 +152,27 @@ public final class DeckAudioManager {
         return mixer.volumeForDeck(isA);
     }
 
-    /** DSP knobs for this deck's channel:
-     *  {low, mid, high, colour, echo, isolator, gain, colourMode, colourParam};
-     *  flat with unity trim if there is no mixer. */
+    /** DSP settings for this deck's channel:
+     *  {low, mid, high, colour, echo, isolator, gain, colourMode, colourParam,
+     *   beatType, beatOn, beatSeconds, beatDepth, beatBands};
+     *  flat with unity trim and no effects if there is no mixer. */
     private static float[] mixerEqFor(Level level, CdjBlockEntity deck) {
         BoothRefs refs = BoothRefs.scan(level, deck.getBlockPos());
         if (refs.mixer() == null
                 || !(level.getBlockEntity(refs.mixer()) instanceof MixerBlockEntity mixer)) {
             return new float[]{0.5f, 0.5f, 0.5f, 0.5f, 0f, 0f, 0.5f,
-                    com.osgworld.djbooth.mixer.ColorFxModes.FILTER, 0.5f};
+                    com.osgworld.djbooth.mixer.ColorFxModes.FILTER, 0.5f,
+                    com.osgworld.djbooth.mixer.BeatFxTypes.DELAY, 0f, 0.5f, 0.5f,
+                    com.osgworld.djbooth.mixer.BeatFxTypes.BANDS_ALL};
         }
         boolean isA = deck.getBlockPos().equals(refs.deckA());
         float[] eq = mixer.eqForDeck(isA); // {low, mid, high, filter, echo, gain}
+        // The BEAT FX only reaches the channels the selector knob points at.
+        boolean beatOn = mixer.isBeatFxOn() && mixer.beatFxAppliesTo(isA);
         return new float[]{eq[0], eq[1], eq[2], eq[3], eq[4], mixer.isIsolator() ? 1f : 0f,
-                eq[5], mixer.getColorMode(), mixer.getColorParam()};
+                eq[5], mixer.getColorMode(), mixer.getColorParam(),
+                mixer.getBeatFxType(), beatOn ? 1f : 0f, mixer.beatFxSeconds(),
+                mixer.getBeatFxDepth(), mixer.getBeatFxBands()};
     }
 
     private static void releaseAll() {

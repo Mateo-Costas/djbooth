@@ -44,6 +44,16 @@ public class MixerBlockEntity extends BlockEntity {
     private int colorMode = com.osgworld.djbooth.mixer.ColorFxModes.FILTER;
     private float colorParam = 0.5f;
 
+    // BEAT FX: the tempo-locked effect on the right of the panel. One effect at a time, patched
+    // across one channel or the master, timed off the BPM and the selected beat fraction.
+    private int beatFxType = com.osgworld.djbooth.mixer.BeatFxTypes.DELAY;
+    private int beatFxBeat = com.osgworld.djbooth.mixer.BeatFxTypes.DEFAULT_BEAT;
+    private int beatFxBands = com.osgworld.djbooth.mixer.BeatFxTypes.BANDS_ALL;
+    private int beatFxChannel = com.osgworld.djbooth.mixer.BeatFxTypes.CH_MASTER;
+    private float beatFxDepth = 0.5f;
+    private boolean beatFxOn = false;
+    private float bpm = 128.0f; // set by TAP, or by a deck's measured tempo
+
     public MixerBlockEntity(BlockPos pos, BlockState blockState) {
         super(ModBlockEntities.MIXER.get(), pos, blockState);
     }
@@ -109,6 +119,45 @@ public class MixerBlockEntity extends BlockEntity {
     }
     public void setColorParam(float v) { this.colorParam = clamp01(v); }
 
+    public int getBeatFxType() { return beatFxType; }
+    public int getBeatFxBeat() { return beatFxBeat; }
+    public int getBeatFxBands() { return beatFxBands; }
+    public int getBeatFxChannel() { return beatFxChannel; }
+    public float getBeatFxDepth() { return beatFxDepth; }
+    public boolean isBeatFxOn() { return beatFxOn; }
+    public float getBpm() { return bpm; }
+
+    public void setBeatFxType(int v) {
+        this.beatFxType = Math.floorMod(v, com.osgworld.djbooth.mixer.BeatFxTypes.TYPES);
+    }
+    public void setBeatFxBeat(int v) {
+        this.beatFxBeat = Math.floorMod(v, com.osgworld.djbooth.mixer.BeatFxTypes.BEATS.length);
+    }
+    public void setBeatFxBands(int v) {
+        this.beatFxBands = v & com.osgworld.djbooth.mixer.BeatFxTypes.BANDS_ALL;
+    }
+    public void setBeatFxChannel(int v) {
+        this.beatFxChannel = Math.floorMod(v, 3);
+    }
+    public void setBeatFxDepth(float v) { this.beatFxDepth = clamp01(v); }
+    public void setBeatFxOn(boolean v) { this.beatFxOn = v; }
+    public void setBpm(float v) { this.bpm = Math.max(40f, Math.min(300f, v)); }
+
+    /** How long one cycle of the selected beat fraction lasts at the current BPM. */
+    public float beatFxSeconds() {
+        double beat = 60.0 / bpm;
+        return (float) (beat * com.osgworld.djbooth.mixer.BeatFxTypes.BEATS[beatFxBeat]);
+    }
+
+    /** Whether the BEAT FX is patched across this deck's channel (MASTER hits both). */
+    public boolean beatFxAppliesTo(boolean deckA) {
+        return switch (beatFxChannel) {
+            case com.osgworld.djbooth.mixer.BeatFxTypes.CH_A -> deckA;
+            case com.osgworld.djbooth.mixer.BeatFxTypes.CH_B -> !deckA;
+            default -> true;
+        };
+    }
+
     public int getXfAssignA() { return xfAssignA; }
     public int getXfAssignB() { return xfAssignB; }
     public void setXfAssignA(int v) { this.xfAssignA = clampAssign(v); }
@@ -170,6 +219,13 @@ public class MixerBlockEntity extends BlockEntity {
         tag.putFloat("GainB", gainB);
         tag.putInt("ColorMode", colorMode);
         tag.putFloat("ColorParam", colorParam);
+        tag.putInt("BeatFxType", beatFxType);
+        tag.putInt("BeatFxBeat", beatFxBeat);
+        tag.putInt("BeatFxBands", beatFxBands);
+        tag.putInt("BeatFxChannel", beatFxChannel);
+        tag.putFloat("BeatFxDepth", beatFxDepth);
+        tag.putBoolean("BeatFxOn", beatFxOn);
+        tag.putFloat("Bpm", bpm);
         tag.putInt("XfAssignA", xfAssignA);
         tag.putInt("XfAssignB", xfAssignB);
         tag.putBoolean("Isolator", isolator);
@@ -198,6 +254,17 @@ public class MixerBlockEntity extends BlockEntity {
         setColorMode(tag.contains("ColorMode") ? tag.getInt("ColorMode")
                 : com.osgworld.djbooth.mixer.ColorFxModes.FILTER);
         colorParam = tag.contains("ColorParam") ? tag.getFloat("ColorParam") : 0.5f;
+        setBeatFxType(tag.contains("BeatFxType") ? tag.getInt("BeatFxType")
+                : com.osgworld.djbooth.mixer.BeatFxTypes.DELAY);
+        setBeatFxBeat(tag.contains("BeatFxBeat") ? tag.getInt("BeatFxBeat")
+                : com.osgworld.djbooth.mixer.BeatFxTypes.DEFAULT_BEAT);
+        setBeatFxBands(tag.contains("BeatFxBands") ? tag.getInt("BeatFxBands")
+                : com.osgworld.djbooth.mixer.BeatFxTypes.BANDS_ALL);
+        setBeatFxChannel(tag.contains("BeatFxChannel") ? tag.getInt("BeatFxChannel")
+                : com.osgworld.djbooth.mixer.BeatFxTypes.CH_MASTER);
+        beatFxDepth = tag.contains("BeatFxDepth") ? tag.getFloat("BeatFxDepth") : 0.5f;
+        beatFxOn = tag.contains("BeatFxOn") && tag.getBoolean("BeatFxOn");
+        setBpm(tag.contains("Bpm") ? tag.getFloat("Bpm") : 128.0f);
         xfAssignA = clampAssign(tag.contains("XfAssignA") ? tag.getInt("XfAssignA") : XF_A);
         xfAssignB = clampAssign(tag.contains("XfAssignB") ? tag.getInt("XfAssignB") : XF_B);
         isolator = tag.contains("Isolator") && tag.getBoolean("Isolator");

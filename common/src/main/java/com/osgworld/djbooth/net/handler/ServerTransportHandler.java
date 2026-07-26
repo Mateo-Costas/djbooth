@@ -66,6 +66,7 @@ public final class ServerTransportHandler {
                 case TransportPayload.MASTER_TEMPO ->
                         be.state().setMasterTempo(!be.state().isMasterTempo());
                 case TransportPayload.BEAT_SYNC -> syncToOtherDeck(player, be, now);
+                case TransportPayload.KEY_SYNC -> keySyncToOtherDeck(player, be);
                 case TransportPayload.TRACK_START -> be.state().jumpTo(0, now);
                 case TransportPayload.SEARCH_BACK ->
                         be.state().jumpTo(be.state().positionMsAt(now) - SEARCH_MS, now);
@@ -112,5 +113,28 @@ public final class ServerTransportHandler {
             return;
         }
         deck.state().syncTo(other.state().getBpm(), now);
+    }
+
+    /** KEY SYNC: shift this deck into the other deck's key. Needs both keys to be known. */
+    private static void keySyncToOtherDeck(net.minecraft.world.entity.player.Player player,
+                                           CdjBlockEntity deck) {
+        CdjBlockEntity other = otherDeck(player, deck);
+        if (other == null) {
+            return;
+        }
+        // Match what the other deck is actually sounding in, not its original key: if that deck is
+        // itself key-shifted, syncing to its untouched key would leave the two apart.
+        deck.state().keySyncTo(other.state().soundingKey());
+    }
+
+    /** The other CDJ in the same booth, or null. */
+    private static CdjBlockEntity otherDeck(net.minecraft.world.entity.player.Player player,
+                                            CdjBlockEntity deck) {
+        var refs = com.osgworld.djbooth.booth.BoothRefs.scan(player.level(), deck.getBlockPos());
+        net.minecraft.core.BlockPos otherPos = deck.getBlockPos().equals(refs.deckA())
+                ? refs.deckB() : refs.deckA();
+        return otherPos != null
+                && player.level().getBlockEntity(otherPos) instanceof CdjBlockEntity other
+                ? other : null;
     }
 }

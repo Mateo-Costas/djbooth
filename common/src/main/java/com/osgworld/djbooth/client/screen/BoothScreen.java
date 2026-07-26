@@ -382,6 +382,8 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 "gui.djbooth.tempo_reset", TransportPayload.TEMPO_RESET);
         simpleDeckButton(pos, region, BoothLayout.DECK_BEAT_SYNC, "SYNC",
                 "gui.djbooth.beat_sync", TransportPayload.BEAT_SYNC);
+        deckToggle(pos, region, BoothLayout.DECK_KEY_SYNC, "KEY", "gui.djbooth.key_sync",
+                TransportPayload.KEY_SYNC, 0xFF9B5DE5, st -> st.getKeyShift() != 0);
         simpleDeckButton(pos, region, BoothLayout.DECK_TRACK_START, "|◀ TRACK",
                 "gui.djbooth.track_start", TransportPayload.TRACK_START);
         simpleDeckButton(pos, region, BoothLayout.DECK_SEARCH_BACK, "◀◀",
@@ -477,8 +479,8 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 double measured = 60000.0 / avgInterval;
                 bpm.put(pos, measured);
                 // The deck needs the tempo too: QUANTIZE snaps to it and BEAT SYNC matches it.
-                NetworkManager.sendToServer(new com.osgworld.djbooth.net.DeckBpmPayload(
-                        pos, (float) measured));
+                NetworkManager.sendToServer(
+                        com.osgworld.djbooth.net.DeckBpmPayload.tempoOnly(pos, (float) measured));
             }
         }
     }
@@ -490,6 +492,13 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
             return;
         }
         rememberRecent(q);
+        // Ask the database what this track's tempo and key are, if the player configured a key.
+        // Independent of loading the audio: a lookup miss must never stop a track from playing.
+        com.osgworld.djbooth.client.audio.TrackLookup.lookup(q, info ->
+                NetworkManager.sendToServer(new com.osgworld.djbooth.net.DeckBpmPayload(
+                        pos, (float) info.bpm(),
+                        info.key() == null ? -1 : info.key().root(),
+                        info.key() != null && info.key().minor())));
         if (q.startsWith("http://") || q.startsWith("https://")) {
             loadTrack(pos, q);
         } else {
@@ -1034,6 +1043,12 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         g.drawCenteredString(this.font, Component.translatable("gui.djbooth.guide1"), cx, y, 0xFF1DB954);
         g.drawCenteredString(this.font, Component.translatable("gui.djbooth.guide2"),
                 cx, y + this.font.lineHeight + 1, 0xFFB8B8C0);
+        // GetSongBPM's terms require a visible credit wherever their data is used, so it shows
+        // whenever the lookup is switched on — and takes no space when it isn't.
+        if (com.osgworld.djbooth.DJBoothConfig.lookupEnabled()) {
+            g.drawCenteredString(this.font, Component.translatable("gui.djbooth.credit_getsongbpm"),
+                    cx, y - this.font.lineHeight - 1, 0xFF7A7A84);
+        }
     }
 
     private void drawDeckReadout(GuiGraphics g, BlockPos pos, BoothLayout.Rect region) {
@@ -1077,12 +1092,27 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         int px = x0 + Math.round(sw * progress);
         g.fill(px - 1, pline - 2, px + 1, pline + 3, 0xFFFFFFFF);
 
-        // BPM from tap-tempo, top-right of the screen.
-        Double b = bpm.get(pos);
-        if (b != null) {
-            String bpmStr = String.format("%.1f BPM", b);
+        // BPM top-right of the screen: whatever the deck knows, whether tapped or looked up.
+        CdjBlockEntity deck = menu.deck(pos);
+        double deckBpm = deck != null ? deck.state().getBpm() : 0;
+        Double tapped = bpm.get(pos);
+        double shown = deckBpm > 0 ? deckBpm : (tapped != null ? tapped : 0);
+        if (shown > 0) {
+            String bpmStr = String.format("%.1f BPM", shown);
             g.drawString(this.font, bpmStr, x0 + sw - this.font.width(bpmStr) - 1, y0 + 1,
                     0xFF35E070, false);
+        }
+
+        // Musical key beside it, in both notations, as the real player shows it. The Camelot
+        // number is the one that tells you at a glance what will mix with what.
+        if (deck != null && deck.state().getKey() != null) {
+            var sounding = deck.state().soundingKey();
+            String keyStr = sounding + " / " + sounding.camelot();
+            if (deck.state().getKeyShift() != 0) {
+                keyStr += String.format(" (%+d)", deck.state().getKeyShift());
+            }
+            g.drawString(this.font, keyStr, x0 + sw - this.font.width(keyStr) - 1,
+                    y0 + 1 + this.font.lineHeight, 0xFF9B5DE5, false);
         }
 
         // Elapsed (left) and remaining (right).

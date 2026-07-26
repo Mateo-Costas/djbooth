@@ -36,6 +36,7 @@ public final class BoothLayout {
     public static final Rect DECK_TEMPO_RESET = new Rect(0.795f, 0.640f, 0.045f, 0.030f);
     public static final Rect DECK_MASTER_TEMPO = new Rect(0.855f, 0.640f, 0.070f, 0.030f);
     public static final Rect DECK_BEAT_SYNC = new Rect(0.855f, 0.348f, 0.062f, 0.028f);
+    public static final Rect DECK_KEY_SYNC  = new Rect(0.855f, 0.385f, 0.062f, 0.028f);
     public static final Rect DECK_TRACK_START = new Rect(0.045f, 0.612f, 0.085f, 0.030f);
     public static final Rect DECK_SEARCH_BACK = new Rect(0.045f, 0.652f, 0.040f, 0.030f);
     public static final Rect DECK_SEARCH_FWD  = new Rect(0.090f, 0.652f, 0.040f, 0.030f);

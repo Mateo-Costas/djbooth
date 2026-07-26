@@ -36,6 +36,11 @@ public final class DeckState {
     private boolean slip = false;    // SLIP: the track keeps running underneath a loop or scratch
     private boolean quantize = true; // QUANTIZE: cues and loops snap to the beat grid
     private double bpm = 0;          // measured tempo of the loaded track, 0 = unknown
+    // Musical key of the loaded track, as a root note 0..11 plus the mode. -1 = unknown.
+    private int keyRoot = -1;
+    private boolean keyMinor;
+    // KEY SYNC: semitones the DSP shifts this deck by so it sits in the other deck's key.
+    private int keyShift = 0;
 
     // Where the track would be if nothing had been done to it: what SLIP returns to.
     private long slipOffsetMs = 0;
@@ -193,6 +198,57 @@ public final class DeckState {
     public void setSlip(boolean v) { this.slip = v; }
     public boolean isQuantize() { return quantize; }
     public void setQuantize(boolean v) { this.quantize = v; }
+
+    public com.osgworld.djbooth.mixer.MusicKey getKey() {
+        return com.osgworld.djbooth.mixer.MusicKey.of(keyRoot, keyMinor);
+    }
+
+    public void setKey(com.osgworld.djbooth.mixer.MusicKey key) {
+        this.keyRoot = key == null ? -1 : key.root();
+        this.keyMinor = key != null && key.minor();
+        if (key == null) {
+            this.keyShift = 0;
+        }
+    }
+
+    public int getKeyRoot() { return keyRoot; }
+    public boolean isKeyMinor() { return keyMinor; }
+    public void loadKey(int root, boolean minor) {
+        this.keyRoot = root < 0 ? -1 : Math.floorMod(root, 12);
+        this.keyMinor = minor;
+    }
+
+    public int getKeyShift() { return keyShift; }
+    public void setKeyShift(int semitones) {
+        this.keyShift = Math.max(-6, Math.min(6, semitones));
+    }
+
+    /** The key this deck actually sounds in, once KEY SYNC has shifted it. */
+    public com.osgworld.djbooth.mixer.MusicKey soundingKey() {
+        com.osgworld.djbooth.mixer.MusicKey k = getKey();
+        return k == null ? null : new com.osgworld.djbooth.mixer.MusicKey(k.root() + keyShift, k.minor());
+    }
+
+    /**
+     * KEY SYNC: shift this deck so it sits in the other deck's key.
+     *
+     * <p>Needs both tracks' keys to be known, which means the lookup has to be configured; there
+     * is nothing to derive them from otherwise. Returns false when it can't, so the GUI can say so
+     * rather than silently doing nothing.
+     */
+    public boolean keySyncTo(com.osgworld.djbooth.mixer.MusicKey target) {
+        com.osgworld.djbooth.mixer.MusicKey mine = getKey();
+        if (mine == null || target == null) {
+            return false;
+        }
+        setKeyShift(mine.semitonesTo(target));
+        return true;
+    }
+
+    /** Pitch ratio for the KEY SYNC shift: an equal-tempered semitone is the twelfth root of two. */
+    public double keyShiftRatio() {
+        return keyShift == 0 ? 1.0 : Math.pow(2.0, keyShift / 12.0);
+    }
 
     public double getBpm() { return bpm; }
     public void setBpm(double v) { this.bpm = v > 0 ? Math.max(40, Math.min(300, v)) : 0; }

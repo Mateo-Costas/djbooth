@@ -22,7 +22,12 @@ public final class ServerDeckBpmHandler {
             if (!(player.level().getBlockEntity(msg.pos()) instanceof CdjBlockEntity be)) {
                 return;
             }
-            be.state().setBpm(msg.bpm());
+            if (msg.bpm() > 0) {
+                be.state().setBpm(msg.bpm());
+            }
+            if (msg.keyRoot() >= 0) {
+                be.state().loadKey(msg.keyRoot(), msg.keyMinor());
+            }
             be.applyAndSync();
         });
     }

@@ -76,5 +76,7 @@
   "gui.djbooth.call_prev": "CUE/LOOP CALL: salta al cue guardado anterior",
   "gui.djbooth.call_next": "CUE/LOOP CALL: salta al cue guardado siguiente",
   "gui.djbooth.memory_delete": "DELETE: borra el cue guardado más cercano",
-  "gui.djbooth.master_tempo": "MASTER TEMPO: mantiene el tono aunque muevas el fader de tempo"
+  "gui.djbooth.master_tempo": "MASTER TEMPO: mantiene el tono aunque muevas el fader de tempo",
+  "gui.djbooth.key_sync": "KEY SYNC: pone este deck en la tonalidad del otro. Necesita la búsqueda configurada",
+  "gui.djbooth.credit_getsongbpm": "Datos de tempo y tonalidad por GetSongBPM.com"
 }

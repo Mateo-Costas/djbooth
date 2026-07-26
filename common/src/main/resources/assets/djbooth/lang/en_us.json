@@ -76,5 +76,7 @@
   "gui.djbooth.call_prev": "CUE/LOOP CALL: jump to the previous saved cue",
   "gui.djbooth.call_next": "CUE/LOOP CALL: jump to the next saved cue",
   "gui.djbooth.memory_delete": "DELETE: forget the saved cue nearest the playhead",
-  "gui.djbooth.master_tempo": "MASTER TEMPO: keep the key when you move the tempo fader"
+  "gui.djbooth.master_tempo": "MASTER TEMPO: keep the key when you move the tempo fader",
+  "gui.djbooth.key_sync": "KEY SYNC: shift this deck into the other deck's key. Needs track lookup configured",
+  "gui.djbooth.credit_getsongbpm": "Tempo and key data by GetSongBPM.com"
 }

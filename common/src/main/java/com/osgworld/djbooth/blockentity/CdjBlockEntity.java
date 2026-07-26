@@ -71,6 +71,9 @@ public class CdjBlockEntity extends BlockEntity {
         tag.putBoolean("MasterTempo", state.isMasterTempo());
         tag.putBoolean("Quantize", state.isQuantize());
         tag.putDouble("Bpm", state.getBpm());
+        tag.putInt("KeyRoot", state.getKeyRoot());
+        tag.putBoolean("KeyMinor", state.isKeyMinor());
+        tag.putInt("KeyShift", state.getKeyShift());
         tag.putLongArray("MemoryCues",
                 state.getMemoryCues().stream().mapToLong(Long::longValue).toArray());
         long[] hc = new long[DeckState.HOT_CUES];
@@ -98,6 +101,8 @@ public class CdjBlockEntity extends BlockEntity {
         state.setMasterTempo(tag.getBoolean("MasterTempo"));
         state.setQuantize(!tag.contains("Quantize") || tag.getBoolean("Quantize"));
         state.setBpm(tag.getDouble("Bpm"));
+        state.loadKey(tag.contains("KeyRoot") ? tag.getInt("KeyRoot") : -1, tag.getBoolean("KeyMinor"));
+        state.setKeyShift(tag.getInt("KeyShift"));
         state.loadMemoryCues(tag.getLongArray("MemoryCues"));
         for (int i = 0; i < DeckState.HOT_CUES && i < hc.length; i++) {
             state.loadHotCue(i, hc[i]);

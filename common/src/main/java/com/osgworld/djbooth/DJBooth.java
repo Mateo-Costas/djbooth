@@ -18,6 +18,7 @@ public final class DJBooth {
     private DJBooth() {}
 
     public static void init() {
+        DJBoothConfig.load(dev.architectury.platform.Platform.getConfigFolder());
         ModBlocks.register();
         ModItems.register();
         ModBlockEntities.register();

@@ -143,7 +143,9 @@ public class DeckAudio {
             // MASTER TEMPO: cancel the pitch change the tempo fader caused. The bend counts too,
             // otherwise nudging the jog would break the key lock for as long as it lasts.
             double heldRate = state.isMasterTempo() ? effSpeedFor(state) : 1.0;
-            dsp.setKeyCorrection(heldRate > 0 ? 1.0 / heldRate : 1.0);
+            double masterTempoRatio = heldRate > 0 ? 1.0 / heldRate : 1.0;
+            // KEY SYNC stacks on top: both are pitch shifts, so their ratios multiply.
+            dsp.setKeyCorrection(masterTempoRatio * state.keyShiftRatio());
         }
 
         // Volume (0..100).

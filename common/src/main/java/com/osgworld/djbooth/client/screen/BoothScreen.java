@@ -52,9 +52,76 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     private final java.util.Map<BlockPos, java.util.ArrayDeque<Long>> taps = new java.util.HashMap<>();
     private final java.util.Map<BlockPos, Double> bpm = new java.util.HashMap<>();
 
+    // Continuous controls coalesce their packets. A knob drag fires an event per frame, and every
+    // one of those reaches the server as a full mixer sync broadcast to everyone nearby, so at
+    // 144 fps a single fader would out-pace the tick rate several times over. Values are held here
+    // and flushed at most once a tick, with the last one always sent so nothing is left stale.
+    private static final long CONTROL_SEND_MS = 50;
+    private final java.util.Map<Integer, Float> pendingControl = new java.util.HashMap<>();
+    private final java.util.Map<Integer, Long> controlLastSent = new java.util.HashMap<>();
+    private final java.util.Map<BlockPos, Double> pendingTempo = new java.util.HashMap<>();
+    private final java.util.Map<BlockPos, Long> tempoLastSent = new java.util.HashMap<>();
+
     // Jog scrub accumulator per deck: leftover degrees, and when we last sent a scrub packet.
     private final java.util.Map<BlockPos, Double> jogPending = new java.util.HashMap<>();
     private final java.util.Map<BlockPos, Long> jogLastSent = new java.util.HashMap<>();
+
+    /**
+     * Queue a value for a continuous mixer control, sending at most once a tick.
+     *
+     * <p>Discrete controls — buttons, switches — send straight away and don't come through here;
+     * it's only the ones you drag that can flood.
+     */
+    private void sendControl(BlockPos mixer, int channel, float value) {
+        long now = net.minecraft.Util.getMillis();
+        long last = controlLastSent.getOrDefault(channel, 0L);
+        if (now - last >= CONTROL_SEND_MS) {
+            controlLastSent.put(channel, now);
+            pendingControl.remove(channel);
+            NetworkManager.sendToServer(new MixerPayload(mixer, channel, value));
+        } else {
+            pendingControl.put(channel, value);
+        }
+    }
+
+    /** The tempo fader floods exactly like the mixer knobs, so it is coalesced per deck too. */
+    private void sendTempo(BlockPos pos, double rate) {
+        long now = net.minecraft.Util.getMillis();
+        if (now - tempoLastSent.getOrDefault(pos, 0L) >= CONTROL_SEND_MS) {
+            tempoLastSent.put(pos, now);
+            pendingTempo.remove(pos);
+            NetworkManager.sendToServer(new JogNudgePayload(pos, rate, -1L));
+        } else {
+            pendingTempo.put(pos, rate);
+        }
+    }
+
+    /** Send whatever the throttle held back, so a control never ends up stale on the server. */
+    private void flushControls() {
+        long now = net.minecraft.Util.getMillis();
+        var tempoIt = pendingTempo.entrySet().iterator();
+        while (tempoIt.hasNext()) {
+            var e = tempoIt.next();
+            if (now - tempoLastSent.getOrDefault(e.getKey(), 0L) >= CONTROL_SEND_MS) {
+                tempoLastSent.put(e.getKey(), now);
+                NetworkManager.sendToServer(new JogNudgePayload(e.getKey(), e.getValue(), -1L));
+                tempoIt.remove();
+            }
+        }
+        if (pendingControl.isEmpty() || menu.refs().mixer() == null) {
+            return;
+        }
+        BlockPos mixer = menu.refs().mixer();
+        var it = pendingControl.entrySet().iterator();
+        while (it.hasNext()) {
+            var e = it.next();
+            if (now - controlLastSent.getOrDefault(e.getKey(), 0L) >= CONTROL_SEND_MS) {
+                controlLastSent.put(e.getKey(), now);
+                NetworkManager.sendToServer(new MixerPayload(mixer, e.getKey(), e.getValue()));
+                it.remove();
+            }
+        }
+    }
 
     private double tempoRangeFor(BlockPos pos) {
         return TEMPO_RANGES[tempoRangeIdx.getOrDefault(pos, 2)]; // default ±16
@@ -297,8 +364,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                     double rate = be != null ? be.state().getRate() : 1.0;
                     return 0.5 - (rate - 1.0) / (2 * tempoRangeFor(pos)); // rate -> fader 0..1
                 },
-                v -> NetworkManager.sendToServer(
-                        new JogNudgePayload(pos, 1.0 - (v - 0.5) * 2 * tempoRangeFor(pos), -1L)));
+                v -> sendTempo(pos, 1.0 - (v - 0.5) * 2 * tempoRangeFor(pos)));
         tempo.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 Component.translatable("gui.djbooth.tempo")));
         addRenderableWidget(tempo);
@@ -417,15 +483,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         PanelButton b = new PanelButton(k[0], k[1], k[2], k[3],
                 Component.literal(caption.get()), accent,
                 () -> NetworkManager.sendToServer(new TransportPayload(pos, action)),
-                lit) {
-            @Override
-            protected void renderWidget(net.minecraft.client.gui.GuiGraphics g,
-                                        int mouseX, int mouseY, float partialTick) {
-                setMessage(Component.literal(caption.get()));
-                super.renderWidget(g, mouseX, mouseY, partialTick);
-            }
-        };
-        b.withCaption();
+                lit).withCaption(caption);
         b.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 Component.translatable(tipKey)));
         addRenderableWidget(b);
@@ -921,8 +979,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                             MixerBlockEntity be = menu.mixer();
                             return be != null ? getter.apply(be) : defaultValue;
                         },
-                        v -> NetworkManager.sendToServer(
-                                new MixerPayload(mix, channel, (float) v)));
+                        v -> sendControl(mix, channel, (float) v));
         knob.setTooltip(net.minecraft.client.gui.components.Tooltip.create(label));
         addRenderableWidget(knob);
     }
@@ -937,8 +994,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                     MixerBlockEntity be = menu.mixer();
                     return be != null ? getter.apply(be) : 0.0;
                 },
-                v -> NetworkManager.sendToServer(
-                        new MixerPayload(mix, channel, (float) v)));
+                v -> sendControl(mix, channel, (float) v));
         fader.setTooltip(net.minecraft.client.gui.components.Tooltip.create(label));
         fader.setMessage(label);
         addRenderableWidget(fader);
@@ -1003,6 +1059,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         super.render(g, mouseX, mouseY, partialTick);
         drawDeckReadout(g, menu.refs().deckA(), BoothLayout.REGION_DECK_A);
         drawDeckReadout(g, menu.refs().deckB(), BoothLayout.REGION_DECK_B);
+        flushControls();
         drawLevelMeters(g);
         drawGuide(g);
         renderTooltip(g, mouseX, mouseY);

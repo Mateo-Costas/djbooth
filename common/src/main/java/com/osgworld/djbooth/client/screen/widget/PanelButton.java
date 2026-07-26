@@ -14,6 +14,7 @@ public class PanelButton extends AbstractWidget {
     private final int accent;
     private Runnable onSecondary; // right-click action (optional)
     private boolean caption;      // draw the label over the hotspot (for art too small to read)
+    private java.util.function.Supplier<String> captionText; // live caption, for switches
 
     public PanelButton(int x, int y, int w, int h, Component label, int accent,
                        Runnable onPress, BooleanSupplier lit) {
@@ -33,6 +34,14 @@ public class PanelButton extends AbstractWidget {
      *  at GUI scale, so the control is still identifiable without hovering for a tooltip. */
     public PanelButton withCaption() {
         this.caption = true;
+        return this;
+    }
+
+    /** Like {@link #withCaption()}, but the text is read fresh each frame — for switches whose
+     *  label is their current position (FWD / REV / SLIP REV). */
+    public PanelButton withCaption(java.util.function.Supplier<String> text) {
+        this.caption = true;
+        this.captionText = text;
         return this;
     }
 
@@ -72,7 +81,7 @@ public class PanelButton extends AbstractWidget {
 
     /** Centre the label inside the hotspot, shrunk to fit and backed by a pill so it reads. */
     private void drawCaption(GuiGraphics g, boolean on) {
-        String text = getMessage().getString();
+        String text = captionText != null ? captionText.get() : getMessage().getString();
         if (text.isEmpty()) {
             return;
         }

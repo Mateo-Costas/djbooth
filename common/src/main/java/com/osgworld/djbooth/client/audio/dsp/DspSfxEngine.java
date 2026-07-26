@@ -121,11 +121,14 @@ public final class DspSfxEngine extends SFXEngine {
 
     @Override
     public boolean setAudioFormat(SampleType type, int channels, int sampleRate) {
+        // Take the flag down first: upload() reads it to decide whether the per-channel arrays
+        // below exist, and a format change must never leave it true while they're half-built.
+        this.supported = false;
         this.sampleType = type;
         this.channels = channels;
         this.sampleRate = sampleRate;
-        this.supported = (type == SampleType.S16 || type == SampleType.FLT) && channels > 0;
-        if (supported) {
+        boolean canFilter = (type == SampleType.S16 || type == SampleType.FLT) && channels > 0;
+        if (canFilter) {
             low = new Biquad[channels];
             mid = new Biquad[channels];
             high = new Biquad[channels];
@@ -148,6 +151,7 @@ public final class DspSfxEngine extends SFXEngine {
                 keyLock[c].setup(sampleRate);
             }
             aLow = aMid = aHigh = -1; // force a rebake
+            this.supported = true;
         }
         return inner.setAudioFormat(type, channels, sampleRate);
     }

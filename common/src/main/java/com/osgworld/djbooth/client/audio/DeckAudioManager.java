@@ -123,9 +123,17 @@ public final class DeckAudioManager {
             // Audible with distance falloff inside RANGE; silent (but still streaming + synced)
             // between RANGE and KEEPALIVE so returning resumes in place instead of restarting.
             float attenuation = dist < RANGE ? (float) (1.0 - dist / RANGE) : 0f;
-            float mixerVol = mixerVolumeFor(mc.level, deck, dist);
-            audio.setDsp(mixerSettingsFor(mc.level, deck));
-            audio.syncTo(deck.state(), now, mixerVol * attenuation);
+            // Scan for the booth once and reuse it: the scan walks several hundred block
+            // positions, and doing it separately for the volume and the DSP doubled that for
+            // every deck, every tick.
+            BoothRefs refs = BoothRefs.scan(mc.level, pos);
+            MixerBlockEntity mixer =
+                    refs.mixer() != null
+                            && mc.level.getBlockEntity(refs.mixer()) instanceof MixerBlockEntity m
+                            ? m : null;
+            boolean isA = pos.equals(refs.deckA());
+            audio.setDsp(mixer != null ? mixer.settingsForDeck(isA) : ChannelSettings.flat());
+            audio.syncTo(deck.state(), now, mixerVolume(mixer, isA, dist) * attenuation);
         }
 
         // Release any audio whose deck is no longer in range/loaded.
@@ -147,28 +155,13 @@ public final class DeckAudioManager {
      * is what lets CUE preview a channel for the person working the booth without the whole
      * server hearing it.
      */
-    private static float mixerVolumeFor(Level level, CdjBlockEntity deck, double listenerDist) {
-        BoothRefs refs = BoothRefs.scan(level, deck.getBlockPos());
-        if (refs.mixer() == null) {
+    private static float mixerVolume(MixerBlockEntity mixer, boolean deckA, double listenerDist) {
+        if (mixer == null) {
             return 1.0f;
         }
-        if (!(level.getBlockEntity(refs.mixer()) instanceof MixerBlockEntity mixer)) {
-            return 1.0f;
-        }
-        boolean isA = deck.getBlockPos().equals(refs.deckA());
         return listenerDist <= BOOTH_RANGE
-                ? mixer.boothVolumeForDeck(isA)
-                : mixer.volumeForDeck(isA);
-    }
-
-    /** The mixer's settings for this deck's channel, or everything flat if there is no mixer. */
-    private static ChannelSettings mixerSettingsFor(Level level, CdjBlockEntity deck) {
-        BoothRefs refs = BoothRefs.scan(level, deck.getBlockPos());
-        if (refs.mixer() == null
-                || !(level.getBlockEntity(refs.mixer()) instanceof MixerBlockEntity mixer)) {
-            return ChannelSettings.flat();
-        }
-        return mixer.settingsForDeck(deck.getBlockPos().equals(refs.deckA()));
+                ? mixer.boothVolumeForDeck(deckA)
+                : mixer.volumeForDeck(deckA);
     }
 
     /** Loudest sample of a deck's last audio block, 0..1, for the panel meters. */

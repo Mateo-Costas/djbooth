@@ -385,7 +385,9 @@ public final class DeckState {
         long raw = (playState == PlayState.PLAY)
                 ? offsetMs + Math.round((nowMs - startEpochMs) * effectiveRate)
                 : offsetMs;
-        if (loopOn && raw >= loopOutMs) {
+        // A loop holds the playhead inside its bounds whichever way the deck is running: going
+        // forwards it wraps off the out point, and in reverse it wraps back off the in point.
+        if (loopOn && loopOutMs > loopInMs && (raw >= loopOutMs || raw < loopInMs)) {
             long span = loopOutMs - loopInMs;
             raw = loopInMs + Math.floorMod(raw - loopInMs, span);
         }

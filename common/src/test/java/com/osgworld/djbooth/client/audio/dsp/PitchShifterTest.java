@@ -98,6 +98,30 @@ class PitchShifterTest {
                 "level moved too much: " + rmsIn + " -> " + rmsOut);
     }
 
+    @Test
+    void outputHasNoClicks() {
+        // A pitch shifter that reads a delay line has to hand over between its read taps without
+        // a step in the output. On a smooth tone, no single sample should jump anywhere near as
+        // far as the signal's own peak-to-peak swing.
+        //
+        // The frequency matters: pick one whose period divides the crossfade window and the two
+        // taps happen to line up in phase, which hides a broken handover. 333 Hz doesn't.
+        double[] out = run(shifter(1.0 / 1.16), tone(333, (int) (FS * 3)));
+        double worst = 0;
+        int worstAt = -1;
+        for (int i = 1; i < out.length; i++) {
+            double step = Math.abs(out[i] - out[i - 1]);
+            if (step > worst) {
+                worst = step;
+                worstAt = i;
+            }
+        }
+        // A 333 Hz sine at 0.5 amplitude moves about 0.022 per sample at 48 kHz. Allow a wide
+        // margin for interpolation, but a real click is an order of magnitude bigger than this.
+        assertTrue(worst < 0.1,
+                "output jumps by " + worst + " at sample " + worstAt + " — that's an audible click");
+    }
+
     private static double rms(double[] xs) {
         double sum = 0;
         for (double x : xs) {

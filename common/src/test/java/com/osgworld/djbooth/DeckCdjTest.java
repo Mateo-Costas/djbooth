@@ -39,6 +39,25 @@ class DeckCdjTest {
     }
 
     @Test
+    void aLoopHoldsThePlayheadWhicheverWayTheDeckRuns() {
+        DeckState s = playing(0);
+        s.setLoop(10_000, 12_000, true);
+
+        // Forwards: running off the out point wraps back to the in point.
+        s.jumpTo(11_500, 0);
+        assertEquals(11_000, s.positionMsAt(1_500), 2, "forward loop should wrap");
+
+        // Reverse: running back off the in point wraps up to the out point. Without this the
+        // playhead simply escapes the loop and keeps rewinding.
+        s.setDirection(DeckState.DIR_REV);
+        s.jumpTo(10_500, 0);
+        long p = s.positionMsAt(1_000); // 1 s back from 10 500 would be 9 500, outside the loop
+        assertTrue(p >= 10_000 && p < 12_000,
+                "reverse playback should stay inside the loop, was " + p);
+        assertEquals(11_500, p, 2);
+    }
+
+    @Test
     void quantizeSnapsCuesToTheBeatOnlyWhenItIsOn() {
         DeckState s = playing(0);
         s.setBpm(120); // one beat every 500 ms

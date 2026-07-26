@@ -6,6 +6,7 @@ import com.osgworld.djbooth.client.dmx.DmxBridge;
 import com.osgworld.djbooth.client.dmx.DmxDemo;
 import com.osgworld.djbooth.deck.PlayState;
 import dev.architectury.event.events.common.CommandRegistrationEvent;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -31,13 +32,31 @@ public final class BoothCommands {
                                             return setNearestDeck(player, url);
                                         })))
                         .then(Commands.literal("dmxtest")
-                                .executes(ctx -> {
-                                    int n = DmxDemo.trigger();
-                                    ctx.getSource().sendSuccess(() -> Component.literal(
-                                            "DJ Booth: sending DMX test to fixtures 1-" + n
-                                                    + " on udp/" + DmxBridge.PORT + " for ~6s"), false);
-                                    return 1;
-                                }))));
+                                .executes(ctx -> dmxTest(ctx.getSource())))));
+    }
+
+    /**
+     * Run the DMX smoke test.
+     *
+     * <p>The bridge sends its packets over UDP to localhost, because the lighting software runs on
+     * the same machine as the player. That means this only does anything useful when the server
+     * <em>is</em> the player's machine — on a dedicated server the packets would leave from the
+     * server box and never reach anyone's lights, so say so rather than reporting a success that
+     * didn't happen.
+     */
+    private static int dmxTest(CommandSourceStack source) {
+        if (source.getServer().isDedicatedServer()) {
+            source.sendFailure(Component.literal(
+                    "DJ Booth: the DMX bridge sends to localhost, so this test only works in "
+                            + "single player or on a LAN world hosted by the machine running the "
+                            + "lights."));
+            return 0;
+        }
+        int n = DmxDemo.trigger();
+        source.sendSuccess(() -> Component.literal(
+                "DJ Booth: sending DMX test to fixtures 1-" + n
+                        + " on udp/" + DmxBridge.PORT + " for ~6s"), false);
+        return 1;
     }
 
     private static int setNearestDeck(ServerPlayer player, String url) {

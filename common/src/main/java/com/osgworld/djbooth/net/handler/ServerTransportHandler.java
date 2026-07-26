@@ -105,14 +105,10 @@ public final class ServerTransportHandler {
     /** BEAT SYNC: pull this deck's tempo onto the other deck in the same booth. */
     private static void syncToOtherDeck(net.minecraft.world.entity.player.Player player,
                                         CdjBlockEntity deck, long now) {
-        var refs = com.osgworld.djbooth.booth.BoothRefs.scan(player.level(), deck.getBlockPos());
-        net.minecraft.core.BlockPos otherPos = deck.getBlockPos().equals(refs.deckA())
-                ? refs.deckB() : refs.deckA();
-        if (otherPos == null
-                || !(player.level().getBlockEntity(otherPos) instanceof CdjBlockEntity other)) {
-            return;
+        CdjBlockEntity other = otherDeck(player, deck);
+        if (other != null) {
+            deck.state().syncTo(other.state().getBpm(), now);
         }
-        deck.state().syncTo(other.state().getBpm(), now);
     }
 
     /** KEY SYNC: shift this deck into the other deck's key. Needs both keys to be known. */

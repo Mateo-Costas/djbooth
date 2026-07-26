@@ -27,6 +27,7 @@ public record TransportPayload(BlockPos pos, int action) implements CustomPacket
     public static final int CALL_PREV = 23;
     public static final int CALL_NEXT = 24;
     public static final int MEMORY_DELETE = 25;
+    public static final int MASTER_TEMPO = 26;
 
     public static final Type<TransportPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(DJBooth.MODID, "transport"));

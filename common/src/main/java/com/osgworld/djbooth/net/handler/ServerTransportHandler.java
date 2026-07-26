@@ -63,6 +63,8 @@ public final class ServerTransportHandler {
                 case TransportPayload.QUANTIZE ->
                         be.state().setQuantize(!be.state().isQuantize());
                 case TransportPayload.TEMPO_RESET -> be.state().resetTempo(now);
+                case TransportPayload.MASTER_TEMPO ->
+                        be.state().setMasterTempo(!be.state().isMasterTempo());
                 case TransportPayload.BEAT_SYNC -> syncToOtherDeck(player, be, now);
                 case TransportPayload.TRACK_START -> be.state().jumpTo(0, now);
                 case TransportPayload.SEARCH_BACK ->

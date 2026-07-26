@@ -68,6 +68,7 @@ public class CdjBlockEntity extends BlockEntity {
         tag.putInt("Direction", state.getDirection());
         tag.putInt("JogMode", state.getJogMode());
         tag.putBoolean("Slip", state.isSlip());
+        tag.putBoolean("MasterTempo", state.isMasterTempo());
         tag.putBoolean("Quantize", state.isQuantize());
         tag.putDouble("Bpm", state.getBpm());
         tag.putLongArray("MemoryCues",
@@ -94,6 +95,7 @@ public class CdjBlockEntity extends BlockEntity {
         state.setDirection(tag.getInt("Direction"));
         state.setJogMode(tag.contains("JogMode") ? tag.getInt("JogMode") : DeckState.JOG_VINYL);
         state.setSlip(tag.getBoolean("Slip"));
+        state.setMasterTempo(tag.getBoolean("MasterTempo"));
         state.setQuantize(!tag.contains("Quantize") || tag.getBoolean("Quantize"));
         state.setBpm(tag.getDouble("Bpm"));
         state.loadMemoryCues(tag.getLongArray("MemoryCues"));

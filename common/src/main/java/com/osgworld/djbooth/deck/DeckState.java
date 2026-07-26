@@ -30,6 +30,9 @@ public final class DeckState {
     public static final int JOG_VINYL = 1;
     private int jogMode = JOG_VINYL;
 
+    // MASTER TEMPO: hold the key while the tempo fader moves. The DSP shifts the pitch back by
+    // whatever the fader did, so this is just the switch.
+    private boolean masterTempo = false;
     private boolean slip = false;    // SLIP: the track keeps running underneath a loop or scratch
     private boolean quantize = true; // QUANTIZE: cues and loops snap to the beat grid
     private double bpm = 0;          // measured tempo of the loaded track, 0 = unknown
@@ -177,6 +180,14 @@ public final class DeckState {
 
     public int getJogMode() { return jogMode; }
     public void setJogMode(int m) { this.jogMode = Math.floorMod(m, 2); }
+
+    public boolean isMasterTempo() { return masterTempo; }
+    public void setMasterTempo(boolean v) { this.masterTempo = v; }
+
+    /** Pitch ratio the DSP must apply to hold the key: the inverse of whatever the fader did. */
+    public double keyCorrection() {
+        return masterTempo && rate > 0 ? 1.0 / rate : 1.0;
+    }
 
     public boolean isSlip() { return slip; }
     public void setSlip(boolean v) { this.slip = v; }

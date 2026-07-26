@@ -68,6 +68,11 @@ public class DeckAudio {
         return System.currentTimeMillis() < bendUntil;
     }
 
+    /** The speed the audio is actually running at: the deck's rate plus any live jog bend. */
+    private double effSpeedFor(DeckState state) {
+        return state.getRate() * (isBending() ? bend : 1.0);
+    }
+
     /** Track length in ms once known, else 0. */
     public long durationMs() {
         try {
@@ -135,6 +140,10 @@ public class DeckAudio {
         // Only the FFmpeg path carries our DSP engine.
         if (dsp != null) {
             dsp.setParams(settings);
+            // MASTER TEMPO: cancel the pitch change the tempo fader caused. The bend counts too,
+            // otherwise nudging the jog would break the key lock for as long as it lasts.
+            double heldRate = state.isMasterTempo() ? effSpeedFor(state) : 1.0;
+            dsp.setKeyCorrection(heldRate > 0 ? 1.0 / heldRate : 1.0);
         }
 
         // Volume (0..100).

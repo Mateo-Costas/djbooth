@@ -375,6 +375,9 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                             ? "VINYL" : "CDJ";
                 });
 
+        deckToggle(pos, region, BoothLayout.DECK_MASTER_TEMPO, "M.TEMPO",
+                "gui.djbooth.master_tempo", TransportPayload.MASTER_TEMPO, 0xFFFF3B30,
+                s -> s.isMasterTempo());
         simpleDeckButton(pos, region, BoothLayout.DECK_TEMPO_RESET, "RESET",
                 "gui.djbooth.tempo_reset", TransportPayload.TEMPO_RESET);
         simpleDeckButton(pos, region, BoothLayout.DECK_BEAT_SYNC, "SYNC",

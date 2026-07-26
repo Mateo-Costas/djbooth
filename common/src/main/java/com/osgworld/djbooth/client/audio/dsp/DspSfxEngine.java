@@ -39,6 +39,7 @@ public final class DspSfxEngine extends SFXEngine {
     private Biquad[] low, mid, high;
     private ColorFx[] color;
     private BeatFx[] beat;
+    private PitchShifter[] keyLock;
     private boolean supported; // true when the negotiated format is one we filter
 
     // Per-channel echo delay lines.
@@ -55,6 +56,7 @@ public final class DspSfxEngine extends SFXEngine {
     private volatile int pBeatBands = com.osgworld.djbooth.mixer.BeatFxTypes.BANDS_ALL;
     private volatile float pBeatSeconds = 0.5f, pBeatDepth = 0.5f;
     private volatile boolean pBeatOn = false;
+    private volatile double pKeyRatio = 1.0; // MASTER TEMPO correction, 1.0 = off
     private volatile float pBalance = 0.5f; // master BALANCE: 0 = hard left, 1 = hard right
 
     // Peak level of the last block, per side, for the panel meters. Written on the audio thread
@@ -64,6 +66,15 @@ public final class DspSfxEngine extends SFXEngine {
     // Last params baked into coefficients, so we only recompute when a knob actually moves.
     private float aLow = -1, aMid = -1, aHigh = -1;
     private boolean aIsolator;
+
+    /**
+     * Set the MASTER TEMPO correction: the pitch ratio that cancels the tempo fader.
+     *
+     * <p>Separate from the mixer settings because it belongs to the deck, not the channel.
+     */
+    public void setKeyCorrection(double ratio) {
+        this.pKeyRatio = ratio;
+    }
 
     /** Point the whole DSP chain at the mixer's current settings. */
     public void setParams(ChannelSettings cfg) {
@@ -120,6 +131,7 @@ public final class DspSfxEngine extends SFXEngine {
             high = new Biquad[channels];
             color = new ColorFx[channels];
             beat = new BeatFx[channels];
+            keyLock = new PitchShifter[channels];
             delayLen = Math.max(1, (int) (sampleRate * ECHO_SECONDS));
             delay = new float[channels][delayLen];
             delayPos = new int[channels];
@@ -132,6 +144,8 @@ public final class DspSfxEngine extends SFXEngine {
                 // Odd channels are the right-hand side, which PING PONG offsets against the left.
                 beat[c] = new BeatFx(c % 2 == 1);
                 beat[c].setup(sampleRate);
+                keyLock[c] = new PitchShifter();
+                keyLock[c].setup(sampleRate);
             }
             aLow = aMid = aHigh = -1; // force a rebake
         }
@@ -144,6 +158,7 @@ public final class DspSfxEngine extends SFXEngine {
         for (int c = 0; c < channels; c++) {
             color[c].set(pColorMode, pFilter, pColorParam);
             beat[c].set(pBeatType, pBeatOn, pBeatSeconds, pBeatDepth, pBeatBands);
+            keyLock[c].setRatio(pKeyRatio);
         }
         float l = pLow, m = pMid, h = pHigh;
         boolean iso = pIsolator;
@@ -215,6 +230,7 @@ public final class DspSfxEngine extends SFXEngine {
     }
 
     private double filter(int c, double s, float echoMix, float echoFb) {
+        s = keyLock[c].process(s);
         s = low[c].process(s);
         s = mid[c].process(s);
         s = high[c].process(s);
@@ -248,7 +264,7 @@ public final class DspSfxEngine extends SFXEngine {
         if (supported) {
             for (int c = 0; c < channels; c++) {
                 low[c].reset(); mid[c].reset(); high[c].reset();
-                color[c].reset(); beat[c].reset();
+                color[c].reset(); beat[c].reset(); keyLock[c].reset();
                 java.util.Arrays.fill(delay[c], 0f);
             }
         }

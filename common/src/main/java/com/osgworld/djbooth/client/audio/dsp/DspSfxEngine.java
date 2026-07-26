@@ -28,14 +28,14 @@ public final class DspSfxEngine extends SFXEngine {
     private static final double EQ_BOOST_DB = 6.0;  // printed on the panel: +6 at the top
     private static final double EQ_CUT_DB = 26.0;   // ... and -26 at the bottom in EQ mode
     private static final double ISO_CUT_DB = 60.0;  // ISOLATOR mode kills the band instead (-inf)
-    private static final double FILTER_Q = 2.0;    // resonance of the COLOR sweep
     private static final double ECHO_SECONDS = 0.35; // fixed delay time (matches a slow beat echo)
     private static final double GAIN_MAX = 2.0;    // trim: knob 0.5 = unity, 1.0 = +6 dB
 
     private final ALEngine inner = ALEngine.buildDefault();
 
-    // Per-channel filter chains: [ch] -> {low shelf, mid peak, high shelf, sweep}.
-    private Biquad[] low, mid, high, sweep;
+    // Per-channel filter chains: [ch] -> {low shelf, mid peak, high shelf} + a COLOR FX stage.
+    private Biquad[] low, mid, high;
+    private ColorFx[] color;
     private boolean supported; // true when the negotiated format is one we filter
 
     // Per-channel echo delay lines.
@@ -46,15 +46,17 @@ public final class DspSfxEngine extends SFXEngine {
     // Knob params (0..1). Written from the client thread, read on the audio thread.
     private volatile float pLow = 0.5f, pMid = 0.5f, pHigh = 0.5f, pFilter = 0.5f, pEcho = 0f;
     private volatile float pGain = 0.5f;
+    private volatile int pColorMode = com.osgworld.djbooth.mixer.ColorFxModes.FILTER;
+    private volatile float pColorParam = 0.5f;
     private volatile boolean pIsolator = false; // EQ curve: false = -26 dB EQ, true = -inf kill
     // Last params baked into coefficients, so we only recompute when a knob actually moves.
-    private float aLow = -1, aMid = -1, aHigh = -1, aFilter = -1;
+    private float aLow = -1, aMid = -1, aHigh = -1;
     private boolean aIsolator;
 
     /** Update the EQ/filter/echo/trim knobs (0..1). EQ bands and the colour filter are flat at 0.5,
      *  echo is off at 0 and the trim is unity at 0.5. */
     public void setParams(float lowV, float midV, float highV, float filterV, float echoV,
-                          float gainV, boolean isolator) {
+                          float gainV, boolean isolator, int colorMode, float colorParam) {
         this.pLow = lowV;
         this.pMid = midV;
         this.pHigh = highV;
@@ -62,6 +64,8 @@ public final class DspSfxEngine extends SFXEngine {
         this.pEcho = echoV;
         this.pGain = gainV;
         this.pIsolator = isolator;
+        this.pColorMode = colorMode;
+        this.pColorParam = colorParam;
     }
 
     @Override
@@ -84,7 +88,7 @@ public final class DspSfxEngine extends SFXEngine {
             low = new Biquad[channels];
             mid = new Biquad[channels];
             high = new Biquad[channels];
-            sweep = new Biquad[channels];
+            color = new ColorFx[channels];
             delayLen = Math.max(1, (int) (sampleRate * ECHO_SECONDS));
             delay = new float[channels][delayLen];
             delayPos = new int[channels];
@@ -92,18 +96,23 @@ public final class DspSfxEngine extends SFXEngine {
                 low[c] = new Biquad();
                 mid[c] = new Biquad();
                 high[c] = new Biquad();
-                sweep[c] = new Biquad();
+                color[c] = new ColorFx();
+                color[c].setup(sampleRate);
             }
-            aLow = aMid = aHigh = aFilter = -1; // force a rebake
+            aLow = aMid = aHigh = -1; // force a rebake
         }
         return inner.setAudioFormat(type, channels, sampleRate);
     }
 
-    /** Rebake coefficients if a knob (or the isolator mode) moved since the last block. */
+    /** Rebake coefficients if a knob (or the isolator mode) moved since the last block. The COLOR
+     *  stage tracks its own knobs, so it only needs pointing at the current values. */
     private void rebakeIfNeeded() {
-        float l = pLow, m = pMid, h = pHigh, f = pFilter;
+        for (int c = 0; c < channels; c++) {
+            color[c].set(pColorMode, pFilter, pColorParam);
+        }
+        float l = pLow, m = pMid, h = pHigh;
         boolean iso = pIsolator;
-        if (l == aLow && m == aMid && h == aHigh && f == aFilter && iso == aIsolator) {
+        if (l == aLow && m == aMid && h == aHigh && iso == aIsolator) {
             return;
         }
         double fs = sampleRate;
@@ -111,9 +120,8 @@ public final class DspSfxEngine extends SFXEngine {
             low[c].lowShelf(fs, F_LOW, dbForBand(l, iso));
             mid[c].peaking(fs, F_MID, dbForBand(m, iso), MID_Q);
             high[c].highShelf(fs, F_HIGH, dbForBand(h, iso));
-            configureSweep(sweep[c], fs, f);
         }
-        aLow = l; aMid = m; aHigh = h; aFilter = f; aIsolator = iso;
+        aLow = l; aMid = m; aHigh = h; aIsolator = iso;
     }
 
     /** Knob 0..1 -&gt; band gain in dB, as printed on the DJM-900NXS2: centre is flat, the top of the
@@ -125,21 +133,6 @@ public final class DspSfxEngine extends SFXEngine {
         return (v / 0.5 - 1.0) * (isolator ? ISO_CUT_DB : EQ_CUT_DB);
     }
 
-    /** Colour knob: centre = bypass, left = low-pass sweep down, right = high-pass sweep up. */
-    private static void configureSweep(Biquad bq, double fs, double v) {
-        double nyq = fs / 2.0;
-        if (v < 0.48) {
-            double t = (0.48 - v) / 0.48;
-            double cutoff = 18000.0 * Math.pow(200.0 / 18000.0, t);
-            bq.lowpass(fs, Math.min(cutoff, nyq * 0.98), FILTER_Q);
-        } else if (v > 0.52) {
-            double t = (v - 0.52) / 0.48;
-            double cutoff = 20.0 * Math.pow(4000.0 / 20.0, t);
-            bq.highpass(fs, Math.min(cutoff, nyq * 0.98), FILTER_Q);
-        } else {
-            bq.identity();
-        }
-    }
 
     @Override
     public boolean upload(ByteBuffer buf) {
@@ -179,7 +172,7 @@ public final class DspSfxEngine extends SFXEngine {
         s = low[c].process(s);
         s = mid[c].process(s);
         s = high[c].process(s);
-        s = sweep[c].process(s);
+        s = color[c].process(s);
         if (echoMix > 1e-4f) {
             int p = delayPos[c];
             float echoed = delay[c][p];
@@ -207,7 +200,7 @@ public final class DspSfxEngine extends SFXEngine {
     @Override public void flush() {
         if (supported) {
             for (int c = 0; c < channels; c++) {
-                low[c].reset(); mid[c].reset(); high[c].reset(); sweep[c].reset();
+                low[c].reset(); mid[c].reset(); high[c].reset(); color[c].reset();
                 java.util.Arrays.fill(delay[c], 0f);
             }
         }

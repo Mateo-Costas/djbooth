@@ -46,6 +46,8 @@ public final class ServerMixerHandler {
                 case MixerPayload.GAIN_B -> be.setGainB(msg.value());
                 case MixerPayload.XF_ASSIGN_A -> be.setXfAssignA(Math.round(msg.value()));
                 case MixerPayload.XF_ASSIGN_B -> be.setXfAssignB(Math.round(msg.value()));
+                case MixerPayload.COLOR_MODE -> be.setColorMode(Math.round(msg.value()));
+                case MixerPayload.COLOR_PARAM -> be.setColorParam(msg.value());
                 default -> { return; }
             }
             be.applyAndSync();

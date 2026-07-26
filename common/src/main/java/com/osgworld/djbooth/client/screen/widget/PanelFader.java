@@ -15,6 +15,8 @@ import java.util.function.DoubleSupplier;
  */
 public class PanelFader extends AbstractWidget {
     private static final long DOUBLE_CLICK_MS = 300;
+    private static final double WHEEL_STEP = 0.04; // one wheel notch
+    private static final double FINE = 0.25;       // shift multiplier
 
     private final boolean vertical;
     private final DoubleSupplier getter;
@@ -72,6 +74,17 @@ public class PanelFader extends AbstractWidget {
     @Override
     protected void onDrag(double mouseX, double mouseY, double dragX, double dragY) {
         setFromMouse(mouseX, mouseY);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (!isMouseOver(mouseX, mouseY)) {
+            return false;
+        }
+        double step = WHEEL_STEP
+                * (net.minecraft.client.gui.screens.Screen.hasShiftDown() ? FINE : 1.0);
+        setter.accept(clamp01(getter.getAsDouble() + scrollY * step));
+        return true;
     }
 
     @Override

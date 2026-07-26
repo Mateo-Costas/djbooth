@@ -38,6 +38,9 @@ public record MixerPayload(BlockPos pos, int channel, float value) implements Cu
     // CROSS FADER ASSIGN switch per channel, sent as the position index (0 = A, 1 = THRU, 2 = B).
     public static final int XF_ASSIGN_A = 18;
     public static final int XF_ASSIGN_B = 19;
+    // SOUND COLOR FX mode (sent as the mode index) and its PARAMETER knob.
+    public static final int COLOR_MODE = 20;
+    public static final int COLOR_PARAM = 21;
 
     public static final Type<MixerPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(DJBooth.MODID, "mixer"));

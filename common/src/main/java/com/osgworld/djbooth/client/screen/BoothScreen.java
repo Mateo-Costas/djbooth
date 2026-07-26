@@ -411,35 +411,41 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 m -> m.getCrossfader(), Component.translatable("gui.djbooth.crossfader"));
 
         // Channel A EQ + COLOR filter (labels to the left). Band gains, flat at centre.
-        addMixerKnob(BoothLayout.MIX_HI_A, "HI", true, MixerPayload.EQ_HI_A, 0.5,
+        addMixerKnob(BoothLayout.MIX_HI_A, "HI", true, MixerPayload.EQ_HI_A, 0.5, this::eqDb,
                 m -> m.getEqHiA(), Component.translatable("gui.djbooth.eq_hi"));
-        addMixerKnob(BoothLayout.MIX_MID_A, "MID", true, MixerPayload.EQ_MID_A, 0.5,
+        addMixerKnob(BoothLayout.MIX_MID_A, "MID", true, MixerPayload.EQ_MID_A, 0.5, this::eqDb,
                 m -> m.getEqMidA(), Component.translatable("gui.djbooth.eq_mid"));
-        addMixerKnob(BoothLayout.MIX_LOW_A, "LOW", true, MixerPayload.EQ_LOW_A, 0.5,
+        addMixerKnob(BoothLayout.MIX_LOW_A, "LOW", true, MixerPayload.EQ_LOW_A, 0.5, this::eqDb,
                 m -> m.getEqLowA(), Component.translatable("gui.djbooth.eq_low"));
-        addMixerKnob(BoothLayout.MIX_FILTER_A, "FLT", true, MixerPayload.FILTER_A, 0.5,
+        addMixerKnob(BoothLayout.MIX_FILTER_A, "FLT", true, MixerPayload.FILTER_A, 0.5, this::colorReadout,
                 m -> m.getFilterA(), Component.translatable("gui.djbooth.filter"));
         // Channel B EQ + colour filter (labels to the right).
-        addMixerKnob(BoothLayout.MIX_HI_B, "HI", false, MixerPayload.EQ_HI_B, 0.5,
+        addMixerKnob(BoothLayout.MIX_HI_B, "HI", false, MixerPayload.EQ_HI_B, 0.5, this::eqDb,
                 m -> m.getEqHiB(), Component.translatable("gui.djbooth.eq_hi"));
-        addMixerKnob(BoothLayout.MIX_MID_B, "MID", false, MixerPayload.EQ_MID_B, 0.5,
+        addMixerKnob(BoothLayout.MIX_MID_B, "MID", false, MixerPayload.EQ_MID_B, 0.5, this::eqDb,
                 m -> m.getEqMidB(), Component.translatable("gui.djbooth.eq_mid"));
-        addMixerKnob(BoothLayout.MIX_LOW_B, "LOW", false, MixerPayload.EQ_LOW_B, 0.5,
+        addMixerKnob(BoothLayout.MIX_LOW_B, "LOW", false, MixerPayload.EQ_LOW_B, 0.5, this::eqDb,
                 m -> m.getEqLowB(), Component.translatable("gui.djbooth.eq_low"));
-        addMixerKnob(BoothLayout.MIX_FILTER_B, "FLT", false, MixerPayload.FILTER_B, 0.5,
+        addMixerKnob(BoothLayout.MIX_FILTER_B, "FLT", false, MixerPayload.FILTER_B, 0.5, this::colorReadout,
                 m -> m.getFilterB(), Component.translatable("gui.djbooth.filter"));
 
         // Channel trim, in the spot the real mixer puts GAIN: top of each strip, unity at centre.
-        addMixerKnob(BoothLayout.MIX_GAIN_A, "GAIN", true, MixerPayload.GAIN_A, 0.5,
+        addMixerKnob(BoothLayout.MIX_GAIN_A, "GAIN", true, MixerPayload.GAIN_A, 0.5, BoothScreen::trimDb,
                 m -> m.getGainA(), Component.translatable("gui.djbooth.gain"));
-        addMixerKnob(BoothLayout.MIX_GAIN_B, "GAIN", false, MixerPayload.GAIN_B, 0.5,
+        addMixerKnob(BoothLayout.MIX_GAIN_B, "GAIN", false, MixerPayload.GAIN_B, 0.5, BoothScreen::trimDb,
                 m -> m.getGainB(), Component.translatable("gui.djbooth.gain"));
 
         // Echo (Beat FX) per channel, off at rest.
-        addMixerKnob(BoothLayout.MIX_ECHO_A, "FX", true, MixerPayload.FX_ECHO_A, 0.0,
+        addMixerKnob(BoothLayout.MIX_ECHO_A, "FX", true, MixerPayload.FX_ECHO_A, 0.0, v -> Math.round(v * 100) + "%",
                 m -> m.getEchoA(), Component.translatable("gui.djbooth.echo"));
-        addMixerKnob(BoothLayout.MIX_ECHO_B, "FX", false, MixerPayload.FX_ECHO_B, 0.0,
+        addMixerKnob(BoothLayout.MIX_ECHO_B, "FX", false, MixerPayload.FX_ECHO_B, 0.0, v -> Math.round(v * 100) + "%",
                 m -> m.getEchoB(), Component.translatable("gui.djbooth.echo"));
+
+        // SOUND COLOR FX: six mode buttons plus the PARAMETER knob, driving both COLOR knobs.
+        addColorModeButtons();
+        addMixerKnob(BoothLayout.MIX_COLOR_PARAM, "PARAM", true, MixerPayload.COLOR_PARAM, 0.5,
+                v -> Math.round(v * 100) + "%",
+                m -> m.getColorParam(), Component.translatable("gui.djbooth.color_param"));
 
         // CROSS FADER ASSIGN under each channel fader: A / THRU / B, like the hardware switch.
         addMixerCycle(BoothLayout.MIX_XF_ASSIGN_A, MixerPayload.XF_ASSIGN_A,
@@ -452,6 +458,69 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 MixerBlockEntity::isIsolator, "ISO", "EQ", "gui.djbooth.eq_curve");
         addMixerToggle(BoothLayout.MIX_FADERCURVE, MixerPayload.FADER_CURVE,
                 MixerBlockEntity::isFaderSharp, "SHARP", "LIN", "gui.djbooth.fader_curve");
+    }
+
+    /** Knob readouts in the units the panel prints, so a glance says what the control is doing. */
+    private String eqDb(double v) {
+        MixerBlockEntity be = menu.mixer();
+        boolean iso = be != null && be.isIsolator();
+        if (v <= 0.001) {
+            return iso ? "KILL" : "-26 dB";
+        }
+        double db = v >= 0.5 ? (v - 0.5) / 0.5 * 6.0 : (v / 0.5 - 1.0) * (iso ? 60.0 : 26.0);
+        return String.format("%+.1f dB", db);
+    }
+
+    private static String trimDb(double v) {
+        if (v <= 0.001) {
+            return "-∞";
+        }
+        return String.format("%+.1f dB", 20.0 * Math.log10(v * 2.0));
+    }
+
+    /** COLOR knob: which way it is turned and how far, named after the current mode's two sides. */
+    private String colorReadout(double v) {
+        MixerBlockEntity be = menu.mixer();
+        int mode = be != null ? be.getColorMode() : com.osgworld.djbooth.mixer.ColorFxModes.FILTER;
+        double off = v - 0.5;
+        if (Math.abs(off) < 0.03) {
+            return "OFF";
+        }
+        String side = switch (mode) {
+            case com.osgworld.djbooth.mixer.ColorFxModes.FILTER -> off < 0 ? "LPF" : "HPF";
+            case com.osgworld.djbooth.mixer.ColorFxModes.SWEEP -> off < 0 ? "GATE" : "BPF";
+            case com.osgworld.djbooth.mixer.ColorFxModes.CRUSH -> off < 0 ? "DRIVE" : "CRUSH";
+            case com.osgworld.djbooth.mixer.ColorFxModes.NOISE -> off < 0 ? "LO" : "HI";
+            default -> off < 0 ? "LOW" : "HIGH";
+        };
+        return side + " " + Math.round(Math.abs(off) * 200) + "%";
+    }
+
+    /** The six SOUND COLOR FX buttons, laid out two columns by three rows like the panel.
+     *  The selected one stays lit so it's obvious which effect the COLOR knobs are driving. */
+    private void addColorModeButtons() {
+        BlockPos mix = menu.refs().mixer();
+        int[] box = px(BoothLayout.REGION_MIXER, BoothLayout.MIX_COLOR_MODES);
+        int cols = 2, rows = 3, gap = 1;
+        int bw = (box[2] - gap) / cols;
+        int bh = (box[3] - (rows - 1) * gap) / rows;
+        for (int i = 0; i < com.osgworld.djbooth.mixer.ColorFxModes.MODES; i++) {
+            final int mode = i;
+            int bx = box[0] + (i % cols) * (bw + gap);
+            int by = box[1] + (i / cols) * (bh + gap);
+            PanelButton b = new PanelButton(bx, by, bw, bh,
+                    Component.literal(com.osgworld.djbooth.mixer.ColorFxModes.NAMES[mode]),
+                    0xFF25E0C0,
+                    () -> NetworkManager.sendToServer(
+                            new MixerPayload(mix, MixerPayload.COLOR_MODE, mode)),
+                    () -> {
+                        MixerBlockEntity be = menu.mixer();
+                        return be != null && be.getColorMode() == mode;
+                    }).withCaption();
+            b.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                    Component.translatable(com.osgworld.djbooth.mixer.ColorFxModes.tipKey(mode))));
+            addRenderableWidget(b);
+        }
     }
 
     /** Labels for the CROSS FADER ASSIGN positions, in switch order. */
@@ -508,11 +577,19 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                               double defaultValue,
                               java.util.function.Function<MixerBlockEntity, Float> getter,
                               Component label) {
+        addMixerKnob(ctrl, tag, labelLeft, channel, defaultValue, null, getter, label);
+    }
+
+    private void addMixerKnob(BoothLayout.Rect ctrl, String tag, boolean labelLeft, int channel,
+                              double defaultValue,
+                              java.util.function.DoubleFunction<String> format,
+                              java.util.function.Function<MixerBlockEntity, Float> getter,
+                              Component label) {
         BlockPos mix = menu.refs().mixer();
         int[] k = px(BoothLayout.REGION_MIXER, ctrl);
         com.osgworld.djbooth.client.screen.widget.PanelKnob knob =
                 new com.osgworld.djbooth.client.screen.widget.PanelKnob(k[0], k[1], k[2], k[3], tag, labelLeft,
-                        defaultValue,
+                        defaultValue, format,
                         () -> {
                             MixerBlockEntity be = menu.mixer();
                             return be != null ? getter.apply(be) : defaultValue;

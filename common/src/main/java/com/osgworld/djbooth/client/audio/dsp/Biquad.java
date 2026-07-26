@@ -77,6 +77,15 @@ public final class Biquad {
         set((1 + cw) / 2, -(1 + cw), (1 + cw) / 2, a0, -2 * cw, 1 - alpha);
     }
 
+    /** Constant-peak-gain band pass: unity at f0, falling away either side as Q rises. */
+    public void bandpass(double fs, double f0, double Q) {
+        double w0 = 2 * Math.PI * f0 / fs;
+        double cw = Math.cos(w0), sw = Math.sin(w0);
+        double alpha = sw / (2 * Q);
+        double a0 = 1 + alpha;
+        set(alpha, 0, -alpha, a0, -2 * cw, 1 - alpha);
+    }
+
     private void set(double b0, double b1, double b2, double a0, double a1, double a2) {
         this.b0 = b0 / a0;
         this.b1 = b1 / a0;

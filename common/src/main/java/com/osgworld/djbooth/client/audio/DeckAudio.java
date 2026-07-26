@@ -35,12 +35,13 @@ public class DeckAudio {
 
     // EQ/filter/echo knob values (0..1) + isolator mode, set by the mixer each tick.
     private volatile float eqLow = 0.5f, eqMid = 0.5f, eqHigh = 0.5f, eqFilter = 0.5f, eqEcho = 0f;
-    private volatile float eqGain = 0.5f;
+    private volatile float eqGain = 0.5f, colorParam = 0.5f;
+    private volatile int colorMode = com.osgworld.djbooth.mixer.ColorFxModes.FILTER;
     private volatile boolean isolator = false;
 
     /** Point the deck's EQ / colour filter / echo / trim at the mixer's current values (0..1). */
     public void setDsp(float low, float mid, float high, float filter, float echo, float gain,
-                       boolean isolator) {
+                       boolean isolator, int colorMode, float colorParam) {
         this.eqLow = low;
         this.eqMid = mid;
         this.eqHigh = high;
@@ -48,6 +49,8 @@ public class DeckAudio {
         this.eqEcho = echo;
         this.eqGain = gain;
         this.isolator = isolator;
+        this.colorMode = colorMode;
+        this.colorParam = colorParam;
     }
 
     // Discontinuity tracking: where the server clock said we were last tick.
@@ -135,7 +138,8 @@ public class DeckAudio {
 
         // EQ / colour filter / echo (only the FFmpeg path carries our DSP engine).
         if (dsp != null) {
-            dsp.setParams(eqLow, eqMid, eqHigh, eqFilter, eqEcho, eqGain, isolator);
+            dsp.setParams(eqLow, eqMid, eqHigh, eqFilter, eqEcho, eqGain, isolator,
+                    colorMode, colorParam);
         }
 
         // Volume (0..100).

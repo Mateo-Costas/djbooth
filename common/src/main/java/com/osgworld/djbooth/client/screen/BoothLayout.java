@@ -61,6 +61,11 @@ public final class BoothLayout {
     // FX panel above the global switches rather than stealing the TRIM position.
     public static final Rect MIX_ECHO_A   = new Rect(0.700f, 0.500f, 0.060f, 0.048f);
     public static final Rect MIX_ECHO_B   = new Rect(0.700f, 0.585f, 0.060f, 0.048f);
+    // SOUND COLOR FX bank on the left of the DJM: six mode buttons in two columns of three,
+    // with the PARAMETER knob underneath them (measured x 0.055..0.135, y 0.455..0.560).
+    public static final Rect MIX_COLOR_MODES = new Rect(0.040f, 0.452f, 0.110f, 0.105f);
+    public static final Rect MIX_COLOR_PARAM = new Rect(0.073f, 0.576f, 0.044f, 0.035f);
+
     // Global switches (bottom-right of the DJM: EQ CURVE + CH FADER curve).
     public static final Rect MIX_ISOLATOR    = new Rect(0.718f, 0.700f, 0.070f, 0.040f);
     public static final Rect MIX_FADERCURVE  = new Rect(0.718f, 0.770f, 0.070f, 0.040f);

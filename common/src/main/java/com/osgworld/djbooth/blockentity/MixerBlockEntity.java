@@ -38,6 +38,12 @@ public class MixerBlockEntity extends BlockEntity {
     private int xfAssignA = XF_A;
     private int xfAssignB = XF_B;
 
+    // SOUND COLOR FX: one mode shared by every channel (the six buttons on the left of the DJM),
+    // plus the PARAMETER knob that scales how strong it is. The per-channel COLOR knobs above
+    // drive it. FILTER is the mode a mixer ships in.
+    private int colorMode = com.osgworld.djbooth.mixer.ColorFxModes.FILTER;
+    private float colorParam = 0.5f;
+
     public MixerBlockEntity(BlockPos pos, BlockState blockState) {
         super(ModBlockEntities.MIXER.get(), pos, blockState);
     }
@@ -95,6 +101,13 @@ public class MixerBlockEntity extends BlockEntity {
     private static float clamp01(float v) {
         return Math.max(0.0f, Math.min(1.0f, v));
     }
+
+    public int getColorMode() { return colorMode; }
+    public float getColorParam() { return colorParam; }
+    public void setColorMode(int v) {
+        this.colorMode = Math.floorMod(v, com.osgworld.djbooth.mixer.ColorFxModes.MODES);
+    }
+    public void setColorParam(float v) { this.colorParam = clamp01(v); }
 
     public int getXfAssignA() { return xfAssignA; }
     public int getXfAssignB() { return xfAssignB; }
@@ -155,6 +168,8 @@ public class MixerBlockEntity extends BlockEntity {
         tag.putFloat("EchoB", echoB);
         tag.putFloat("GainA", gainA);
         tag.putFloat("GainB", gainB);
+        tag.putInt("ColorMode", colorMode);
+        tag.putFloat("ColorParam", colorParam);
         tag.putInt("XfAssignA", xfAssignA);
         tag.putInt("XfAssignB", xfAssignB);
         tag.putBoolean("Isolator", isolator);
@@ -180,6 +195,9 @@ public class MixerBlockEntity extends BlockEntity {
         echoB = tag.contains("EchoB") ? tag.getFloat("EchoB") : 0f;
         gainA = tag.contains("GainA") ? tag.getFloat("GainA") : 0.5f;
         gainB = tag.contains("GainB") ? tag.getFloat("GainB") : 0.5f;
+        setColorMode(tag.contains("ColorMode") ? tag.getInt("ColorMode")
+                : com.osgworld.djbooth.mixer.ColorFxModes.FILTER);
+        colorParam = tag.contains("ColorParam") ? tag.getFloat("ColorParam") : 0.5f;
         xfAssignA = clampAssign(tag.contains("XfAssignA") ? tag.getInt("XfAssignA") : XF_A);
         xfAssignB = clampAssign(tag.contains("XfAssignB") ? tag.getInt("XfAssignB") : XF_B);
         isolator = tag.contains("Isolator") && tag.getBoolean("Isolator");

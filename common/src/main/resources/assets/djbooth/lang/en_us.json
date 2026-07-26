@@ -13,7 +13,7 @@
   "gui.djbooth.tempo": "Tempo: up = slower (-%), down = faster (+%)",
   "gui.djbooth.url_hint": "Search or paste link + Enter",
   "gui.djbooth.guide1": "Type a song or paste a link, press Enter",
-  "gui.djbooth.guide2": "Play · Cue (right=set) · Tempo · Jog=scrub/pitch · click screen=seek",
+  "gui.djbooth.guide2": "Drag or scroll any knob · shift = fine · double-click = reset · hover = value",
   "gui.djbooth.hotcue": "Hot cue %s: click sets or jumps",
   "gui.djbooth.jump_back": "Jump back 4s",
   "gui.djbooth.jump_fwd": "Jump forward 4s",
@@ -32,5 +32,12 @@
   "gui.djbooth.tempo_range": "Tempo range: ±6 / ±10 / ±16 / WIDE",
   "gui.djbooth.tap": "Tap on the beat to measure BPM",
   "gui.djbooth.gain": "Channel trim / gain (double-click = unity)",
-  "gui.djbooth.xf_assign": "CROSS FADER ASSIGN: A / THRU (off the crossfader) / B"
+  "gui.djbooth.xf_assign": "CROSS FADER ASSIGN: A / THRU (off the crossfader) / B",
+  "gui.djbooth.color_param": "PARAMETER: how strong the SOUND COLOR FX is",
+  "gui.djbooth.color.space": "SPACE: reverb. Left adds it to the low/mid, right to the mid/high",
+  "gui.djbooth.color.dub_echo": "DUB ECHO: echo repeats. Left keeps them mid-range, right extends them up",
+  "gui.djbooth.color.sweep": "SWEEP: left gates the sound tighter, right narrows a band-pass",
+  "gui.djbooth.color.noise": "NOISE: white noise through a filter. Left lowers its cutoff, right raises it",
+  "gui.djbooth.color.crush": "CRUSH: left drives it into distortion, right crushes then high-passes",
+  "gui.djbooth.color.filter": "FILTER: left sweeps a low-pass down, right sweeps a high-pass up"
 }

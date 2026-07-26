@@ -13,7 +13,7 @@
   "gui.djbooth.tempo": "Tempo: arriba = más lento (-%), abajo = más rápido (+%)",
   "gui.djbooth.url_hint": "Busca o pega enlace + Enter",
   "gui.djbooth.guide1": "Escribe una canción o pega un enlace, pulsa Enter",
-  "gui.djbooth.guide2": "Play · Cue (der=fijar) · Tempo · Jog=pitch · clic pantalla=saltar",
+  "gui.djbooth.guide2": "Arrastra o rueda cualquier knob · shift = fino · doble clic = reset · encima = valor",
   "gui.djbooth.hotcue": "Hot cue %s: clic marca o salta",
   "gui.djbooth.jump_back": "Saltar atrás 4s",
   "gui.djbooth.jump_fwd": "Saltar adelante 4s",
@@ -32,5 +32,12 @@
   "gui.djbooth.tempo_range": "Rango tempo: ±6 / ±10 / ±16 / WIDE",
   "gui.djbooth.tap": "Toca al ritmo para medir BPM",
   "gui.djbooth.gain": "Ganancia / trim del canal (doble clic = unidad)",
-  "gui.djbooth.xf_assign": "CROSS FADER ASSIGN: A / THRU (fuera del crossfader) / B"
+  "gui.djbooth.xf_assign": "CROSS FADER ASSIGN: A / THRU (fuera del crossfader) / B",
+  "gui.djbooth.color_param": "PARAMETER: intensidad del SOUND COLOR FX",
+  "gui.djbooth.color.space": "SPACE: reverb. Izq la mete en graves/medios, der en medios/agudos",
+  "gui.djbooth.color.dub_echo": "DUB ECHO: repeticiones de eco. Izq solo medios, der se extiende a agudos",
+  "gui.djbooth.color.sweep": "SWEEP: izq cierra el sonido con un gate, der estrecha un paso-banda",
+  "gui.djbooth.color.noise": "NOISE: ruido blanco filtrado. Izq baja su corte, der lo sube",
+  "gui.djbooth.color.crush": "CRUSH: izq lo satura de distorsión, der lo machaca y le quita graves",
+  "gui.djbooth.color.filter": "FILTER: izq baja un paso-bajo, der sube un paso-alto"
 }

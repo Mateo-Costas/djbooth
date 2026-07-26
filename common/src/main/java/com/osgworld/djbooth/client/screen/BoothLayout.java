@@ -79,6 +79,18 @@ public final class BoothLayout {
     public static final Rect FX_ONOFF     = new Rect(0.858f, 0.898f, 0.068f, 0.038f);
 
     // Global switches (bottom-right of the DJM: EQ CURVE + CH FADER curve).
-    public static final Rect MIX_ISOLATOR    = new Rect(0.718f, 0.700f, 0.070f, 0.040f);
-    public static final Rect MIX_FADERCURVE  = new Rect(0.718f, 0.770f, 0.070f, 0.040f);
+    public static final Rect MIX_ISOLATOR    = new Rect(0.718f, 0.712f, 0.066f, 0.030f);
+    public static final Rect MIX_FADERCURVE  = new Rect(0.718f, 0.766f, 0.066f, 0.030f);
+    public static final Rect MIX_XFCURVE     = new Rect(0.718f, 0.820f, 0.066f, 0.030f);
+
+    // Channel level meters: the LED strips beside each strip, measured x just left of the knobs,
+    // running y 0.205 (+12 dB) .. 0.455 (-27 dB).
+    public static final Rect MIX_METER_A = new Rect(0.196f, 0.205f, 0.011f, 0.250f);
+    public static final Rect MIX_METER_B = new Rect(0.326f, 0.205f, 0.011f, 0.250f);
+
+    // Master column: BALANCE knob, its CUE, and the BOOTH MONITOR knob below them.
+    public static final Rect MIX_BALANCE = new Rect(0.729f, 0.474f, 0.044f, 0.035f);
+    public static final Rect MIX_BOOTH   = new Rect(0.729f, 0.636f, 0.044f, 0.035f);
+    public static final Rect MIX_CUE_A   = new Rect(0.215f, 0.554f, 0.064f, 0.022f);
+    public static final Rect MIX_CUE_B   = new Rect(0.345f, 0.554f, 0.064f, 0.022f);
 }

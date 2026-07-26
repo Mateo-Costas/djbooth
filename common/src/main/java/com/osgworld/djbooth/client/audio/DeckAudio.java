@@ -33,35 +33,19 @@ public class DeckAudio {
     private double lastSpeed = -1.0;
     private int lastVolume = -1;
 
-    // EQ/filter/echo knob values (0..1) + isolator mode, set by the mixer each tick.
-    private volatile float eqLow = 0.5f, eqMid = 0.5f, eqHigh = 0.5f, eqFilter = 0.5f, eqEcho = 0f;
-    private volatile float eqGain = 0.5f, colorParam = 0.5f;
-    private volatile int colorMode = com.osgworld.djbooth.mixer.ColorFxModes.FILTER;
-    private volatile int beatType = com.osgworld.djbooth.mixer.BeatFxTypes.DELAY;
-    private volatile int beatBands = com.osgworld.djbooth.mixer.BeatFxTypes.BANDS_ALL;
-    private volatile float beatSeconds = 0.5f, beatDepth = 0.5f;
-    private volatile boolean beatOn = false;
-    private volatile boolean isolator = false;
+    // The mixer's settings for this channel, refreshed every client tick.
+    private volatile com.osgworld.djbooth.mixer.ChannelSettings settings =
+            com.osgworld.djbooth.mixer.ChannelSettings.flat();
 
-    /** Point the deck's EQ / colour filter / echo / trim at the mixer's current values (0..1). */
-    public void setDsp(float low, float mid, float high, float filter, float echo, float gain,
-                       boolean isolator, int colorMode, float colorParam,
-                       int beatType, boolean beatOn, float beatSeconds, float beatDepth,
-                       int beatBands) {
-        this.eqLow = low;
-        this.eqMid = mid;
-        this.eqHigh = high;
-        this.eqFilter = filter;
-        this.eqEcho = echo;
-        this.eqGain = gain;
-        this.isolator = isolator;
-        this.colorMode = colorMode;
-        this.colorParam = colorParam;
-        this.beatType = beatType;
-        this.beatOn = beatOn;
-        this.beatSeconds = beatSeconds;
-        this.beatDepth = beatDepth;
-        this.beatBands = beatBands;
+    /** Point the deck's DSP at the mixer's current settings for its channel. */
+    public void setDsp(com.osgworld.djbooth.mixer.ChannelSettings cfg) {
+        this.settings = cfg;
+    }
+
+    /** Loudest sample of the last audio block, 0..1, for the panel meters. 0 without a DSP. */
+    public float peakLevel() {
+        DspSfxEngine d = dsp;
+        return d == null ? 0f : Math.max(d.peakLeft(), d.peakRight());
     }
 
     // Discontinuity tracking: where the server clock said we were last tick.
@@ -147,10 +131,9 @@ public class DeckAudio {
             }
         }
 
-        // EQ / colour filter / echo (only the FFmpeg path carries our DSP engine).
+        // Only the FFmpeg path carries our DSP engine.
         if (dsp != null) {
-            dsp.setParams(eqLow, eqMid, eqHigh, eqFilter, eqEcho, eqGain, isolator,
-                    colorMode, colorParam, beatType, beatOn, beatSeconds, beatDepth, beatBands);
+            dsp.setParams(settings);
         }
 
         // Volume (0..100).

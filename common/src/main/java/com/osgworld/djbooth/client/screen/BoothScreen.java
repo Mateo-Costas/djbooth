@@ -458,8 +458,22 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         // Global switches: EQ curve (isolator/EQ) and channel fader curve.
         addMixerToggle(BoothLayout.MIX_ISOLATOR, MixerPayload.ISOLATOR,
                 MixerBlockEntity::isIsolator, "ISO", "EQ", "gui.djbooth.eq_curve");
-        addMixerToggle(BoothLayout.MIX_FADERCURVE, MixerPayload.FADER_CURVE,
-                MixerBlockEntity::isFaderSharp, "SHARP", "LIN", "gui.djbooth.fader_curve");
+        addMixerCycle(BoothLayout.MIX_FADERCURVE, MixerPayload.FADER_CURVE,
+                MixerBlockEntity::getChFaderCurve, MixerBlockEntity.CURVE_NAMES,
+                "gui.djbooth.fader_curve");
+        addMixerCycle(BoothLayout.MIX_XFCURVE, MixerPayload.CROSSFADER_CURVE,
+                MixerBlockEntity::getCrossFaderCurve, MixerBlockEntity.CURVE_NAMES,
+                "gui.djbooth.xfader_curve");
+
+        // Master section: BALANCE, BOOTH MONITOR, and a headphone CUE per channel.
+        addMixerKnob(BoothLayout.MIX_BALANCE, "BAL", true, MixerPayload.BALANCE, 0.5,
+                BoothScreen::balanceReadout,
+                m -> m.getBalance(), Component.translatable("gui.djbooth.balance"));
+        addMixerKnob(BoothLayout.MIX_BOOTH, "BOOTH", true, MixerPayload.BOOTH, 1.0,
+                v -> Math.round(v * 100) + "%",
+                m -> m.getBooth(), Component.translatable("gui.djbooth.booth"));
+        addCueButton(BoothLayout.MIX_CUE_A, MixerPayload.CUE_A, MixerBlockEntity::isCueA);
+        addCueButton(BoothLayout.MIX_CUE_B, MixerPayload.CUE_B, MixerBlockEntity::isCueB);
     }
 
     /** Knob readouts in the units the panel prints, so a glance says what the control is doing. */
@@ -496,6 +510,35 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
             default -> off < 0 ? "LOW" : "HIGH";
         };
         return side + " " + Math.round(Math.abs(off) * 200) + "%";
+    }
+
+    /** A channel's CUE button: previews that deck for whoever is stood at the booth. */
+    private void addCueButton(BoothLayout.Rect ctrl, int channel,
+                              java.util.function.Predicate<MixerBlockEntity> state) {
+        BlockPos mix = menu.refs().mixer();
+        int[] k = px(BoothLayout.REGION_MIXER, ctrl);
+        PanelButton b = new PanelButton(k[0], k[1], k[2], k[3],
+                Component.literal("CUE"), 0xFFFF8A1F,
+                () -> {
+                    MixerBlockEntity be = menu.mixer();
+                    boolean next = be == null || !state.test(be);
+                    NetworkManager.sendToServer(new MixerPayload(mix, channel, next ? 1f : 0f));
+                },
+                () -> {
+                    MixerBlockEntity be = menu.mixer();
+                    return be != null && state.test(be);
+                });
+        b.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("gui.djbooth.cue_channel")));
+        addRenderableWidget(b);
+    }
+
+    private static String balanceReadout(double v) {
+        int off = (int) Math.round((v - 0.5) * 200);
+        if (off == 0) {
+            return "CENTRE";
+        }
+        return (off < 0 ? "L" : "R") + Math.abs(off);
     }
 
     /** The BEAT FX panel: pick an effect, a beat fraction and a channel, set how much of it you
@@ -667,10 +710,16 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     /** Labels for the CROSS FADER ASSIGN positions, in switch order. */
     private static final String[] XF_ASSIGN_LABELS = {"A", "THRU", "B"};
 
-    /** A three-position switch that cycles through its positions on click, synced to the server. */
     private void addMixerCycle(BoothLayout.Rect ctrl, int channel,
                                java.util.function.ToIntFunction<MixerBlockEntity> state,
                                String tipKey) {
+        addMixerCycle(ctrl, channel, state, XF_ASSIGN_LABELS, tipKey);
+    }
+
+    /** A multi-position switch that steps through its positions on click, synced to the server. */
+    private void addMixerCycle(BoothLayout.Rect ctrl, int channel,
+                               java.util.function.ToIntFunction<MixerBlockEntity> state,
+                               String[] labels, String tipKey) {
         BlockPos mix = menu.refs().mixer();
         int[] k = px(BoothLayout.REGION_MIXER, ctrl);
         java.util.function.Supplier<Integer> cur = () -> {
@@ -678,10 +727,10 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
             return be != null ? state.applyAsInt(be) : 0;
         };
         addRenderableWidget(net.minecraft.client.gui.components.Button.builder(
-                        Component.literal(XF_ASSIGN_LABELS[cur.get()]), b -> {
-                            int next = (cur.get() + 1) % XF_ASSIGN_LABELS.length;
+                        Component.literal(labels[cur.get()]), b -> {
+                            int next = (cur.get() + 1) % labels.length;
                             NetworkManager.sendToServer(new MixerPayload(mix, channel, next));
-                            b.setMessage(Component.literal(XF_ASSIGN_LABELS[next]));
+                            b.setMessage(Component.literal(labels[next]));
                         })
                 .bounds(k[0], k[1], k[2], k[3])
                 .tooltip(net.minecraft.client.gui.components.Tooltip.create(
@@ -817,8 +866,37 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         super.render(g, mouseX, mouseY, partialTick);
         drawDeckReadout(g, menu.refs().deckA(), BoothLayout.REGION_DECK_A);
         drawDeckReadout(g, menu.refs().deckB(), BoothLayout.REGION_DECK_B);
+        drawLevelMeters(g);
         drawGuide(g);
         renderTooltip(g, mouseX, mouseY);
+    }
+
+    /** Channel level meters, fed by the actual peak level of each deck's audio. */
+    private void drawLevelMeters(GuiGraphics g) {
+        drawMeter(g, BoothLayout.MIX_METER_A, menu.refs().deckA());
+        drawMeter(g, BoothLayout.MIX_METER_B, menu.refs().deckB());
+    }
+
+    /** A column of LED segments, green up to about -6 dB, amber above it, red at the top. */
+    private void drawMeter(GuiGraphics g, BoothLayout.Rect ctrl, BlockPos deck) {
+        if (deck == null) {
+            return;
+        }
+        float peak = DeckAudioManager.peakLevel(deck);
+        int[] m = px(BoothLayout.REGION_MIXER, ctrl);
+        int segments = 12;
+        int segH = Math.max(1, m[3] / segments);
+        // Meters are read in dB, so a linear bar would spend most of its travel doing nothing.
+        double db = peak > 1e-4 ? 20.0 * Math.log10(peak) : -60.0;
+        int lit = (int) Math.round((db + 30.0) / 30.0 * segments); // -30 dB .. 0 dB across the strip
+        for (int i = 0; i < segments; i++) {
+            int y = m[1] + m[3] - (i + 1) * segH;
+            boolean on = i < lit;
+            int colour = i >= segments - 2 ? 0xFFFF2A2A       // last two segments: clipping
+                    : i >= segments - 5 ? 0xFFFFC02A          // approaching it
+                    : 0xFF2ADF6A;
+            g.fill(m[0], y, m[0] + m[2], y + segH - 1, on ? colour : 0x33101014);
+        }
     }
 
     /** Two-line "how to use" hint below the panel (off the artwork). */

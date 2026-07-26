@@ -49,6 +49,13 @@ public record MixerPayload(BlockPos pos, int channel, float value) implements Cu
     public static final int BEATFX_CHANNEL = 26;
     public static final int BEATFX_ON = 27;
     public static final int BPM = 28;
+    // Master section: BALANCE, BOOTH MONITOR, headphone CUE per channel, and the two fader curves
+    // (sent as a curve index, since each switch has three positions).
+    public static final int BALANCE = 29;
+    public static final int BOOTH = 30;
+    public static final int CUE_A = 31;
+    public static final int CUE_B = 32;
+    public static final int CROSSFADER_CURVE = 33;
 
     public static final Type<MixerPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(DJBooth.MODID, "mixer"));

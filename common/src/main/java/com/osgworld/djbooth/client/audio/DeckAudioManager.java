@@ -3,6 +3,7 @@ package com.osgworld.djbooth.client.audio;
 import com.osgworld.djbooth.blockentity.CdjBlockEntity;
 import com.osgworld.djbooth.blockentity.MixerBlockEntity;
 import com.osgworld.djbooth.booth.BoothRefs;
+import com.osgworld.djbooth.mixer.ChannelSettings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
@@ -28,6 +29,8 @@ public final class DeckAudioManager {
     // Beyond RANGE we keep the player alive but silent out to KEEPALIVE, so walking away and back
     // doesn't tear down + re-stream the track (which restarts it from 0). Only release past this.
     private static final double KEEPALIVE = 80.0;
+    // Stand this close and you are "at the booth": you hear the booth monitor feed, cue included.
+    private static final double BOOTH_RANGE = 4.0;
     private static final Map<BlockPos, DeckAudio> AUDIO = new HashMap<>();
     private static Boolean waterMediaPresent;
 
@@ -120,11 +123,8 @@ public final class DeckAudioManager {
             // Audible with distance falloff inside RANGE; silent (but still streaming + synced)
             // between RANGE and KEEPALIVE so returning resumes in place instead of restarting.
             float attenuation = dist < RANGE ? (float) (1.0 - dist / RANGE) : 0f;
-            float mixerVol = mixerVolumeFor(mc.level, deck);
-            float[] eq = mixerEqFor(mc.level, deck);
-            audio.setDsp(eq[0], eq[1], eq[2], eq[3], eq[4], eq[6], eq[5] > 0.5f,
-                    Math.round(eq[7]), eq[8],
-                    Math.round(eq[9]), eq[10] > 0.5f, eq[11], eq[12], Math.round(eq[13]));
+            float mixerVol = mixerVolumeFor(mc.level, deck, dist);
+            audio.setDsp(mixerSettingsFor(mc.level, deck));
             audio.syncTo(deck.state(), now, mixerVol * attenuation);
         }
 
@@ -139,8 +139,15 @@ public final class DeckAudioManager {
         }
     }
 
-    /** Volume for this deck's channel: the mixer's fader/crossfader/master, or full if no mixer. */
-    private static float mixerVolumeFor(Level level, CdjBlockEntity deck) {
+    /**
+     * Volume for this deck's channel.
+     *
+     * <p>Out on the floor that is the mixer's fader/crossfader/master chain. Stand at the booth —
+     * within {@link #BOOTH_RANGE} of the deck — and you get the BOOTH MONITOR feed instead, which
+     * is what lets CUE preview a channel for the person working the booth without the whole
+     * server hearing it.
+     */
+    private static float mixerVolumeFor(Level level, CdjBlockEntity deck, double listenerDist) {
         BoothRefs refs = BoothRefs.scan(level, deck.getBlockPos());
         if (refs.mixer() == null) {
             return 1.0f;
@@ -149,30 +156,28 @@ public final class DeckAudioManager {
             return 1.0f;
         }
         boolean isA = deck.getBlockPos().equals(refs.deckA());
-        return mixer.volumeForDeck(isA);
+        return listenerDist <= BOOTH_RANGE
+                ? mixer.boothVolumeForDeck(isA)
+                : mixer.volumeForDeck(isA);
     }
 
-    /** DSP settings for this deck's channel:
-     *  {low, mid, high, colour, echo, isolator, gain, colourMode, colourParam,
-     *   beatType, beatOn, beatSeconds, beatDepth, beatBands};
-     *  flat with unity trim and no effects if there is no mixer. */
-    private static float[] mixerEqFor(Level level, CdjBlockEntity deck) {
+    /** The mixer's settings for this deck's channel, or everything flat if there is no mixer. */
+    private static ChannelSettings mixerSettingsFor(Level level, CdjBlockEntity deck) {
         BoothRefs refs = BoothRefs.scan(level, deck.getBlockPos());
         if (refs.mixer() == null
                 || !(level.getBlockEntity(refs.mixer()) instanceof MixerBlockEntity mixer)) {
-            return new float[]{0.5f, 0.5f, 0.5f, 0.5f, 0f, 0f, 0.5f,
-                    com.osgworld.djbooth.mixer.ColorFxModes.FILTER, 0.5f,
-                    com.osgworld.djbooth.mixer.BeatFxTypes.DELAY, 0f, 0.5f, 0.5f,
-                    com.osgworld.djbooth.mixer.BeatFxTypes.BANDS_ALL};
+            return ChannelSettings.flat();
         }
-        boolean isA = deck.getBlockPos().equals(refs.deckA());
-        float[] eq = mixer.eqForDeck(isA); // {low, mid, high, filter, echo, gain}
-        // The BEAT FX only reaches the channels the selector knob points at.
-        boolean beatOn = mixer.isBeatFxOn() && mixer.beatFxAppliesTo(isA);
-        return new float[]{eq[0], eq[1], eq[2], eq[3], eq[4], mixer.isIsolator() ? 1f : 0f,
-                eq[5], mixer.getColorMode(), mixer.getColorParam(),
-                mixer.getBeatFxType(), beatOn ? 1f : 0f, mixer.beatFxSeconds(),
-                mixer.getBeatFxDepth(), mixer.getBeatFxBands()};
+        return mixer.settingsForDeck(deck.getBlockPos().equals(refs.deckA()));
+    }
+
+    /** Loudest sample of a deck's last audio block, 0..1, for the panel meters. */
+    public static float peakLevel(BlockPos pos) {
+        if (!available()) {
+            return 0f;
+        }
+        DeckAudio audio = AUDIO.get(pos);
+        return audio != null ? audio.peakLevel() : 0f;
     }
 
     private static void releaseAll() {

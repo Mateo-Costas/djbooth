@@ -1,7 +1,7 @@
 {
   "block.djbooth.cdj": "CDJ-3000",
   "block.djbooth.mixer": "Mesa de mezclas",
-  "gui.djbooth.booth": "Cabina DJ",
+  "gui.djbooth.booth": "BOOTH MONITOR: volumen para quien esté en la cabina",
   "itemGroup.djbooth": "Cabina DJ",
   "gui.djbooth.fader_a": "Volumen canal A",
   "gui.djbooth.fader_b": "Volumen canal B",
@@ -28,7 +28,7 @@
   "gui.djbooth.filter": "Filtro COLOR (izq = paso-bajo, der = paso-alto, doble clic = off)",
   "gui.djbooth.echo": "Echo FX (arrastra arriba para más; doble clic = off)",
   "gui.djbooth.eq_curve": "EQ CURVE: ISO mata la banda, EQ corta a -26 dB",
-  "gui.djbooth.fader_curve": "Fader de canal: SHARP = pronunciado, LIN = lineal",
+  "gui.djbooth.fader_curve": "Curva del CH FADER: SLOW / LIN / SHARP",
   "gui.djbooth.tempo_range": "Rango tempo: ±6 / ±10 / ±16 / WIDE",
   "gui.djbooth.tap": "Toca al ritmo para medir BPM",
   "gui.djbooth.gain": "Ganancia / trim del canal (doble clic = unidad)",
@@ -59,5 +59,8 @@
   "gui.djbooth.fx_channel": "En qué canal actúa el BEAT FX (MASTER = los dos)",
   "gui.djbooth.fx_depth": "LEVEL/DEPTH: cuánto efecto se oye",
   "gui.djbooth.fx_tap": "Da golpecitos al ritmo para fijar el BPM del efecto",
-  "gui.djbooth.fx_onoff": "Mete y saca el BEAT FX"
+  "gui.djbooth.fx_onoff": "Mete y saca el BEAT FX",
+  "gui.djbooth.balance": "BALANCE: izquierda/derecha del master. Doble clic = centro",
+  "gui.djbooth.cue_channel": "CUE: escucha previa de este canal, solo para quien esté en la cabina",
+  "gui.djbooth.xfader_curve": "Curva del CROSS FADER: SLOW / LIN / SHARP"
 }

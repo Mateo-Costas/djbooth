@@ -1,7 +1,7 @@
 {
   "block.djbooth.cdj": "CDJ-3000",
   "block.djbooth.mixer": "DJ Mixer",
-  "gui.djbooth.booth": "DJ Booth",
+  "gui.djbooth.booth": "BOOTH MONITOR: level for whoever is stood at the booth",
   "itemGroup.djbooth": "DJ Booth",
   "gui.djbooth.fader_a": "Channel A volume",
   "gui.djbooth.fader_b": "Channel B volume",
@@ -28,7 +28,7 @@
   "gui.djbooth.filter": "COLOR filter (left = low-pass, right = high-pass, double-click = off)",
   "gui.djbooth.echo": "Echo FX (drag up for more; double-click = off)",
   "gui.djbooth.eq_curve": "EQ CURVE: ISO kills the band, EQ cuts to -26 dB",
-  "gui.djbooth.fader_curve": "Channel fader: SHARP = steep, LIN = linear",
+  "gui.djbooth.fader_curve": "CH FADER curve: SLOW / LIN / SHARP",
   "gui.djbooth.tempo_range": "Tempo range: ±6 / ±10 / ±16 / WIDE",
   "gui.djbooth.tap": "Tap on the beat to measure BPM",
   "gui.djbooth.gain": "Channel trim / gain (double-click = unity)",
@@ -59,5 +59,8 @@
   "gui.djbooth.fx_channel": "Which channel the BEAT FX runs on (MASTER = both)",
   "gui.djbooth.fx_depth": "LEVEL/DEPTH: how much of the effect you hear",
   "gui.djbooth.fx_tap": "TAP on the beat to set the BPM the effect is timed to",
-  "gui.djbooth.fx_onoff": "Switch the BEAT FX in and out"
+  "gui.djbooth.fx_onoff": "Switch the BEAT FX in and out",
+  "gui.djbooth.balance": "BALANCE: master left/right. Double-click = centre",
+  "gui.djbooth.cue_channel": "CUE: preview this channel for the person at the booth only",
+  "gui.djbooth.xfader_curve": "CROSS FADER curve: SLOW / LIN / SHARP"
 }

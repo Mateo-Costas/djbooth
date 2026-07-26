@@ -1,5 +1,7 @@
 package com.osgworld.djbooth.client.audio.dsp;
 
+import com.osgworld.djbooth.mixer.ChannelSettings;
+
 import org.watermedia.api.media.engines.ALEngine;
 import org.watermedia.api.media.engines.SFXEngine;
 
@@ -53,31 +55,47 @@ public final class DspSfxEngine extends SFXEngine {
     private volatile int pBeatBands = com.osgworld.djbooth.mixer.BeatFxTypes.BANDS_ALL;
     private volatile float pBeatSeconds = 0.5f, pBeatDepth = 0.5f;
     private volatile boolean pBeatOn = false;
+    private volatile float pBalance = 0.5f; // master BALANCE: 0 = hard left, 1 = hard right
+
+    // Peak level of the last block, per side, for the panel meters. Written on the audio thread
+    // and read on the client thread; a float write is atomic so no lock is needed.
+    private volatile float peakLeft, peakRight;
     private volatile boolean pIsolator = false; // EQ curve: false = -26 dB EQ, true = -inf kill
     // Last params baked into coefficients, so we only recompute when a knob actually moves.
     private float aLow = -1, aMid = -1, aHigh = -1;
     private boolean aIsolator;
 
-    /** Update the EQ/filter/echo/trim knobs (0..1). EQ bands and the colour filter are flat at 0.5,
-     *  echo is off at 0 and the trim is unity at 0.5. */
-    public void setParams(float lowV, float midV, float highV, float filterV, float echoV,
-                          float gainV, boolean isolator, int colorMode, float colorParam,
-                          int beatType, boolean beatOn, float beatSeconds, float beatDepth,
-                          int beatBands) {
-        this.pLow = lowV;
-        this.pMid = midV;
-        this.pHigh = highV;
-        this.pFilter = filterV;
-        this.pEcho = echoV;
-        this.pGain = gainV;
-        this.pIsolator = isolator;
-        this.pColorMode = colorMode;
-        this.pColorParam = colorParam;
-        this.pBeatType = beatType;
-        this.pBeatOn = beatOn;
-        this.pBeatSeconds = beatSeconds;
-        this.pBeatDepth = beatDepth;
-        this.pBeatBands = beatBands;
+    /** Point the whole DSP chain at the mixer's current settings. */
+    public void setParams(ChannelSettings cfg) {
+        this.pLow = cfg.eqLow();
+        this.pMid = cfg.eqMid();
+        this.pHigh = cfg.eqHigh();
+        this.pFilter = cfg.colour();
+        this.pEcho = cfg.echo();
+        this.pGain = cfg.trim();
+        this.pIsolator = cfg.isolator();
+        this.pColorMode = cfg.colourMode();
+        this.pColorParam = cfg.colourParam();
+        this.pBeatType = cfg.beatType();
+        this.pBeatOn = cfg.beatOn();
+        this.pBeatSeconds = cfg.beatSeconds();
+        this.pBeatDepth = cfg.beatDepth();
+        this.pBeatBands = cfg.beatBands();
+        this.pBalance = cfg.balance();
+    }
+
+    /** Loudest sample of the last block on each side, 0..1, for drawing the channel meters. */
+    public float peakLeft() { return peakLeft; }
+    public float peakRight() { return peakRight; }
+
+    /** Gain for one audio channel from the BALANCE knob: constant-power, so the centre doesn't
+     *  sound louder than either extreme. Channels beyond the first two are left alone. */
+    private double balanceGain(int channel) {
+        if (channels < 2 || channel > 1) {
+            return 1.0;
+        }
+        double angle = pBalance * (Math.PI / 2.0);
+        return channel == 0 ? Math.cos(angle) * Math.sqrt(2) : Math.sin(angle) * Math.sqrt(2);
     }
 
     @Override
@@ -160,6 +178,7 @@ public final class DspSfxEngine extends SFXEngine {
         float echoMix = pEcho * 0.6f;       // wet level
         float echoFb = pEcho * 0.5f;        // feedback
         double gain = pGain * GAIN_MAX;     // channel trim, 0.5 = unity
+        float pkL = 0, pkR = 0;
         int pos = buf.position();
         int lim = buf.limit();
         ByteBuffer v = buf.duplicate().order(ByteOrder.LITTLE_ENDIAN);
@@ -168,8 +187,12 @@ public final class DspSfxEngine extends SFXEngine {
             for (int i = pos; i + frameBytes <= lim; i += frameBytes) {
                 for (int c = 0; c < channels; c++) {
                     int idx = i + c * 2;
-                    double s = gain * filter(c, v.getShort(idx) / 32768.0, echoMix, echoFb);
-                    v.putShort(idx, (short) Math.round(clamp(s) * 32767.0));
+                    double s = gain * balanceGain(c)
+                            * filter(c, v.getShort(idx) / 32768.0, echoMix, echoFb);
+                    s = clamp(s);
+                    if (c == 0) { pkL = Math.max(pkL, (float) Math.abs(s)); }
+                    else if (c == 1) { pkR = Math.max(pkR, (float) Math.abs(s)); }
+                    v.putShort(idx, (short) Math.round(s * 32767.0));
                 }
             }
         } else { // FLT
@@ -177,11 +200,17 @@ public final class DspSfxEngine extends SFXEngine {
             for (int i = pos; i + frameBytes <= lim; i += frameBytes) {
                 for (int c = 0; c < channels; c++) {
                     int idx = i + c * 4;
-                    double s = gain * filter(c, v.getFloat(idx), echoMix, echoFb);
-                    v.putFloat(idx, (float) clamp(s));
+                    double s = gain * balanceGain(c) * filter(c, v.getFloat(idx), echoMix, echoFb);
+                    s = clamp(s);
+                    if (c == 0) { pkL = Math.max(pkL, (float) Math.abs(s)); }
+                    else if (c == 1) { pkR = Math.max(pkR, (float) Math.abs(s)); }
+                    v.putFloat(idx, (float) s);
                 }
             }
         }
+        // Fall, don't jump, so the meters read like LEDs instead of flickering.
+        peakLeft = Math.max(pkL, peakLeft * 0.75f);
+        peakRight = Math.max(pkR, peakRight * 0.75f);
         return inner.upload(buf);
     }
 

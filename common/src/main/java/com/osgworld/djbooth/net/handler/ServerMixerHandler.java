@@ -41,7 +41,7 @@ public final class ServerMixerHandler {
                 case MixerPayload.FX_ECHO_A -> be.setEchoA(msg.value());
                 case MixerPayload.FX_ECHO_B -> be.setEchoB(msg.value());
                 case MixerPayload.ISOLATOR -> be.setIsolator(msg.value() > 0.5f);
-                case MixerPayload.FADER_CURVE -> be.setFaderSharp(msg.value() > 0.5f);
+                case MixerPayload.FADER_CURVE -> be.setChFaderCurve(Math.round(msg.value()));
                 case MixerPayload.GAIN_A -> be.setGainA(msg.value());
                 case MixerPayload.GAIN_B -> be.setGainB(msg.value());
                 case MixerPayload.XF_ASSIGN_A -> be.setXfAssignA(Math.round(msg.value()));
@@ -55,6 +55,11 @@ public final class ServerMixerHandler {
                 case MixerPayload.BEATFX_CHANNEL -> be.setBeatFxChannel(Math.round(msg.value()));
                 case MixerPayload.BEATFX_ON -> be.setBeatFxOn(msg.value() > 0.5f);
                 case MixerPayload.BPM -> be.setBpm(msg.value());
+                case MixerPayload.BALANCE -> be.setBalance(msg.value());
+                case MixerPayload.BOOTH -> be.setBooth(msg.value());
+                case MixerPayload.CUE_A -> be.setCueA(msg.value() > 0.5f);
+                case MixerPayload.CUE_B -> be.setCueB(msg.value() > 0.5f);
+                case MixerPayload.CROSSFADER_CURVE -> be.setCrossFaderCurve(Math.round(msg.value()));
                 default -> { return; }
             }
             be.applyAndSync();

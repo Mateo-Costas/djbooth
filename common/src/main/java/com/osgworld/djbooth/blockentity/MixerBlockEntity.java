@@ -28,7 +28,20 @@ public class MixerBlockEntity extends BlockEntity {
     // Global switches, like the real DJM. isolator: EQ knobs kill to -inf vs -26 dB.
     // faderSharp: steep channel-fader curve vs linear.
     private boolean isolator = false;
-    private boolean faderSharp = false;
+    // Fader curves, as the three icons printed by each switch: 0 = slow rise, 1 = linear,
+    // 2 = sharp (near-silent until the top of the throw, for cutting).
+    public static final int CURVE_SLOW = 0;
+    public static final int CURVE_LINEAR = 1;
+    public static final int CURVE_SHARP = 2;
+    public static final String[] CURVE_NAMES = {"SLOW", "LIN", "SHARP"};
+    private int chFaderCurve = CURVE_LINEAR;
+    private int crossFaderCurve = CURVE_LINEAR;
+
+    private float balance = 0.5f;  // master BALANCE: 0 = hard left, 1 = hard right
+    private float booth = 1.0f;    // BOOTH MONITOR level, heard by whoever is at the booth
+    // CUE per channel: the DJ's headphone preview. Only the player working the booth hears it.
+    private boolean cueA = false;
+    private boolean cueB = false;
 
     /** CROSS FADER ASSIGN positions, as printed on the switch under each channel fader. */
     public static final int XF_A = 0;
@@ -97,15 +110,47 @@ public class MixerBlockEntity extends BlockEntity {
     public void setGainB(float v) { this.gainB = clamp01(v); }
 
     public boolean isIsolator() { return isolator; }
-    public boolean isFaderSharp() { return faderSharp; }
     public void setIsolator(boolean v) { this.isolator = v; }
-    public void setFaderSharp(boolean v) { this.faderSharp = v; }
 
-    /** Deck's DSP knobs as {low, mid, high, filter, echo, gain}, each 0..1. */
-    public float[] eqForDeck(boolean deckA) {
-        return deckA
-                ? new float[]{eqLowA, eqMidA, eqHiA, filterA, echoA, gainA}
-                : new float[]{eqLowB, eqMidB, eqHiB, filterB, echoB, gainB};
+    public int getChFaderCurve() { return chFaderCurve; }
+    public int getCrossFaderCurve() { return crossFaderCurve; }
+    public void setChFaderCurve(int v) { this.chFaderCurve = Math.floorMod(v, 3); }
+    public void setCrossFaderCurve(int v) { this.crossFaderCurve = Math.floorMod(v, 3); }
+
+    public float getBalance() { return balance; }
+    public float getBooth() { return booth; }
+    public void setBalance(float v) { this.balance = clamp01(v); }
+    public void setBooth(float v) { this.booth = clamp01(v); }
+
+    public boolean isCueA() { return cueA; }
+    public boolean isCueB() { return cueB; }
+    public void setCueA(boolean v) { this.cueA = v; }
+    public void setCueB(boolean v) { this.cueB = v; }
+    public boolean isCued(boolean deckA) { return deckA ? cueA : cueB; }
+    public boolean anyCue() { return cueA || cueB; }
+
+    /** Shape a 0..1 fader position by one of the three printed curves. */
+    private static float curve(float v, int shape) {
+        return switch (shape) {
+            case CURVE_SHARP -> v * v * v;   // stays quiet, then jumps: the cutting curve
+            case CURVE_SLOW -> (float) Math.pow(v, 1.0 / 2.0); // opens up early, for long blends
+            default -> v;
+        };
+    }
+
+    /** Everything the DSP needs for one deck's channel, in one value. */
+    public com.osgworld.djbooth.mixer.ChannelSettings settingsForDeck(boolean deckA) {
+        boolean beatHere = beatFxOn && beatFxAppliesTo(deckA);
+        return new com.osgworld.djbooth.mixer.ChannelSettings(
+                deckA ? eqLowA : eqLowB,
+                deckA ? eqMidA : eqMidB,
+                deckA ? eqHiA : eqHiB,
+                deckA ? filterA : filterB,
+                deckA ? echoA : echoB,
+                deckA ? gainA : gainB,
+                isolator, colorMode, colorParam,
+                beatFxType, beatHere, beatFxSeconds(), beatFxDepth, beatFxBands,
+                balance);
     }
 
     private static float clamp01(float v) {
@@ -172,12 +217,7 @@ public class MixerBlockEntity extends BlockEntity {
      * crossfader weight and the master. Crossfader 0 = full A, 1 = full B.
      */
     public float volumeForDeck(boolean deckA) {
-        float channel = deckA ? faderA : faderB;
-        // Steep curve keeps the channel near silent until the top of the throw, like the DJM's
-        // sharp fader setting; linear is the gentle default.
-        if (faderSharp) {
-            channel = channel * channel;
-        }
+        float channel = curve(deckA ? faderA : faderB, chFaderCurve);
         return clamp01(channel * crossfaderWeight(deckA ? xfAssignA : xfAssignB) * master);
     }
 
@@ -185,10 +225,26 @@ public class MixerBlockEntity extends BlockEntity {
      *  THRU takes the channel off the crossfader entirely, exactly like the hardware switch. */
     private float crossfaderWeight(int assign) {
         return switch (assign) {
-            case XF_A -> 1.0f - crossfader;
-            case XF_B -> crossfader;
+            case XF_A -> curve(1.0f - crossfader, crossFaderCurve);
+            case XF_B -> curve(crossfader, crossFaderCurve);
             default -> 1.0f; // THRU
         };
+    }
+
+    /**
+     * Level for someone stood at the booth rather than out on the floor.
+     *
+     * <p>A real desk feeds the booth monitors from their own knob, and the DJ hears whatever is
+     * cued on top of that. Here the "booth" is simply the blocks right around the mixer: stand
+     * there and you hear the BOOTH MONITOR level, and cueing a channel previews it for you alone,
+     * which is as close to headphones as a shared world gets.
+     */
+    public float boothVolumeForDeck(boolean deckA) {
+        if (anyCue()) {
+            // Cue overrides: only cued channels are in the DJ's ears, at full level.
+            return isCued(deckA) ? booth : 0f;
+        }
+        return clamp01(volumeForDeck(deckA) * booth);
     }
 
     public void applyAndSync() {
@@ -229,7 +285,12 @@ public class MixerBlockEntity extends BlockEntity {
         tag.putInt("XfAssignA", xfAssignA);
         tag.putInt("XfAssignB", xfAssignB);
         tag.putBoolean("Isolator", isolator);
-        tag.putBoolean("FaderSharp", faderSharp);
+        tag.putInt("ChFaderCurve", chFaderCurve);
+        tag.putInt("CrossFaderCurve", crossFaderCurve);
+        tag.putFloat("Balance", balance);
+        tag.putFloat("Booth", booth);
+        tag.putBoolean("CueA", cueA);
+        tag.putBoolean("CueB", cueB);
     }
 
     @Override
@@ -268,7 +329,15 @@ public class MixerBlockEntity extends BlockEntity {
         xfAssignA = clampAssign(tag.contains("XfAssignA") ? tag.getInt("XfAssignA") : XF_A);
         xfAssignB = clampAssign(tag.contains("XfAssignB") ? tag.getInt("XfAssignB") : XF_B);
         isolator = tag.contains("Isolator") && tag.getBoolean("Isolator");
-        faderSharp = tag.contains("FaderSharp") && tag.getBoolean("FaderSharp");
+        // Older worlds stored the channel fader curve as a sharp/linear flag.
+        setChFaderCurve(tag.contains("ChFaderCurve") ? tag.getInt("ChFaderCurve")
+                : (tag.getBoolean("FaderSharp") ? CURVE_SHARP : CURVE_LINEAR));
+        setCrossFaderCurve(tag.contains("CrossFaderCurve")
+                ? tag.getInt("CrossFaderCurve") : CURVE_LINEAR);
+        balance = tag.contains("Balance") ? tag.getFloat("Balance") : 0.5f;
+        booth = tag.contains("Booth") ? tag.getFloat("Booth") : 1.0f;
+        cueA = tag.contains("CueA") && tag.getBoolean("CueA");
+        cueB = tag.contains("CueB") && tag.getBoolean("CueB");
     }
 
     @Override

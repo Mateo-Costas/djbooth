@@ -47,14 +47,14 @@ public final class BoothCommands {
     private static int dmxTest(CommandSourceStack source) {
         if (source.getServer().isDedicatedServer()) {
             source.sendFailure(Component.literal(
-                    "DJ Booth: the DMX bridge sends to localhost, so this test only works in "
+                    "Soundsystem: the DMX bridge sends to localhost, so this test only works in "
                             + "single player or on a LAN world hosted by the machine running the "
                             + "lights."));
             return 0;
         }
         int n = DmxDemo.trigger();
         source.sendSuccess(() -> Component.literal(
-                "DJ Booth: sending DMX test to fixtures 1-" + n
+                "Soundsystem: sending DMX test to fixtures 1-" + n
                         + " on udp/" + DmxBridge.PORT + " for ~6s"), false);
         return 1;
     }

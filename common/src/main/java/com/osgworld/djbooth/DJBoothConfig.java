@@ -24,7 +24,7 @@ public final class DJBoothConfig {
     private static final String KEY_API = "getsongbpm_api_key";
 
     private static final String TEMPLATE = """
-            # DJ Booth settings.
+            # Soundsystem settings.
             #
             # Optional: a GetSongBPM API key, which lets the booth look up a track's BPM and
             # musical key automatically instead of you tapping the tempo in.
@@ -58,10 +58,10 @@ public final class DJBoothConfig {
             }
             apiKey = props.getProperty(KEY_API, "").trim();
             if (!apiKey.isEmpty()) {
-                DJBooth.LOGGER.info("DJ Booth: track lookup enabled (GetSongBPM)");
+                DJBooth.LOGGER.info("Soundsystem: track lookup enabled (GetSongBPM)");
             }
         } catch (IOException e) {
-            DJBooth.LOGGER.warn("DJ Booth: could not read {}, lookup stays off", file, e);
+            DJBooth.LOGGER.warn("Soundsystem: could not read {}, lookup stays off", file, e);
             apiKey = "";
         }
     }

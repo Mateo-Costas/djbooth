@@ -15,7 +15,7 @@ import java.util.List;
  * and drives its light fixtures from it (see UDPClientReceiver / processJsonPayload).
  *
  * <p>We never link against MineDMX classes: if MineDMX is absent the datagram just goes
- * nowhere. This keeps the dependency fully optional — DJ Booth works with or without it,
+ * nowhere. This keeps the dependency fully optional — Soundsystem works with or without it,
  * and cannot break MineDMX (we only send, never touch its state).
  *
  * <p>This is the raw transport for Plan 04. Mapping deck beat/energy to fixture values is

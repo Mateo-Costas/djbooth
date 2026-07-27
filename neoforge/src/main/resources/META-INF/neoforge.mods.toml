@@ -6,7 +6,7 @@ issueTrackerURL="https://modrinth.com/mod/dj-booth"
 [[mods]]
 modId="djbooth"
 version="${version}"
-displayName="DJ Booth"
+displayName="Soundsystem"
 logoFile="djbooth_logo.png"
 authors="OSGWORLD"
 credits="Built with WaterMedia (audio) and MineDMX (lighting)."

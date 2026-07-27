@@ -47,3 +47,7 @@ libs/
 .gradle/
 **/build/
 run/
+
+# Game logs from dev runs; nothing here belongs in history.
+common/logs/
+logs/

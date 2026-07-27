@@ -1021,8 +1021,9 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         if (pos == null) {
             return false;
         }
-        int[] scr = px(region, BoothLayout.DECK_SCREEN);
-        if (mx < scr[0] || mx > scr[0] + scr[2] || my < scr[1] || my > scr[1] + scr[3]) {
+        // A couple of pixels of slack: the strip is only a few pixels tall and the mouse is not.
+        DeckScreenLayout lay = screenLayout(region);
+        if (!lay.overviewHit(mx, my, 2)) {
             return false;
         }
         long dur = DeckAudioManager.durationMs(pos);
@@ -1033,7 +1034,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         if (be == null) {
             return false;
         }
-        double frac = Math.max(0, Math.min(1, (mx - scr[0]) / scr[2]));
+        double frac = lay.overviewFraction(mx);
         long target = Math.round(frac * dur);
         NetworkManager.sendToServer(new JogNudgePayload(pos, be.state().getRate(), target));
         return true;
@@ -1123,63 +1124,216 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
 
         int[] scr = px(region, BoothLayout.DECK_SCREEN);
         int x0 = scr[0], y0 = scr[1], sw = scr[2], sh = scr[3];
+        var state = be.state();
 
-        // Scrolling waveform, brighter behind the playhead. Procedural but tied to position so it
-        // actually moves with the track; it is decoration, not the real audio samples.
-        int bars = Math.max(8, sw / 3);
-        int barGap = sw / bars;
-        int mid = y0 + sh * 2 / 5;
-        int maxAmp = sh / 3;
-        long scroll = ms / 40; // advances as the track plays
-        float progress = dur > 0 ? Math.min(1f, (float) ms / dur) : 0f;
-        for (int i = 0; i < bars; i++) {
-            long seed = i + scroll;
-            float n = (float) ((Math.sin(seed * 0.7) + Math.sin(seed * 0.29 + 1.3)
-                    + Math.sin(seed * 0.13 + 2.1)) / 3.0);
-            int amp = 2 + Math.round(Math.abs(n) * maxAmp);
-            int bx = x0 + i * barGap;
-            boolean passed = (float) i / bars <= progress;
-            int col = passed ? (playing ? 0xFF25E0C0 : 0xFF1B9E8C) : 0x556070A0;
-            g.fill(bx, mid - amp, bx + Math.max(1, barGap - 1), mid + amp, col);
-        }
+        // The panel art has a printed screen bezel under here, but the readout used to be drawn
+        // straight onto it: thin coloured bars over photographed plastic, hard to read at any GUI
+        // scale. Give it an actual screen to sit on first.
+        drawScreenPanel(g, x0, y0, sw, sh);
 
-        // Progress line under the waveform.
-        int pline = y0 + sh - 6;
-        g.fill(x0, pline, x0 + sw, pline + 1, 0x33FFFFFF);
-        int px = x0 + Math.round(sw * progress);
-        g.fill(px - 1, pline - 2, px + 1, pline + 3, 0xFFFFFFFF);
+        var lay = DeckScreenLayout.of(x0, y0, sw, sh, this.font.lineHeight);
+        drawZoomedWave(g, lay.waveX(), lay.waveY(), lay.waveW(), lay.waveH(),
+                ms, state.getBpm(), playing);
+        drawOverview(g, lay.overviewX(), lay.overviewY(), lay.overviewW(), lay.overviewH(),
+                ms, dur, state);
+        drawScreenHeader(g, lay.headerX(), lay.headerY(), lay.headerW(), ms, dur, state, pos);
+    }
 
-        // BPM top-right of the screen: whatever the deck knows, whether tapped or looked up.
-        CdjBlockEntity deck = menu.deck(pos);
-        double deckBpm = deck != null ? deck.state().getBpm() : 0;
-        Double tapped = bpm.get(pos);
-        double shown = deckBpm > 0 ? deckBpm : (tapped != null ? tapped : 0);
-        if (shown > 0) {
-            String bpmStr = String.format("%.1f BPM", shown);
-            g.drawString(this.font, bpmStr, x0 + sw - this.font.width(bpmStr) - 1, y0 + 1,
-                    0xFF35E070, false);
-        }
+    /**
+     * The strip along the bottom of the screen that a click seeks on.
+     *
+     * <p>Only this strip, not the whole screen. The zoomed wave above it is centred on the
+     * playhead, so a click there maps to a moment a few seconds away, not to a fraction of the
+     * track - and a stray click while reaching for a knob would jump the deck mid-mix. A CDJ keeps
+     * needle search on its own strip for the same reason.
+     */
+    private DeckScreenLayout screenLayout(BoothLayout.Rect region) {
+        int[] scr = px(region, BoothLayout.DECK_SCREEN);
+        return DeckScreenLayout.of(scr[0], scr[1], scr[2], scr[3], this.font.lineHeight);
+    }
 
-        // Musical key beside it, in both notations, as the real player shows it. The Camelot
-        // number is the one that tells you at a glance what will mix with what.
-        if (deck != null && deck.state().getKey() != null) {
-            var sounding = deck.state().soundingKey();
-            String keyStr = sounding + " / " + sounding.camelot();
-            if (deck.state().getKeyShift() != 0) {
-                keyStr += String.format(" (%+d)", deck.state().getKeyShift());
+    /** The screen itself: a black inset with a bezel, so everything drawn on it reads. */
+    private void drawScreenPanel(GuiGraphics g, int x0, int y0, int sw, int sh) {
+        g.fill(x0, y0, x0 + sw, y0 + sh, 0xFF07070B);              // near black, not pure
+        g.renderOutline(x0, y0, sw, sh, 0xFF2A2A34);               // bezel
+        g.fill(x0 + 1, y0 + 1, x0 + sw - 1, y0 + 2, 0x14FFFFFF);   // faint top glint, reads as glass
+    }
+
+    /**
+     * The zoomed waveform: a few seconds of track scrolling under a fixed playhead in the middle,
+     * the way a CDJ shows it. Played time is on the left, what is coming is on the right.
+     *
+     * <p>The old version scrolled the wave but coloured it by bar index against overall track
+     * progress, so the boundary between "played" and "not played" sat wherever the track happened
+     * to be as a fraction, with no relation to the audio underneath it. With the playhead fixed in
+     * the centre, the split is where it belongs and stays there.
+     *
+     * <p>The shape is still procedural: WaterMedia hands over decoded PCM, not an analysed track,
+     * so there is nothing to draw the real envelope from. It is seeded by absolute position, so a
+     * given moment of a track always looks the same and scrubbing back shows the same hills again.
+     */
+    private void drawZoomedWave(GuiGraphics g, int x, int y, int w, int h,
+                                long ms, double bpm, boolean playing) {
+        int mid = y + h / 2;
+        int half = Math.max(2, h / 2 - 1);
+        int centre = x + w / 2;
+        double msPerPx = ZOOM_SECONDS * 1000.0 / w;
+
+        // Beat grid behind the wave, if the deck knows a tempo. Lining the wave up against these
+        // is how beatmatching by eye works.
+        if (bpm > 0) {
+            double beatMs = 60000.0 / bpm;
+            long firstBeat = (long) Math.floor((ms - (w / 2.0) * msPerPx) / beatMs);
+            for (long b = firstBeat; ; b++) {
+                double t = b * beatMs;
+                int bx = centre + (int) Math.round((t - ms) / msPerPx);
+                if (bx > x + w) {
+                    break;
+                }
+                if (bx >= x && b >= 0) {
+                    boolean bar = b % 4 == 0; // downbeats brighter, so bars are countable
+                    g.fill(bx, y, bx + 1, y + h, bar ? 0x40FFFFFF : 0x1AFFFFFF);
+                }
             }
-            g.drawString(this.font, keyStr, x0 + sw - this.font.width(keyStr) - 1,
-                    y0 + 1 + this.font.lineHeight, 0xFF9B5DE5, false);
         }
 
-        // Elapsed (left) and remaining (right).
-        String elapsed = fmtTime(ms);
-        g.drawString(this.font, elapsed, x0 + 1, pline + 4, 0xFF00E0A0, false);
+        for (int i = 0; i < w; i++) {
+            double t = ms + (i - w / 2.0) * msPerPx;
+            if (t < 0) {
+                continue;
+            }
+            boolean played = i < w / 2;
+            // Three bands stacked, as a real player colours a waveform: bass wide and blue, mids
+            // orange over it, highs a bright cap. Reading the bass line alone tells you where the
+            // drop is without listening.
+            float low = band(t, 37L, 900);
+            float mid1 = band(t, 91L, 320);
+            float high = band(t, 173L, 110);
+            int lowA = 1 + Math.round(low * half);
+            int midA = 1 + Math.round(mid1 * half * 0.72f);
+            int hiA = 1 + Math.round(high * half * 0.42f);
+            int dim = played ? 0x80 : 0xFF;
+            g.fill(x + i, mid - lowA, x + i + 1, mid + lowA, argb(dim, 0x2E, 0x6C, 0xE0));
+            g.fill(x + i, mid - midA, x + i + 1, mid + midA, argb(dim, 0xF2, 0x9A, 0x2E));
+            g.fill(x + i, mid - hiA, x + i + 1, mid + hiA, argb(dim, 0xF0, 0xF4, 0xFF));
+        }
+
+        // Playhead last, over everything, so it is never lost in a loud passage.
+        int head = playing ? 0xFFFF3B30 : 0xFF9AA0AA;
+        g.fill(centre, y, centre + 1, y + h, head);
+    }
+
+    /**
+     * The whole track at a glance along the bottom, with the cue and hot cues marked and the loop
+     * shaded — the strip a CDJ puts under the wave, and the one you touch to jump.
+     */
+    private void drawOverview(GuiGraphics g, int x, int y, int w, int h,
+                              long ms, long dur, com.osgworld.djbooth.deck.DeckState state) {
+        g.fill(x, y, x + w, y + h, 0xFF14141C);
+        if (dur <= 0) {
+            return;
+        }
+        for (int i = 0; i < w; i++) {
+            double t = (double) i / w * dur;
+            int amp = 1 + Math.round(band(t, 37L, 900) * (h - 2));
+            boolean played = t <= ms;
+            g.fill(x + i, y + h - amp, x + i + 1, y + h,
+                    played ? 0xFF2E6CE0 : 0x66505A72);
+        }
+        if (state.isLoopOn() && state.getLoopOutMs() > state.getLoopInMs()) {
+            int a = x + (int) (w * clamp01d((double) state.getLoopInMs() / dur));
+            int b = x + (int) (w * clamp01d((double) state.getLoopOutMs() / dur));
+            g.fill(a, y, Math.max(a + 1, b), y + h, 0x3325E0C0);
+        }
+        long cue = state.getCuePointMs();
+        if (cue >= 0) {
+            markOverview(g, x, y, w, h, cue, dur, 0xFFFF8A1F);
+        }
+        for (int i = 0; i < 4; i++) {
+            if (state.hasHotCue(i)) {
+                markOverview(g, x, y, w, h, state.getHotCue(i), dur, HOT_CUE_COLOURS[i]);
+            }
+        }
+        int px = x + (int) (w * clamp01d((double) ms / dur));
+        g.fill(px, y - 1, px + 1, y + h + 1, 0xFFFFFFFF);
+    }
+
+    private void markOverview(GuiGraphics g, int x, int y, int w, int h,
+                              long at, long dur, int colour) {
+        int mx = x + (int) (w * clamp01d((double) at / dur));
+        g.fill(mx, y, mx + 1, y + h, colour);
+    }
+
+    /** Time on the left, tempo and key on the right, on the black rather than on the artwork. */
+    private void drawScreenHeader(GuiGraphics g, int x, int y, int w, long ms, long dur,
+                                  com.osgworld.djbooth.deck.DeckState state, BlockPos pos) {
+        g.drawString(this.font, fmtTime(ms), x, y, 0xFF00E0A0, false);
         if (dur > 0) {
             String remaining = "-" + fmtTime(Math.max(0, dur - ms));
-            g.drawString(this.font, remaining, x0 + sw - this.font.width(remaining) - 1,
-                    pline + 4, 0xFFE0A000, false);
+            int rw = this.font.width(remaining);
+            g.drawString(this.font, remaining, x + w / 2 - rw / 2, y, 0xFFE0A000, false);
         }
+        double deckBpm = state.getBpm();
+        Double tapped = bpm.get(pos);
+        double shown = deckBpm > 0 ? deckBpm : (tapped != null ? tapped : 0);
+        StringBuilder right = new StringBuilder();
+        if (shown > 0) {
+            right.append(String.format("%.1f", shown));
+        }
+        if (state.getKey() != null) {
+            var sounding = state.soundingKey();
+            if (right.length() > 0) {
+                right.append("  ");
+            }
+            right.append(sounding.camelot());
+            if (state.getKeyShift() != 0) {
+                right.append(String.format("%+d", state.getKeyShift()));
+            }
+        }
+        if (right.length() > 0) {
+            String s = right.toString();
+            g.drawString(this.font, s, x + w - this.font.width(s), y, 0xFF35E070, false);
+        }
+    }
+
+    /** Seconds of track across the zoomed view. Roughly what a CDJ shows at a usable zoom. */
+    private static final double ZOOM_SECONDS = 6.0;
+
+    private static final int[] HOT_CUE_COLOURS =
+            {0xFF25E0C0, 0xFFF2A900, 0xFFC03AA0, 0xFF2A7BFF};
+
+    private static double clamp01d(double v) {
+        return v < 0 ? 0 : (v > 1 ? 1 : v);
+    }
+
+    private static int argb(int a, int r, int gg, int b) {
+        return (a << 24) | (r << 16) | (gg << 8) | b;
+    }
+
+    /**
+     * A repeatable pseudo-envelope for one band at a moment in the track.
+     *
+     * <p>Hashed from the position rather than accumulated, so the same moment always draws the same
+     * shape: scrub back and the hills you saw are still there, which is the whole point of looking
+     * at a waveform. {@code slotMs} sets how fast that band changes - bass moves slowly, highs
+     * flicker.
+     */
+    private static float band(double atMs, long salt, int slotMs) {
+        long slot = (long) Math.floor(atMs / slotMs);
+        long h = slot * 0x9E3779B97F4A7C15L + salt * 0xC2B2AE3D27D4EB4FL;
+        h ^= h >>> 29;
+        h *= 0xBF58476D1CE4E5B9L;
+        h ^= h >>> 32;
+        float a = ((h >>> 40) & 0xFFFF) / 65535f;
+        // Interpolate between neighbouring slots so the envelope undulates instead of stepping.
+        long h2 = (slot + 1) * 0x9E3779B97F4A7C15L + salt * 0xC2B2AE3D27D4EB4FL;
+        h2 ^= h2 >>> 29;
+        h2 *= 0xBF58476D1CE4E5B9L;
+        h2 ^= h2 >>> 32;
+        float b = ((h2 >>> 40) & 0xFFFF) / 65535f;
+        double f = (atMs / slotMs) - slot;
+        double smooth = f * f * (3 - 2 * f);
+        return (float) (0.18 + 0.82 * (a + (b - a) * smooth));
     }
 
     private static String fmtTime(long ms) {

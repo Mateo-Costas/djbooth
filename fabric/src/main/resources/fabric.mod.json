@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "djbooth",
   "version": "${version}",
-  "name": "Soundsystem",
+  "name": "Soundsystem DJ",
   "description": "An interactive Pioneer-style DJ booth: two CDJ decks and a mixer in one GUI.",
   "authors": ["OSGWORLD"],
   "contact": {},

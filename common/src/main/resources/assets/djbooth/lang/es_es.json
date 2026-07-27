@@ -2,7 +2,7 @@
   "block.djbooth.cdj": "CDJ-3000",
   "block.djbooth.mixer": "Mesa de mezclas",
   "gui.djbooth.booth": "BOOTH MONITOR: volumen para quien esté en la cabina",
-  "itemGroup.djbooth": "Soundsystem",
+  "itemGroup.djbooth": "Soundsystem DJ",
   "gui.djbooth.fader_a": "Volumen canal A",
   "gui.djbooth.fader_b": "Volumen canal B",
   "gui.djbooth.master": "Volumen general (master)",

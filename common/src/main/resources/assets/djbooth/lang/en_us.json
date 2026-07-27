@@ -2,7 +2,7 @@
   "block.djbooth.cdj": "CDJ-3000",
   "block.djbooth.mixer": "DJ Mixer",
   "gui.djbooth.booth": "BOOTH MONITOR: level for whoever is stood at the booth",
-  "itemGroup.djbooth": "Soundsystem",
+  "itemGroup.djbooth": "Soundsystem DJ",
   "gui.djbooth.fader_a": "Channel A volume",
   "gui.djbooth.fader_b": "Channel B volume",
   "gui.djbooth.master": "Master volume",

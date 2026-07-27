@@ -30,10 +30,10 @@ public class MixerBlockEntity extends BlockEntity {
     private boolean isolator = false;
     // Fader curves, as the three icons printed by each switch: 0 = slow rise, 1 = linear,
     // 2 = sharp (near-silent until the top of the throw, for cutting).
-    public static final int CURVE_SLOW = 0;
-    public static final int CURVE_LINEAR = 1;
-    public static final int CURVE_SHARP = 2;
-    public static final String[] CURVE_NAMES = {"SLOW", "LIN", "SHARP"};
+    public static final int CURVE_SLOW = com.osgworld.djbooth.mixer.MixLevels.CURVE_SLOW;
+    public static final int CURVE_LINEAR = com.osgworld.djbooth.mixer.MixLevels.CURVE_LINEAR;
+    public static final int CURVE_SHARP = com.osgworld.djbooth.mixer.MixLevels.CURVE_SHARP;
+    public static final String[] CURVE_NAMES = com.osgworld.djbooth.mixer.MixLevels.CURVE_NAMES;
     private int chFaderCurve = CURVE_LINEAR;
     private int crossFaderCurve = CURVE_LINEAR;
 
@@ -44,9 +44,9 @@ public class MixerBlockEntity extends BlockEntity {
     private boolean cueB = false;
 
     /** CROSS FADER ASSIGN positions, as printed on the switch under each channel fader. */
-    public static final int XF_A = 0;
-    public static final int XF_THRU = 1;
-    public static final int XF_B = 2;
+    public static final int XF_A = com.osgworld.djbooth.mixer.MixLevels.XF_A;
+    public static final int XF_THRU = com.osgworld.djbooth.mixer.MixLevels.XF_THRU;
+    public static final int XF_B = com.osgworld.djbooth.mixer.MixLevels.XF_B;
     // Channel 1 defaults to the A side and channel 2 to the B side, the usual club setup.
     private int xfAssignA = XF_A;
     private int xfAssignB = XF_B;
@@ -129,14 +129,6 @@ public class MixerBlockEntity extends BlockEntity {
     public boolean isCued(boolean deckA) { return deckA ? cueA : cueB; }
     public boolean anyCue() { return cueA || cueB; }
 
-    /** Shape a 0..1 fader position by one of the three printed curves. */
-    private static float curve(float v, int shape) {
-        return switch (shape) {
-            case CURVE_SHARP -> v * v * v;   // stays quiet, then jumps: the cutting curve
-            case CURVE_SLOW -> (float) Math.pow(v, 1.0 / 2.0); // opens up early, for long blends
-            default -> v;
-        };
-    }
 
     /** Everything the DSP needs for one deck's channel, in one value. */
     public com.osgworld.djbooth.mixer.ChannelSettings settingsForDeck(boolean deckA) {
@@ -217,19 +209,12 @@ public class MixerBlockEntity extends BlockEntity {
      * crossfader weight and the master. Crossfader 0 = full A, 1 = full B.
      */
     public float volumeForDeck(boolean deckA) {
-        float channel = curve(deckA ? faderA : faderB, chFaderCurve);
-        return clamp01(channel * crossfaderWeight(deckA ? xfAssignA : xfAssignB) * master);
+        return com.osgworld.djbooth.mixer.MixLevels.channelVolume(
+                deckA ? faderA : faderB, chFaderCurve,
+                deckA ? xfAssignA : xfAssignB, crossfader, crossFaderCurve,
+                master);
     }
 
-    /** How much the crossfader lets a channel through, given which side it is assigned to.
-     *  THRU takes the channel off the crossfader entirely, exactly like the hardware switch. */
-    private float crossfaderWeight(int assign) {
-        return switch (assign) {
-            case XF_A -> curve(1.0f - crossfader, crossFaderCurve);
-            case XF_B -> curve(crossfader, crossFaderCurve);
-            default -> 1.0f; // THRU
-        };
-    }
 
     /**
      * Level for someone stood at the booth rather than out on the floor.
@@ -240,11 +225,8 @@ public class MixerBlockEntity extends BlockEntity {
      * which is as close to headphones as a shared world gets.
      */
     public float boothVolumeForDeck(boolean deckA) {
-        if (anyCue()) {
-            // Cue overrides: only cued channels are in the DJ's ears, at full level.
-            return isCued(deckA) ? booth : 0f;
-        }
-        return clamp01(volumeForDeck(deckA) * booth);
+        return com.osgworld.djbooth.mixer.MixLevels.boothVolume(
+                volumeForDeck(deckA), booth, anyCue(), isCued(deckA));
     }
 
     public void applyAndSync() {

@@ -23,7 +23,15 @@ import com.osgworld.djbooth.mixer.BeatFxTypes;
  * <p>Instances are per audio channel and only touched from the audio thread.
  */
 public final class BeatFx {
-    private static final double MAX_SECONDS = 4.0;   // longest effect time we allocate for
+    /**
+     * Longest effect time the panel can ask for: the slowest tempo the mixer accepts (40 BPM)
+     * against the widest beat fraction (4 beats). Anything shorter than this and the beat buttons
+     * would quietly stop matching the beat at low tempos.
+     */
+    private static final double MAX_SECONDS = 6.0;
+    /** Headroom on the buffer so a tap at exactly MAX_SECONDS doesn't land on the wrap point,
+     *  where it would read the sample just written and collapse to no delay at all. */
+    private static final double BUFFER_MARGIN_SECONDS = 0.1;
     private static final int ALLPASS_STAGES = 4;     // phaser depth
     private static final double FLANGER_MS = 6.0;    // flanger sweep range
     private static final double BRAKE_SECONDS = 1.6; // how long VINYL BRAKE takes to stop
@@ -60,7 +68,7 @@ public final class BeatFx {
     /** (Re)allocate for a sample rate. Call whenever the audio format changes. */
     public void setup(double sampleRate) {
         this.fs = sampleRate;
-        line = new float[Math.max(1, (int) (sampleRate * MAX_SECONDS))];
+        line = new float[Math.max(1, (int) (sampleRate * (MAX_SECONDS + BUFFER_MARGIN_SECONDS)))];
         writePos = 0;
         readPos = 0;
         bandLow.lowpass(sampleRate, 200.0, 0.7);
@@ -155,9 +163,17 @@ public final class BeatFx {
         writePos = (writePos + 1) % line.length;
     }
 
-    /** Read the line {@code seconds} back, interpolating so modulated taps don't click. */
+    /**
+     * Read the line {@code seconds} back, interpolating so modulated taps don't click.
+     *
+     * <p>Clamped to what the line actually holds. Some effects scale the effect time — PING PONG
+     * offsets one side by half again, SPIRAL drifts its tap as it decays — so a request can reach
+     * past the end even when the effect time itself fits. Asking for more than the line holds
+     * would wrap around and read a completely different, much shorter delay.
+     */
     private double tap(double seconds) {
-        double back = seconds * fs;
+        double maxSeconds = (line.length - 2) / fs;
+        double back = Math.min(seconds, maxSeconds) * fs;
         double p = writePos - back;
         while (p < 0) {
             p += line.length;

@@ -41,6 +41,7 @@ public final class DspSfxEngine extends SFXEngine {
     private BeatFx[] beat;
     private PitchShifter[] keyLock;
     private boolean supported; // true when the negotiated format is one we filter
+    private boolean warnedReadOnly; // log the read-only fallback once, not per audio block
 
     // Per-channel echo delay lines.
     private float[][] delay;
@@ -191,6 +192,17 @@ public final class DspSfxEngine extends SFXEngine {
     @Override
     public boolean upload(ByteBuffer buf) {
         if (!supported || buf == null) {
+            return inner.upload(buf);
+        }
+        // We filter in place, so a read-only buffer would throw on the audio thread and take the
+        // deck's sound with it. Nothing observed hands us one, but passing the audio through
+        // unfiltered is a far better failure than silence, so check rather than assume.
+        if (buf.isReadOnly()) {
+            if (!warnedReadOnly) {
+                warnedReadOnly = true;
+                com.osgworld.djbooth.DJBooth.LOGGER.warn(
+                        "Audio buffer is read-only; playing this deck without EQ or effects");
+            }
             return inner.upload(buf);
         }
         rebakeIfNeeded();

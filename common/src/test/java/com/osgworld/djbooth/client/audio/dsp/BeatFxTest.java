@@ -89,6 +89,59 @@ class BeatFxTest {
     }
 
     @Test
+    void theLongestEffectTimeThePanelCanAskForStillDelays() {
+        // The slowest tempo the mixer accepts is 40 BPM, and the widest beat fraction is 4 beats:
+        // six seconds. If the delay line is only sized for the common case, the tap wraps onto the
+        // sample just written and the effect collapses to no delay at all — silently.
+        double seconds = 60.0 / 40.0 * 4.0;
+        int delaySamples = (int) (seconds * FS);
+        BeatFx fx = stage(BeatFxTypes.DELAY, true, seconds, 1.0);
+        fx.process(1.0);
+        double peak = 0;
+        int peakAt = -1;
+        for (int i = 1; i < delaySamples + 2000; i++) {
+            double y = Math.abs(fx.process(0.0));
+            if (y > peak) {
+                peak = y;
+                peakAt = i;
+            }
+        }
+        assertTrue(peak > 0.1, "the repeat should still be audible at the longest effect time");
+        assertTrue(Math.abs(peakAt - delaySamples) < 8,
+                "repeat landed at " + peakAt + ", expected near " + delaySamples);
+    }
+
+    @Test
+    void effectsThatStretchTheEffectTimeStayInsideTheLine() {
+        // PING PONG offsets one side by half again the effect time, so at the longest setting it
+        // asks for nine seconds from a six second line. Reading past the end would wrap and give
+        // a much shorter delay instead — quietly wrong rather than obviously broken.
+        double seconds = 60.0 / 40.0 * 4.0;
+        for (int type : new int[]{BeatFxTypes.PING_PONG, BeatFxTypes.SPIRAL}) {
+            BeatFx fx = new BeatFx(true); // the right-hand side, which is the one that stretches
+            fx.setup(FS);
+            fx.set(type, true, seconds, 1.0, BeatFxTypes.BANDS_ALL);
+            fx.process(1.0);
+            double peak = 0;
+            int peakAt = -1;
+            // Scan past the line's own length: a clamped tap lands at the end of the line,
+            // which is slightly later than the effect time that was asked for.
+            for (int i = 1; i < (int) (7.0 * FS); i++) {
+                double y = Math.abs(fx.process(0.0));
+                if (y > peak) {
+                    peak = y;
+                    peakAt = i;
+                }
+            }
+            // Whatever the exact tap works out to, it must not come back early: a wrapped read
+            // lands at a fraction of the requested delay.
+            assertTrue(peakAt > seconds * FS * 0.8,
+                    BeatFxTypes.NAMES[type] + " repeated at " + peakAt
+                            + ", far too early for a " + seconds + "s setting");
+        }
+    }
+
+    @Test
     void vinylBrakeRunsDownToSilence() {
         BeatFx fx = stage(BeatFxTypes.VINYL_BRAKE, true, 0.5, 1.0);
         double[] in = tone(200000);

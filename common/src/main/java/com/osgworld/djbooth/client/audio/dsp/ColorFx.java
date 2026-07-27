@@ -30,7 +30,13 @@ public final class ColorFx {
     private static final int FILTER = ColorFxModes.FILTER;
 
     private static final double DEAD_ZONE = 0.02; // knob travel around centre that stays dry
-    private static final double FILTER_Q = 2.0;
+
+    // A resonant low-pass peaks at roughly Q times its input right at the cutoff. Q ran to 6 here,
+    // so turning COLOR fully left with PARAMETER up put +12 dB of bass through a stage the ear
+    // reads as *removing* sound, and anything loud hit the limiter. Real hardware resonates
+    // audibly without doing that. Peak gain is now capped near +6 dB, which still sings.
+    private static final double FILTER_Q_MIN = 0.9;
+    private static final double FILTER_Q_RANGE = 1.1;
     private static final double REVERB_SECONDS = 0.09;  // comb spread for the SPACE reverb
     private static final double ECHO_SECONDS = 0.28;    // DUB ECHO repeat time
     private static final int COMBS = 4;
@@ -53,10 +59,20 @@ public final class ColorFx {
     private double fs = 48000;
     private long noiseState = 0x9E3779B97F4A7C15L;
 
-    // Baked from the last (mode, knob, parameter) triple so coefficients aren't recomputed per sample.
+    // Where the knobs are being asked to go, written when the panel moves.
     private int mode = FILTER;
-    private double knob = 0.5, param = 0.5;
+    private double targetKnob = 0.5, targetParam = 0.5;
+
+    // Where they actually are. The COLOR knob drives filter cutoffs, so baking coefficients
+    // straight onto a new position steps the response mid-waveform and clicks - the same fault
+    // the channel EQ had, and worse here because the cutoff sweeps decades rather than dB.
+    private static final int RAMP_CADENCE = ParamRamp.CHUNK_FRAMES / 8;
+    private final ParamRamp knobRamp = new ParamRamp(RAMP_CADENCE);
+    private final ParamRamp paramRamp = new ParamRamp(RAMP_CADENCE);
+    private int sinceChunk;   // samples since the ramps last moved
+    private double knob = 0.5, param = 0.5; // last values baked
     private boolean baked;
+
     // Derived, per side of the knob.
     private double depth;     // 0..1, how far from centre the knob is
     private boolean rightSide;
@@ -75,17 +91,49 @@ public final class ColorFx {
         echo = new float[Math.max(1, (int) (sampleRate * ECHO_SECONDS))];
         echoPos = 0;
         baked = false;
+        sinceChunk = 0;
+        knobRamp.unprime();
+        paramRamp.unprime();
         reset();
     }
 
-    /** Point the stage at a mode and knob positions. Cheap; coefficients bake lazily. */
+    /**
+     * Point the stage at a mode and knob positions. Cheap: the knobs are only targets here, and
+     * {@link #process} walks the ramps toward them.
+     *
+     * <p>A mode change is not ramped. There is no continuous path from a reverb to a bit crusher,
+     * so the switch snaps and the tails are dropped, which is what the hardware does when you press
+     * a different button.
+     */
     public void set(int newMode, double newKnob, double newParam) {
-        if (newMode == mode && newKnob == knob && newParam == param && baked) {
+        if (newMode != mode) {
+            this.mode = newMode;
+            this.targetKnob = newKnob;
+            this.targetParam = newParam;
+            knobRamp.snapTo(newKnob);
+            paramRamp.snapTo(newParam);
+            reset();
+            bake();
             return;
         }
-        this.mode = newMode;
-        this.knob = newKnob;
-        this.param = newParam;
+        this.targetKnob = newKnob;
+        this.targetParam = newParam;
+        if (!baked) {
+            knobRamp.snapTo(newKnob);
+            paramRamp.snapTo(newParam);
+            bake();
+        }
+    }
+
+    /** Step the ramps and rebake if they moved. Called on the chunk cadence from {@link #process}. */
+    private void advanceRamps() {
+        double k = knobRamp.advance(targetKnob);
+        double p = paramRamp.advance(targetParam);
+        if (k == knob && p == param && baked) {
+            return;
+        }
+        this.knob = k;
+        this.param = p;
         bake();
     }
 
@@ -102,11 +150,11 @@ public final class ColorFx {
                 } else if (rightSide) {
                     // High-pass cutoff rises as the knob goes right.
                     sweep.highpass(fs, Math.min(sweepHz(depth, 20.0, 6000.0), nyq * 0.98),
-                            FILTER_Q + param * 4.0);
+                            FILTER_Q_MIN + param * FILTER_Q_RANGE);
                 } else {
                     // Low-pass cutoff descends as the knob goes left.
                     sweep.lowpass(fs, Math.min(sweepHz(1.0 - depth, 200.0, 18000.0), nyq * 0.98),
-                            FILTER_Q + param * 4.0);
+                            FILTER_Q_MIN + param * FILTER_Q_RANGE);
                 }
             }
             case SWEEP -> {
@@ -163,6 +211,10 @@ public final class ColorFx {
 
     /** Run one sample through the stage. */
     public double process(double s) {
+        if (sinceChunk-- <= 0) {
+            sinceChunk = RAMP_CADENCE - 1;
+            advanceRamps();
+        }
         if (depth <= 0) {
             return s; // centre detent: fully dry, whatever the mode
         }

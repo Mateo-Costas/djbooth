@@ -41,7 +41,8 @@ public final class BeatFx {
     private double readPos;               // fractional, so the rate effects can resample
 
     private final Biquad lfoFilter = new Biquad();          // FILTER sweep
-    private final Biquad[] allpass = new Biquad[ALLPASS_STAGES]; // PHASER
+    private final Allpass1[] phase = new Allpass1[ALLPASS_STAGES]; // PHASER
+    private int sincePhaserBake; // samples since the phaser's corner was last recomputed
     private final Biquad bandLow = new Biquad();            // FX FREQUENCY splits
     private final Biquad bandHigh = new Biquad();
 
@@ -61,7 +62,7 @@ public final class BeatFx {
     public BeatFx(boolean rightChannel) {
         this.rightChannel = rightChannel;
         for (int i = 0; i < ALLPASS_STAGES; i++) {
-            allpass[i] = new Biquad();
+            phase[i] = new Allpass1();
         }
     }
 
@@ -120,6 +121,10 @@ public final class BeatFx {
             push(s);
             advanceLfo();
             return s;
+        }
+        if (sincePhaserBake-- <= 0) {
+            sincePhaserBake = ParamRamp.CHUNK_FRAMES - 1;
+            bakePhaser();
         }
         // FX FREQUENCY: only the enabled bands are sent into the effect, the rest stay dry.
         double lo = bandLow.process(s);
@@ -184,9 +189,18 @@ public final class BeatFx {
         return line[i0 % line.length] * (1 - frac) + line[i1] * frac;
     }
 
+    /**
+     * One delay tap with feedback.
+     *
+     * <p>The input is scaled by {@code 1 - feedback} on the way into the line. Without that, a loop
+     * that returns a fraction {@code g} of itself settles at {@code 1 / (1 - g)} times its input:
+     * ECHO's 0.8 meant a steady tone came back five times louder than it went in, straight into the
+     * limiter. Scaling the input makes the repeats sum to unity instead, so the tail is as long as
+     * before and the level is the one the DJ set.
+     */
     private double singleTap(double s, double seconds, double feedback) {
         double delayed = tap(seconds);
-        push(s + delayed * feedback);
+        push(s * (1.0 - feedback) + delayed * feedback);
         return delayed;
     }
 
@@ -202,8 +216,9 @@ public final class BeatFx {
     /** SPIRAL: an echo whose repeats drift in pitch, because the tap slides as it decays. */
     private double spiral(double s) {
         double drift = 1.0 + 0.35 * depth * lfoPhase; // tap slowly lengthens across the cycle
+        double feedback = 0.5 + 0.35 * depth;
         double delayed = tap(timeSeconds * drift);
-        push(s + delayed * (0.5 + 0.35 * depth));
+        push(s * (1.0 - feedback) + delayed * feedback); // see singleTap for why the input is scaled
         return delayed;
     }
 
@@ -235,7 +250,10 @@ public final class BeatFx {
         push(s);
         double t = 0.5 - 0.5 * Math.cos(2 * Math.PI * lfoPhase); // 0..1..0
         double cutoff = 150.0 * Math.pow(12000.0 / 150.0, t);
-        lfoFilter.lowpass(fs, Math.min(cutoff, fs * 0.49), 0.9 + depth * 3.0);
+        // A resonant low-pass peaks at roughly Q times its input. Q ran to 3.9 here, so a sweep
+        // across a bassline came back four times louder than it went in. Capped near +6 dB, which
+        // still whistles the way the effect is supposed to.
+        lfoFilter.lowpass(fs, Math.min(cutoff, fs * 0.49), 0.9 + depth * 1.1);
         return lfoFilter.process(s);
     }
 
@@ -248,17 +266,66 @@ public final class BeatFx {
         return (s + delayed) * 0.7;
     }
 
-    /** PHASER: a chain of allpasses whose corner sweeps, notching the spectrum as it moves. */
+    /**
+     * PHASER: a chain of allpasses whose corner sweeps, notching the spectrum as it moves.
+     *
+     * <p>A phaser only works if each stage passes every frequency at the same level and only moves
+     * its phase - that is what makes the sum with the dry signal notch rather than colour. This was
+     * built out of low-passes turned into allpasses by {@code 2*lp - y}, which is only an allpass
+     * when the low-pass is exactly one pole; with a biquad at Q 0.7 it overshoots, and four stages
+     * compounded that into 4.35x the input. A real first-order allpass has unity magnitude by
+     * construction, so the chain cannot add level however many stages it has.
+     *
+     * <p>The coefficient was also recomputed every sample - four sets of trigonometry per sample
+     * per channel, for an LFO that takes a whole beat to cross its range.
+     */
     private double phaser(double s) {
         push(s);
-        double t = 0.5 - 0.5 * Math.cos(2 * Math.PI * lfoPhase);
-        double corner = 200.0 * Math.pow(6000.0 / 200.0, t);
         double y = s;
-        for (Biquad stage : allpass) {
-            stage.lowpass(fs, Math.min(corner, fs * 0.49), 0.7);
-            y = 2.0 * stage.process(y) - y; // low-pass -> allpass, cheaply
+        for (Allpass1 stage : phase) {
+            y = stage.process(y);
         }
         return (s + y) * 0.7;
+    }
+
+    /** Update the phaser's corner from the LFO. Called on the ramp cadence, not per sample. */
+    private void bakePhaser() {
+        double t = 0.5 - 0.5 * Math.cos(2 * Math.PI * lfoPhase);
+        double corner = Math.min(200.0 * Math.pow(6000.0 / 200.0, t), fs * 0.49);
+        double coeff = Allpass1.coeffFor(fs, corner);
+        for (Allpass1 stage : phase) {
+            stage.setCoeff(coeff);
+        }
+    }
+
+    /**
+     * A one-pole allpass: unity magnitude at every frequency, phase rotating through 180 degrees
+     * around its corner. The building block a phaser is actually made of.
+     */
+    private static final class Allpass1 {
+        private double a;
+        private double x1, y1;
+
+        static double coeffFor(double fs, double cornerHz) {
+            double t = Math.tan(Math.PI * cornerHz / fs);
+            return (t - 1.0) / (t + 1.0);
+        }
+
+        void setCoeff(double coeff) {
+            this.a = coeff;
+        }
+
+        double process(double x) {
+            double y = a * x + x1 - a * y1;
+            x1 = x;
+            y1 = y;
+            return y;
+        }
+
+        void reset() {
+            x1 = 0;
+            y1 = 0;
+        }
     }
 
     /** PITCH: read the line faster or slower than it is written. */
@@ -332,8 +399,12 @@ public final class BeatFx {
         int len = Math.max(1, (int) (timeSeconds * fs));
         int idx = ((int) readPos) % line.length;
         double looped = line[idx];
-        // Feed the live signal back into the loop so it piles up, which is the helix.
-        line[idx] = (float) (looped * (0.5 + 0.45 * depth) + s * 0.5);
+        // Feed the live signal back into the loop so it piles up, which is the helix. The two
+        // shares have to sum to one: at 0.95 feedback against a fixed 0.5 of live signal the loop
+        // settled ten times louder than its input, so the effect that is meant to build tension
+        // just pinned the limiter.
+        double feedback = 0.5 + 0.45 * depth;
+        line[idx] = (float) (looped * feedback + s * (1.0 - feedback));
         readPos += 1.0;
         int start = writePos - recorded;
         while (start < 0) {
@@ -351,9 +422,10 @@ public final class BeatFx {
         lfoFilter.reset();
         bandLow.reset();
         bandHigh.reset();
-        for (Biquad stage : allpass) {
+        for (Allpass1 stage : phase) {
             stage.reset();
         }
+        sincePhaserBake = 0;
         lfoPhase = 0;
         brake = 1.0;
         recorded = 0;

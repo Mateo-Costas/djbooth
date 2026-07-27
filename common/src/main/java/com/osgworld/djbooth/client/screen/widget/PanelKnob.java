@@ -107,8 +107,8 @@ public class PanelKnob extends AbstractWidget {
         boolean active = isHovered() || isFocused();
 
         // Body.
-        g.fill(cx - r, cy - r, cx + r, cy + r, 0xFF15151A);
-        g.renderOutline(cx - r, cy - r, 2 * r, 2 * r, active ? 0xFFFFFFFF : 0xFF3A3A44);
+        g.fill(cx - r, cy - r, cx + r, cy + r, 0xFF23232B);
+        g.renderOutline(cx - r, cy - r, 2 * r, 2 * r, active ? 0xFFFFFFFF : 0xFF5A5A68);
 
         // Arc from the default position to the current one, so how far the knob is turned reads
         // at a glance instead of having to compare pointer angles.
@@ -121,7 +121,7 @@ public class PanelKnob extends AbstractWidget {
         boolean atDefault = Math.abs(v - defaultValue) < 0.02;
         int col = atDefault ? 0xFF25E0C0 : 0xFFF2A900; // green when parked, amber when turned
         g.fill(px - 1, py - 1, px + 1, py + 1, col);
-        g.fill(cx - 1, cy - 1, cx + 1, cy + 1, 0xFF60606A);
+        g.fill(cx - 1, cy - 1, cx + 1, cy + 1, 0xFF8A8A96);
 
         // Caption beside the knob (left for deck A, right for deck B) so columns don't collide.
         // Hovering swaps it for the live value in hardware units.
@@ -146,7 +146,7 @@ public class PanelKnob extends AbstractWidget {
             double a = Math.toRadians((t - 0.5) * 2 * SWEEP_DEG);
             int ax = cx + (int) Math.round(Math.sin(a) * (r + 1));
             int ay = cy - (int) Math.round(Math.cos(a) * (r + 1));
-            g.fill(ax, ay, ax + 1, ay + 1, 0xCCF2A900);
+            g.fill(ax, ay, ax + 1, ay + 1, 0xFFF2A900);
         }
     }
 

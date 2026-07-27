@@ -2,7 +2,7 @@ package com.osgworld.djbooth.client.audio;
 
 import com.osgworld.djbooth.DJBooth;
 import com.osgworld.djbooth.DJBoothConfig;
-import com.osgworld.djbooth.mixer.MusicKey;
+import com.osgworld.djbooth.mixer.TrackInfo;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -28,14 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class TrackLookup {
     private TrackLookup() {}
 
-    /** What the database knows about a track. Either field may be absent. */
-    public record TrackInfo(double bpm, MusicKey key) {
-        public boolean isEmpty() {
-            return bpm <= 0 && key == null;
-        }
-    }
-
-    private static final TrackInfo NOTHING = new TrackInfo(0, null);
+    private static final TrackInfo NOTHING = TrackInfo.NOTHING;
     private static final String ENDPOINT = "https://api.getsong.co/search/";
     private static final Duration TIMEOUT = Duration.ofSeconds(8);
 
@@ -103,7 +96,7 @@ public final class TrackLookup {
                         query, response.statusCode());
                 return NOTHING;
             }
-            return parse(response.body());
+            return TrackInfo.parse(response.body());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return NOTHING;
@@ -132,54 +125,4 @@ public final class TrackLookup {
         return c;
     }
 
-    /**
-     * Pull the tempo and key out of the response.
-     *
-     * <p>Deliberately field-scraping rather than binding a schema: the API returns a different
-     * shape depending on the endpoint and what it matched, and a missing tempo shouldn't cost us
-     * the key (or the other way round). Anything unrecognised just leaves that field unset.
-     */
-    private static TrackInfo parse(String body) {
-        double bpm = firstNumber(body, "\"tempo\"");
-        MusicKey key = MusicKey.parse(firstString(body, "\"key_of\""));
-        if (key == null) {
-            key = MusicKey.parse(firstString(body, "\"camelot\""));
-        }
-        return new TrackInfo(bpm > 0 ? bpm : 0, key);
-    }
-
-    /** First JSON string value for {@code field}, or null. */
-    private static String firstString(String body, String field) {
-        int i = body.indexOf(field);
-        if (i < 0) {
-            return null;
-        }
-        int colon = body.indexOf(':', i + field.length());
-        int open = body.indexOf('"', colon + 1);
-        int close = open < 0 ? -1 : body.indexOf('"', open + 1);
-        return (open < 0 || close < 0) ? null : body.substring(open + 1, close);
-    }
-
-    /** First numeric value for {@code field}, quoted or bare, or 0. */
-    private static double firstNumber(String body, String field) {
-        String s = firstString(body, field);
-        if (s == null) {
-            int i = body.indexOf(field);
-            if (i < 0) {
-                return 0;
-            }
-            int colon = body.indexOf(':', i + field.length());
-            int end = colon;
-            while (++end < body.length() && (Character.isDigit(body.charAt(end))
-                    || body.charAt(end) == '.' || body.charAt(end) == ' ')) {
-                // scan the number
-            }
-            s = colon < 0 ? null : body.substring(colon + 1, end).trim();
-        }
-        try {
-            return s == null || s.isBlank() ? 0 : Double.parseDouble(s);
-        } catch (NumberFormatException e) {
-            return 0;
-        }
-    }
 }

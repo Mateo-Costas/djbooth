@@ -22,23 +22,20 @@ import java.nio.ByteOrder;
 public final class DspSfxEngine extends SFXEngine {
     // The three-band channel EQ, its knob smoothing and the output limiting all live in
     // ChannelEq: it holds no WaterMedia types, so unlike this class it can be unit tested.
-    private static final double ECHO_SECONDS = 0.35; // fixed delay time (matches a slow beat echo)
-    private static final double GAIN_MAX = 2.0;    // trim: knob 0.5 = unity, 1.0 = +6 dB
-
     private final ALEngine inner = ALEngine.buildDefault();
 
     // Per-channel filter chains: the three-band EQ, then a COLOR FX stage.
     private final ChannelEq eq = new ChannelEq();
+    // One limiter for the whole strip, not one per channel: see the frame loop in upload().
+    private final Limiter limiter = new Limiter();
+    private double[] work = new double[2]; // one frame, held between the two passes below
     private ColorFx[] color;
+    private ChannelEcho[] echo;
     private BeatFx[] beat;
     private PitchShifter[] keyLock;
     private boolean supported; // true when the negotiated format is one we filter
     private boolean warnedReadOnly; // log the read-only fallback once, not per audio block
 
-    // Per-channel echo delay lines.
-    private float[][] delay;
-    private int[] delayPos;
-    private int delayLen;
 
     // Knob params (0..1). Written from the client thread, read on the audio thread.
     private volatile float pLow = 0.5f, pMid = 0.5f, pHigh = 0.5f, pFilter = 0.5f, pEcho = 0f;
@@ -120,15 +117,17 @@ public final class DspSfxEngine extends SFXEngine {
         boolean canFilter = (type == SampleType.S16 || type == SampleType.FLT) && channels > 0;
         if (canFilter) {
             eq.setup(sampleRate, channels);
+            limiter.setup(sampleRate);
+            work = new double[channels];
             color = new ColorFx[channels];
+            echo = new ChannelEcho[channels];
             beat = new BeatFx[channels];
             keyLock = new PitchShifter[channels];
-            delayLen = Math.max(1, (int) (sampleRate * ECHO_SECONDS));
-            delay = new float[channels][delayLen];
-            delayPos = new int[channels];
             for (int c = 0; c < channels; c++) {
                 color[c] = new ColorFx();
                 color[c].setup(sampleRate);
+                echo[c] = new ChannelEcho();
+                echo[c].setup(sampleRate);
                 // Odd channels are the right-hand side, which PING PONG offsets against the left.
                 beat[c] = new BeatFx(c % 2 == 1);
                 beat[c].setup(sampleRate);
@@ -169,38 +168,42 @@ public final class DspSfxEngine extends SFXEngine {
             return inner.upload(buf);
         }
         syncStages();
-        float echoMix = pEcho * 0.6f;       // wet level
-        float echoFb = pEcho * 0.5f;        // feedback
-        double gain = pGain * GAIN_MAX;     // channel trim, 0.5 = unity
+        double echoKnob = pEcho;
+        double trim = ChannelEq.trimGain(pGain);
         float pkL = 0, pkR = 0;
         int pos = buf.position();
         int lim = buf.limit();
         int frame = 0;
         ByteBuffer v = buf.duplicate().order(ByteOrder.LITTLE_ENDIAN);
-        if (sampleType == SampleType.S16) {
-            int frameBytes = 2 * channels;
-            for (int i = pos; i + frameBytes <= lim; i += frameBytes) {
-                if (frame++ % ChannelEq.CHUNK_FRAMES == 0) { eq.advance(); }
-                for (int c = 0; c < channels; c++) {
-                    int idx = i + c * 2;
-                    double s = gain * balanceGain(c)
-                            * filter(c, v.getShort(idx) / 32768.0, echoMix, echoFb);
-                    s = clamp(s);
-                    if (c == 0) { pkL = Math.max(pkL, (float) Math.abs(s)); }
-                    else if (c == 1) { pkR = Math.max(pkR, (float) Math.abs(s)); }
-                    v.putShort(idx, (short) Math.round(s * 32767.0));
-                }
+        int bytes = sampleType == SampleType.S16 ? 2 : 4;
+        int frameBytes = bytes * channels;
+        for (int i = pos; i + frameBytes <= lim; i += frameBytes) {
+            if (frame++ % ChannelEq.CHUNK_FRAMES == 0) { eq.advance(); }
+
+            // Run the whole frame first and note how loud it is, because the limiter has to act on
+            // every channel by the same amount. Ducking one side more than the other would drag
+            // the stereo image sideways whenever a peak came through.
+            double framePeak = 0;
+            for (int c = 0; c < channels; c++) {
+                int idx = i + c * bytes;
+                double in = sampleType == SampleType.S16
+                        ? v.getShort(idx) / 32768.0
+                        : v.getFloat(idx);
+                // TRIM before the EQ, as on the hardware: it sets how hard the bands are driven.
+                double s = balanceGain(c) * filter(c, trim * in, echoKnob);
+                work[c] = s;
+                framePeak = Math.max(framePeak, Math.abs(s));
             }
-        } else { // FLT
-            int frameBytes = 4 * channels;
-            for (int i = pos; i + frameBytes <= lim; i += frameBytes) {
-                if (frame++ % ChannelEq.CHUNK_FRAMES == 0) { eq.advance(); }
-                for (int c = 0; c < channels; c++) {
-                    int idx = i + c * 4;
-                    double s = gain * balanceGain(c) * filter(c, v.getFloat(idx), echoMix, echoFb);
-                    s = clamp(s);
-                    if (c == 0) { pkL = Math.max(pkL, (float) Math.abs(s)); }
-                    else if (c == 1) { pkR = Math.max(pkR, (float) Math.abs(s)); }
+
+            double g = limiter.gainFor(framePeak);
+            for (int c = 0; c < channels; c++) {
+                double s = Limiter.ceiling(work[c] * g);
+                if (c == 0) { pkL = Math.max(pkL, (float) Math.abs(s)); }
+                else if (c == 1) { pkR = Math.max(pkR, (float) Math.abs(s)); }
+                int idx = i + c * bytes;
+                if (sampleType == SampleType.S16) {
+                    v.putShort(idx, (short) Math.round(s * 32767.0));
+                } else {
                     v.putFloat(idx, (float) s);
                 }
             }
@@ -211,24 +214,12 @@ public final class DspSfxEngine extends SFXEngine {
         return inner.upload(buf);
     }
 
-    private double filter(int c, double s, float echoMix, float echoFb) {
+    private double filter(int c, double s, double echoKnob) {
         s = keyLock[c].process(s);
         s = eq.process(c, s);
         s = color[c].process(s);
         s = beat[c].process(s);
-        if (echoMix > 1e-4f) {
-            int p = delayPos[c];
-            float echoed = delay[c][p];
-            double out = s + echoMix * echoed;
-            delay[c][p] = (float) (s + echoFb * echoed);
-            delayPos[c] = (p + 1) % delayLen;
-            s = out;
-        }
-        return s;
-    }
-
-    private static double clamp(double s) {
-        return ChannelEq.softClip(s);
+        return echo[c].process(s, echoKnob);
     }
 
     @Override
@@ -243,9 +234,9 @@ public final class DspSfxEngine extends SFXEngine {
     @Override public void flush() {
         if (supported) {
             eq.reset();
+            limiter.reset();
             for (int c = 0; c < channels; c++) {
-                color[c].reset(); beat[c].reset(); keyLock[c].reset();
-                java.util.Arrays.fill(delay[c], 0f);
+                color[c].reset(); beat[c].reset(); keyLock[c].reset(); echo[c].reset();
             }
         }
         inner.flush();

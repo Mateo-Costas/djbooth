@@ -203,34 +203,77 @@ class ChannelEqTest {
     }
 
     @Test
-    void softClipNeverExceedsFullScale() {
-        for (double x = -8.0; x <= 8.0; x += 0.001) {
-            double y = ChannelEq.softClip(x);
-            assertTrue(Math.abs(y) <= 1.0, "softClip(" + x + ") = " + y + ", outside full scale");
+    void eachBandActsOnTheFrequencyPrintedOnTheHardware() {
+        // The bands used to sit at 200 / 632 / 2000 Hz while claiming to be a DJM-900NXS2, whose
+        // published centres are 70 / 1000 / 13000. Every band being in the wrong place is why each
+        // one sounded wrong in a different way. Check the gain each band applies at its own centre
+        // and, just as importantly, that it leaves the other bands' centres roughly alone.
+        assertEquals(70.0, ChannelEq.F_LOW, 1e-9);
+        assertEquals(1000.0, ChannelEq.F_MID, 1e-9);
+        assertEquals(13000.0, ChannelEq.F_HIGH, 1e-9);
+
+        // A shelf's quoted frequency is the middle of its transition, where it applies half its
+        // gain — so +6 dB of LOW measures +3 dB at 70 Hz and reaches full lift below it. Measure
+        // each shelf in its passband, not at its corner, or the test asks for something no shelf
+        // can do. (Getting this wrong is what made this test fail when the bands were corrected.)
+
+        // LOW boosted: full lift well below 70 Hz, +3 dB at the corner, nothing up top.
+        assertEquals(2.0, gainAt(1f, 0.5f, 0.5f, 25), 0.15, "LOW +6 in its passband");
+        assertEquals(1.41, gainAt(1f, 0.5f, 0.5f, 70), 0.1, "a shelf applies half its gain at F");
+        assertTrue(gainAt(1f, 0.5f, 0.5f, 13000) < 1.1, "LOW must not reach the top end");
+
+        // HI boosted: full lift above 13 kHz, nothing in the bass.
+        assertEquals(2.0, gainAt(0.5f, 0.5f, 1f, 20000), 0.2, "HI +6 in its passband");
+        assertTrue(gainAt(0.5f, 0.5f, 1f, 70) < 1.1, "HI must not reach the bass");
+
+        // MID is a bell, so it does hit its full gain at its own centre.
+        assertEquals(2.0, gainAt(0.5f, 1f, 0.5f, 1000), 0.15, "MID +6 at 1 kHz");
+        assertTrue(gainAt(0.5f, 1f, 0.5f, 60) < 1.3, "MID must not swamp the bass");
+    }
+
+    /** Steady-state gain the EQ applies to a sine at {@code hz}, once the ramps have settled. */
+    private static double gainAt(float lo, float mid, float hi, double hz) {
+        double fs = 48000;
+        ChannelEq eq = new ChannelEq();
+        eq.setup((int) fs, 1);
+        eq.setTargets(lo, mid, hi, false);
+        for (int i = 0; i < 500; i++) {
+            eq.advance();
         }
+        int n = (int) (fs / 2);
+        double peakIn = 0, peakOut = 0;
+        for (int i = 0; i < n; i++) {
+            double s = Math.sin(2 * Math.PI * hz * i / fs);
+            double y = eq.process(0, s);
+            if (i > n / 2) { // let the filter settle before measuring
+                peakIn = Math.max(peakIn, Math.abs(s));
+                peakOut = Math.max(peakOut, Math.abs(y));
+            }
+        }
+        return peakOut / peakIn;
     }
 
     @Test
-    void softClipDoesNotFlattenTheWaveform() {
-        // The buzz fault: a hard clip returns the same value for every input past the ceiling, so
-        // the peak of the wave becomes a flat plateau, and a flat top is broadband harmonics.
-        // Staying strictly increasing means overdriven audio keeps its shape.
-        double prev = ChannelEq.softClip(1.0);
-        for (double x = 1.01; x <= 6.0; x += 0.01) {
-            double y = ChannelEq.softClip(x);
-            assertTrue(y > prev, "softClip flattened out at " + x + ": output stopped rising");
-            prev = y;
-        }
-    }
+    void theTrimKnobIsEvenHandedInBothDirections() {
+        // A linear "knob * 2" law spends its entire lower half between silence and unity, so the
+        // bottom of the travel collapsed to nothing while the top hardly moved. In dB the two
+        // halves are comparable, and the centre is exactly unity.
+        assertEquals(1.0, ChannelEq.trimGain(0.5), 1e-9, "centre must be unity gain");
+        assertEquals(0.0, ChannelEq.trimGain(0.0), 1e-12, "fully down must be silence");
 
-    @Test
-    void softClipLeavesNormalAudioUntouched() {
-        // Stop just short of the knee: accumulating 0.001 steps can land a hair past it, and this
-        // test is about the linear region, not where exactly the curve starts.
-        for (double x = -0.69; x <= 0.69; x += 0.001) {
-            assertEquals(x, ChannelEq.softClip(x), 1e-12,
-                    "softClip coloured audio that was already inside range");
+        double up = 20 * Math.log10(ChannelEq.trimGain(0.54));
+        double down = 20 * Math.log10(ChannelEq.trimGain(0.46));
+        assertTrue(up > 0.2 && up < 1.5, "a notch up should be a small lift, was " + up + " dB");
+        assertTrue(down < -1.0, "a notch down should be a real cut, was " + down + " dB");
+
+        // Monotonic all the way, with no jump at the centre.
+        double prev = -1;
+        for (double v = 0; v <= 1.0001; v += 0.005) {
+            double g = ChannelEq.trimGain(v);
+            assertTrue(g >= prev, "trim dipped at " + v);
+            prev = g;
         }
+        assertTrue(ChannelEq.trimGain(1.0) <= 2.01, "trim should top out near +6 dB");
     }
 
     @Test
@@ -292,11 +335,13 @@ class ChannelEqTest {
     @Test
     void bandsActuallyMoveTheirOwnFrequencies() {
         // Guards against a wiring slip: LOW must lift bass and leave treble alone, HI the reverse.
-        assertTrue(bandGain(1.0f, 0.5f, 0.5f, 60) > 1.5, "LOW boost did not lift 60 Hz");
+        // Measured inside each shelf's passband: the HI shelf sits at 13 kHz now, so 10 kHz is on
+        // its slope rather than past it, and asking for full lift there fails a correct filter.
+        assertTrue(bandGain(1.0f, 0.5f, 0.5f, 40) > 1.5, "LOW boost did not lift 40 Hz");
         assertTrue(bandGain(1.0f, 0.5f, 0.5f, 10000) < 1.1, "LOW boost leaked into 10 kHz");
-        assertTrue(bandGain(0.5f, 0.5f, 1.0f, 10000) > 1.5, "HI boost did not lift 10 kHz");
+        assertTrue(bandGain(0.5f, 0.5f, 1.0f, 19000) > 1.5, "HI boost did not lift 19 kHz");
         assertTrue(bandGain(0.5f, 0.5f, 1.0f, 60) < 1.1, "HI boost leaked into 60 Hz");
-        assertTrue(bandGain(0.0f, 0.5f, 0.5f, 60) < 0.2, "LOW cut did not remove 60 Hz");
+        assertTrue(bandGain(0.0f, 0.5f, 0.5f, 40) < 0.2, "LOW cut did not remove 40 Hz");
     }
 
     /** Settled output amplitude at one frequency, relative to a unit-amplitude input. */

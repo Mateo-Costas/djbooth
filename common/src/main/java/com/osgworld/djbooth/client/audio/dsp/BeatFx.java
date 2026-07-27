@@ -45,6 +45,7 @@ public final class BeatFx {
     private int sincePhaserBake; // samples since the phaser's corner was last recomputed
     private final Biquad bandLow = new Biquad();            // FX FREQUENCY splits
     private final Biquad bandHigh = new Biquad();
+    private final PitchShifter pitch = new PitchShifter();  // PITCH
 
     private double fs = 48000;
     private double lfoPhase;              // 0..1 across one effect time
@@ -74,6 +75,7 @@ public final class BeatFx {
         readPos = 0;
         bandLow.lowpass(sampleRate, 200.0, 0.7);
         bandHigh.highpass(sampleRate, 2000.0, 0.7);
+        pitch.setup(sampleRate);
         reset();
     }
 
@@ -108,6 +110,7 @@ public final class BeatFx {
         this.timeSeconds = Math.max(0.005, Math.min(MAX_SECONDS, seconds));
         this.depth = Math.max(0.0, Math.min(1.0, newDepth));
         this.bands = newBands;
+        pitch.setRatio(pitchRate());
     }
 
     private static boolean isRecorder(int t) {
@@ -153,7 +156,7 @@ public final class BeatFx {
             case BeatFxTypes.FILTER -> sweptFilter(s);
             case BeatFxTypes.FLANGER -> flanger(s);
             case BeatFxTypes.PHASER -> phaser(s);
-            case BeatFxTypes.PITCH -> resample(s, pitchRate());
+            case BeatFxTypes.PITCH -> pitch.process(s);
             case BeatFxTypes.SLIP_ROLL, BeatFxTypes.ROLL -> roll(s);
             case BeatFxTypes.VINYL_BRAKE -> vinylBrake(s);
             case BeatFxTypes.HELIX -> helix(s);
@@ -262,8 +265,13 @@ public final class BeatFx {
         double t = 0.5 - 0.5 * Math.cos(2 * Math.PI * lfoPhase);
         double delaySec = (0.5 + t * FLANGER_MS) / 1000.0;
         double delayed = tap(delaySec);
-        push(s + delayed * 0.6 * depth);
-        return (s + delayed) * 0.7;
+        // Same rule as the echoes: a loop returning g settles at 1/(1-g), so scale the input by
+        // (1-g) to keep the resonance without the level. Then halve the sum, because adding a
+        // delayed copy to the dry signal is +6 dB where they line up — measured at 1.40 peak,
+        // which is 3 dB past full scale before anything else in the chain has had a go.
+        double fb = 0.6 * depth;
+        push(s * (1.0 - fb) + delayed * fb);
+        return (s + delayed) * 0.5;
     }
 
     /**
@@ -285,7 +293,10 @@ public final class BeatFx {
         for (Allpass1 stage : phase) {
             y = stage.process(y);
         }
-        return (s + y) * 0.7;
+        // An allpass passes everything at unity, so at the frequencies where its phase lines up
+        // with the dry signal the sum is exactly double. Halving is the only scale that cannot
+        // clip; 0.7 measured 1.21 peak.
+        return (s + y) * 0.5;
     }
 
     /** Update the phaser's corner from the LFO. Called on the ramp cadence, not per sample. */
@@ -328,9 +339,17 @@ public final class BeatFx {
         }
     }
 
-    /** PITCH: read the line faster or slower than it is written. */
+    /**
+     * PITCH: LEVEL/DEPTH sets the shift, centre-ish being unity and fully up an octave.
+     *
+     * <p>Handed to {@link PitchShifter} rather than reading this effect's own delay line at a
+     * different rate. That is what it used to do, and at the top of the knob it went completely
+     * silent: reading at twice the write speed walks the read point right around a six-second
+     * line, so most of what it returned was the part of the buffer that had not been written yet.
+     * A pitch shifter needs a short line and a crossfade between two taps, which is exactly what
+     * that class already does for MASTER TEMPO.
+     */
     private double pitchRate() {
-        // LEVEL/DEPTH is the pitch: centre-ish is unity, fully up is an octave.
         return 0.5 + depth * 1.5;
     }
 
@@ -425,6 +444,7 @@ public final class BeatFx {
         for (Allpass1 stage : phase) {
             stage.reset();
         }
+        pitch.reset();
         sincePhaserBake = 0;
         lfoPhase = 0;
         brake = 1.0;

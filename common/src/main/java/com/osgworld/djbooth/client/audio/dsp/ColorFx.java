@@ -31,12 +31,19 @@ public final class ColorFx {
 
     private static final double DEAD_ZONE = 0.02; // knob travel around centre that stays dry
 
-    // A resonant low-pass peaks at roughly Q times its input right at the cutoff. Q ran to 6 here,
-    // so turning COLOR fully left with PARAMETER up put +12 dB of bass through a stage the ear
-    // reads as *removing* sound, and anything loud hit the limiter. Real hardware resonates
-    // audibly without doing that. Peak gain is now capped near +6 dB, which still sings.
-    private static final double FILTER_Q_MIN = 0.9;
-    private static final double FILTER_Q_RANGE = 1.1;
+    // PARAMETER is the filter's resonance — Pioneer's own page for the NXS2 says turning it right
+    // increases resonance, and that squelch is most of what the effect is for. It used to run
+    // 0.9..2.0, worth only +1.6 dB at the cutoff: measurably present, audibly nothing, which is
+    // why it read as a knob that did not work. It now reaches a Q of 8.
+    //
+    // A resonant filter peaks at roughly Q times its input at the cutoff, and +18 dB of it would
+    // simply live in the limiter. Scaling the output by 1/sqrt(Q) keeps the peak prominent —
+    // around +9 dB at the top — while the body of the sound thins out as resonance comes up,
+    // which is what a resonant filter does anyway.
+    private static final double FILTER_Q_MIN = 0.7;
+    private static final double FILTER_Q_RANGE = 2.8; // tops out at 3.5
+    /** Travel over which the filter fades up from dry, so it does not switch in mid-waveform. */
+    private static final double FILTER_FADE_IN = 0.15;
     private static final double REVERB_SECONDS = 0.09;  // comb spread for the SPACE reverb
     private static final double ECHO_SECONDS = 0.28;    // DUB ECHO repeat time
     private static final int COMBS = 4;
@@ -151,16 +158,26 @@ public final class ColorFx {
 
         switch (mode) {
             case FILTER -> {
+                // Q comes from PARAMETER alone, so it holds still while the cutoff sweeps.
+                //
+                // Nothing compensates for the peak a high Q adds, and that is deliberate. Three
+                // attempts at it were measured and thrown away: scaling the output by 1/sqrt(Q)
+                // dropped the level 6 dB the moment the knob left the detent; fading that
+                // compensation in over the first part of the travel turned the drop into a 4.6 dB
+                // lurch packed into a few notches, which the click metric caught at 7.6x; and
+                // growing Q with the knob changed the filter's shape mid-sweep, which it caught
+                // at 3000x. The resonant peak is not a fault to be cancelled — it is the effect,
+                // and it is what PARAMETER is for. The output limiter is what keeps it in range,
+                // which is also how the hardware is arranged.
+                double q = FILTER_Q_MIN + param * FILTER_Q_RANGE;
                 if (depth <= 0) {
                     sweep.identity();
                 } else if (rightSide) {
                     // High-pass cutoff rises as the knob goes right.
-                    sweep.highpass(fs, Math.min(sweepHz(depth, 20.0, 6000.0), nyq * 0.98),
-                            FILTER_Q_MIN + param * FILTER_Q_RANGE);
+                    sweep.highpass(fs, Math.min(sweepHz(depth, 20.0, 10000.0), nyq * 0.98), q);
                 } else {
                     // Low-pass cutoff descends as the knob goes left.
-                    sweep.lowpass(fs, Math.min(sweepHz(1.0 - depth, 200.0, 18000.0), nyq * 0.98),
-                            FILTER_Q_MIN + param * FILTER_Q_RANGE);
+                    sweep.lowpass(fs, Math.min(sweepHz(1.0 - depth, 80.0, 18000.0), nyq * 0.98), q);
                 }
             }
             case SWEEP -> {
@@ -230,7 +247,31 @@ public final class ColorFx {
             case SWEEP -> rightSide ? mix(s, sweep.process(s)) : gate(s);
             case NOISE -> s + depth * (0.25 + 0.55 * param) * noiseFilter.process(noise());
             case CRUSH -> crush(s);
-            default -> mix(s, sweep.process(s));
+            // FILTER is fully wet once the knob is properly turned. Blending dry in across the
+            // whole travel was wrong twice over: a filter on the hardware replaces the signal
+            // rather than sitting beside it, and summing a filtered copy with the original
+            // comb-filters the two, so cutting the bass left the bass audibly there while the
+            // mids hollowed out.
+            //
+            // The first sliver of travel is the exception. There the resonance compensation would
+            // otherwise land as a step — 6 dB of level gone the moment the knob moves — so fade
+            // it in. Nothing is lost to comb filtering in that range because the cutoff is parked
+            // at the far end of its sweep, where the filter is passing everything anyway.
+            // FILTER: wet, once the knob is properly turned. Blending dry across the *whole*
+            // travel was wrong — a filter replaces the signal rather than sitting beside it, and
+            // summing a filtered copy with the original comb-filters the two, so cutting the bass
+            // left the bass audibly there while the mids hollowed out.
+            //
+            // The first sliver of travel still has to fade, though, and not for a cosmetic
+            // reason: the moment depth passes zero the output switches from the input to a filter
+            // whose state is empty, and that step measured 2550x on the click metric. Fading over
+            // the first fraction of the throw costs nothing, because the cutoff is parked at the
+            // far end of its sweep there and the filter is passing the signal through anyway.
+            default -> {
+                double wet = sweep.process(s);
+                double blend = Math.min(1.0, depth / FILTER_FADE_IN);
+                yield s + blend * (wet - s);
+            }
         };
     }
 
@@ -287,8 +328,13 @@ public final class ColorFx {
             return mix(s, crushHp.process(crushed));
         }
         // Left also drives the signal into a soft clip, which is where the distortion comes from.
+        // Normalising by tanh(drive) fixes the peak but not the loudness: saturation fills in
+        // everything under the peak too, so the measured level ran nearly 7 dB above dry and the
+        // effect worked mostly by being louder. Backing off with the drive keeps the distortion
+        // and drops the volume jump, so turning the knob sounds like a change rather than a boost.
         double drive = 1.0 + depth * (4.0 + 12.0 * param);
-        return mix(s, Math.tanh(crushed * drive) / Math.tanh(drive) * 0.9);
+        double makeup = 0.9 / Math.sqrt(drive);
+        return mix(s, Math.tanh(crushed * drive) / Math.tanh(drive) * makeup);
     }
 
     /** Drop every tail and filter state; call on seeks so old audio doesn't ring into the new spot. */

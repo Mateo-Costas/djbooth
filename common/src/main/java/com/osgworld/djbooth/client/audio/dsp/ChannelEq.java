@@ -13,25 +13,25 @@ package com.osgworld.djbooth.client.audio.dsp;
  * else from the audio thread.
  */
 public final class ChannelEq {
-    // Band split, matching how a DJM-900NXS2 behaves: LOW below 200 Hz, MID in between, HI above
-    // 2 kHz. Pioneer doesn't publish the exact corners, so these are the figures the manual and
-    // measurements point at.
-    public static final double F_LOW = 200.0;
-    public static final double F_HIGH = 2000.0;
-    public static final double F_MID = Math.sqrt(F_LOW * F_HIGH); // bell sits between the shelves
-    public static final double MID_Q = 0.9;
+    // The centres Pioneer publishes for the DJM-900NXS2's channel EQ: LOW 70 Hz, MID 1 kHz,
+    // HI 13 kHz. This code used to run 200 / 632 / 2000, which is a different equaliser wearing
+    // the same labels, and it is why each band sounded wrong in its own way:
+    //   - LOW at 200 Hz sits on the fundamental of most instruments, not under them, so boosting
+    //     it added huge energy (measured: the loudest of the three) and cutting it hollowed the
+    //     track out instead of removing bass.
+    //   - MID at 632 Hz is the boxy, nasal region — boosting it is the "underwater" sound.
+    //   - HI at 2 kHz is presence and sibilance, which is harsh when lifted. Air lives at 13 kHz.
+    public static final double F_LOW = 70.0;
+    public static final double F_MID = 1000.0;
+    public static final double F_HIGH = 13000.0;
+    // Wide enough to cover the gap between the two shelves without a narrow, phasey peak.
+    public static final double MID_Q = 0.7;
     public static final double EQ_BOOST_DB = 6.0;  // printed on the panel: +6 at the top
     public static final double EQ_CUT_DB = 26.0;   // ... and -26 at the bottom in EQ mode
     public static final double ISO_CUT_DB = 60.0;  // ISOLATOR mode kills the band instead (-inf)
 
     /** Rebake cadence. See {@link ParamRamp} for why the band positions ramp at all. */
     public static final int CHUNK_FRAMES = ParamRamp.CHUNK_FRAMES;
-
-    // Boosting a band is +6 dB and the trim is another +6, so a loud track with the LOW up runs
-    // past full scale easily. Chopping the waveform flat there squares off every peak, and square
-    // edges are broadband harmonics: it buzzes. Bending the top of the range instead keeps the
-    // output inside 1.0 without a corner, so an over sounds like a pushed mixer rather than a fault.
-    private static final double SOFT_KNEE = 0.7; // linear below this, curved above
 
     private Biquad[] low, mid, high;
     private double sampleRate;
@@ -121,15 +121,40 @@ public final class ChannelEq {
         return (v / 0.5 - 1.0) * (isolator ? ISO_CUT_DB : EQ_CUT_DB);
     }
 
-    /** Keep a sample inside full scale by bending the top of the range rather than cutting it flat. */
-    public static double softClip(double s) {
-        double a = Math.abs(s);
-        if (a <= SOFT_KNEE) {
-            return s;
+    /**
+     * TRIM knob 0..1 -&gt; a linear gain, with centre at unity.
+     *
+     * <p>Laid out in decibels rather than as a straight multiply. A linear law spends its whole
+     * lower half between silence and unity, so the bottom of the throw collapses to nothing while
+     * the top barely moves — which is exactly how the old {@code knob * 2} behaved. In dB the knob
+     * is even-handed: every equal turn is an equal change in loudness, the way a real trim pot is
+     * tapered.
+     */
+    public static double trimGain(double knob) {
+        double v = Math.max(0.0, Math.min(1.0, knob));
+        double db = v >= 0.5
+                ? (v - 0.5) / 0.5 * TRIM_BOOST_DB
+                : (v / 0.5 - 1.0) * TRIM_CUT_DB;
+        double g = Math.pow(10.0, db / 20.0);
+        // Fade the last sliver of travel to true silence. Without it the knob stops at -26 dB,
+        // which is quiet but still audible, so "all the way down" would not actually be off.
+        // Doing it as a fade rather than a step keeps the bottom of the sweep smooth.
+        if (v < FADE_OUT) {
+            g *= v / FADE_OUT;
         }
-        double range = 1.0 - SOFT_KNEE;
-        double over = a - SOFT_KNEE;
-        double curved = SOFT_KNEE + range * (over / (range + over)); // -> 1.0, never past it
-        return s < 0 ? -curved : curved;
+        return g;
     }
+
+    /** Headroom the trim can add, matching the EQ's own boost. */
+    public static final double TRIM_BOOST_DB = 6.0;
+    /**
+     * How far down the bottom half of the trim reaches.
+     *
+     * <p>Matched to the EQ's own cut so both halves of the panel behave alike. It was 40 dB, which
+     * made the knob lopsided: a notch up was worth +0.5 dB and a notch down -3.2 dB, so the bottom
+     * of the travel still collapsed — the same complaint the old linear law caused, just milder.
+     */
+    public static final double TRIM_CUT_DB = 26.0;
+
+    private static final double FADE_OUT = 0.02;
 }

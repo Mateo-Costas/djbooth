@@ -24,15 +24,7 @@ public class PanelJog extends AbstractWidget {
     }
 
     private double angleAt(double mx, double my) {
-        double cx = getX() + width / 2.0;
-        double cy = getY() + height / 2.0;
-        return Math.toDegrees(Math.atan2(my - cy, mx - cx));
-    }
-
-    private static double wrap(double deg) {
-        while (deg > 180) deg -= 360;
-        while (deg < -180) deg += 360;
-        return deg;
+        return PanelMath.angleAt(getX(), getY(), width, height, mx, my);
     }
 
     @Override
@@ -43,7 +35,7 @@ public class PanelJog extends AbstractWidget {
     @Override
     protected void onDrag(double mouseX, double mouseY, double dragX, double dragY) {
         double a = angleAt(mouseX, mouseY);
-        double d = wrap(a - lastAngle);
+        double d = PanelMath.angleDelta(lastAngle, a);
         lastAngle = a;
         visualAngle += d;
         if (Math.abs(d) > 0.01) {

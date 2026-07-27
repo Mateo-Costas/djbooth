@@ -14,10 +14,6 @@ import java.util.function.DoubleSupplier;
  * right-click parks it back at its default position.
  */
 public class PanelFader extends AbstractWidget {
-    private static final long DOUBLE_CLICK_MS = 300;
-    private static final double WHEEL_STEP = 0.04; // one wheel notch
-    private static final double FINE = 0.25;       // shift multiplier
-
     private final boolean vertical;
     private final DoubleSupplier getter;
     private final DoubleConsumer setter;
@@ -40,14 +36,11 @@ public class PanelFader extends AbstractWidget {
     }
 
     private double clamp01(double v) {
-        return Math.max(0.0, Math.min(1.0, v));
+        return PanelMath.clamp01(v);
     }
 
     private void setFromMouse(double mx, double my) {
-        double v = vertical
-                ? (getY() + height - my) / height
-                : (mx - getX()) / width;
-        setter.accept(clamp01(v));
+        setter.accept(PanelMath.faderValueAt(vertical, getX(), getY(), width, height, mx, my));
     }
 
     @Override
@@ -62,7 +55,7 @@ public class PanelFader extends AbstractWidget {
     @Override
     public void onClick(double mouseX, double mouseY) {
         long now = net.minecraft.Util.getMillis();
-        if (now - lastClickMs <= DOUBLE_CLICK_MS) {
+        if (PanelMath.isDoubleClick(lastClickMs, now)) {
             setter.accept(defaultValue);
             lastClickMs = 0;
             return;
@@ -81,9 +74,8 @@ public class PanelFader extends AbstractWidget {
         if (!isMouseOver(mouseX, mouseY)) {
             return false;
         }
-        double step = WHEEL_STEP
-                * (net.minecraft.client.gui.screens.Screen.hasShiftDown() ? FINE : 1.0);
-        setter.accept(clamp01(getter.getAsDouble() + scrollY * step));
+        boolean fine = net.minecraft.client.gui.screens.Screen.hasShiftDown();
+        setter.accept(PanelMath.afterWheel(getter.getAsDouble(), scrollY, fine));
         return true;
     }
 
@@ -92,20 +84,19 @@ public class PanelFader extends AbstractWidget {
         int x = getX(), y = getY();
         double v = clamp01(getter.getAsDouble());
         // Track.
+        int cap = PanelMath.FADER_CAP_PX;
+        int along = PanelMath.faderCapOffset(vertical, width, height, v);
+        int col = isHovered() ? 0xFFFFFFFF : 0xFFCCCCD4;
         if (vertical) {
             int cx = x + width / 2;
             g.fill(cx - 1, y, cx + 1, y + height, 0xFF0A0A0E);
-            int knobY = y + (int) ((1.0 - v) * (height - 6));
-            int col = isHovered() ? 0xFFFFFFFF : 0xFFCCCCD4;
-            g.fill(x, knobY, x + width, knobY + 6, col);
-            g.renderOutline(x, knobY, width, 6, 0xFF000000);
+            g.fill(x, y + along, x + width, y + along + cap, col);
+            g.renderOutline(x, y + along, width, cap, 0xFF000000);
         } else {
             int cy = y + height / 2;
             g.fill(x, cy - 1, x + width, cy + 1, 0xFF0A0A0E);
-            int knobX = x + (int) (v * (width - 6));
-            int col = isHovered() ? 0xFFFFFFFF : 0xFFCCCCD4;
-            g.fill(knobX, y, knobX + 6, y + height, col);
-            g.renderOutline(knobX, y, 6, height, 0xFF000000);
+            g.fill(x + along, y, x + along + cap, y + height, col);
+            g.renderOutline(x + along, y, cap, height, 0xFF000000);
         }
     }
 

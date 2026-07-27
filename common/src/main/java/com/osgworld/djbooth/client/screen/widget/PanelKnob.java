@@ -21,10 +21,6 @@ import java.util.function.DoubleSupplier;
  */
 public class PanelKnob extends AbstractWidget {
     private static final double SWEEP_DEG = 135.0; // +/- travel from centre
-    private static final double DRAG_SENS = 150.0; // pixels of drag for a full 0..1 turn
-    private static final double WHEEL_STEP = 0.04; // one wheel notch
-    private static final double FINE = 0.25;       // shift multiplier for both drag and wheel
-    private static final long DOUBLE_CLICK_MS = 300;
 
     private final DoubleSupplier getter;
     private final DoubleConsumer setter;
@@ -53,7 +49,7 @@ public class PanelKnob extends AbstractWidget {
     }
 
     private static double clamp01(double v) {
-        return Math.max(0.0, Math.min(1.0, v));
+        return PanelMath.clamp01(v);
     }
 
     private static boolean fineHeld() {
@@ -74,7 +70,7 @@ public class PanelKnob extends AbstractWidget {
         // Turning happens on drag or wheel; a bare click leaves the value alone, but a
         // double-click resets, which is the gesture people try first on a mixer knob.
         long now = net.minecraft.Util.getMillis();
-        if (now - lastClickMs <= DOUBLE_CLICK_MS) {
+        if (PanelMath.isDoubleClick(lastClickMs, now)) {
             setter.accept(defaultValue);
             lastClickMs = 0;
         } else {
@@ -84,8 +80,7 @@ public class PanelKnob extends AbstractWidget {
 
     @Override
     protected void onDrag(double mouseX, double mouseY, double dragX, double dragY) {
-        double sens = DRAG_SENS / (fineHeld() ? FINE : 1.0);
-        setter.accept(clamp01(getter.getAsDouble() - dragY / sens));
+        setter.accept(PanelMath.knobAfterDrag(getter.getAsDouble(), dragY, fineHeld()));
     }
 
     @Override
@@ -93,8 +88,7 @@ public class PanelKnob extends AbstractWidget {
         if (!isMouseOver(mouseX, mouseY)) {
             return false;
         }
-        double step = WHEEL_STEP * (fineHeld() ? FINE : 1.0);
-        setter.accept(clamp01(getter.getAsDouble() + scrollY * step));
+        setter.accept(PanelMath.afterWheel(getter.getAsDouble(), scrollY, fineHeld()));
         return true;
     }
 

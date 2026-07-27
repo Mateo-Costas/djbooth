@@ -126,8 +126,22 @@ class LimiterTest {
     }
 
     @Test
+    void theGuardSitsAboveWhatTheLimiterAimsFor() {
+        // A guard that starts below the limiter's own target reshapes every peak the limiter
+        // delivered correctly — it measured 0.9% distortion at every frequency, permanently.
+        // Audio at the limiter's target level must pass the guard untouched.
+        assertEquals(Limiter.THRESHOLD, Limiter.ceiling(Limiter.THRESHOLD), 0.0,
+                "the guard is bending audio the limiter had already handled");
+        for (double hz : new double[]{50, 80, 110, 220, 1000}) {
+            double[] out = run(sine(hz, 1.0, (int) FS));
+            assertTrue(thd(out, hz) < 0.002,
+                    "a full-scale " + hz + " Hz tone was distorted by " + (100 * thd(out, hz)) + "%");
+        }
+    }
+
+    @Test
     void theCeilingIsSymmetricAndLeavesNormalAudioExact() {
-        for (double x = 0; x <= 0.95; x += 0.001) {
+        for (double x = 0; x <= 0.99; x += 0.001) {
             assertEquals(x, Limiter.ceiling(x), 1e-12, "coloured audio already inside range");
             assertEquals(-Limiter.ceiling(x), Limiter.ceiling(-x), 1e-12,
                     "asymmetry would add even harmonics");

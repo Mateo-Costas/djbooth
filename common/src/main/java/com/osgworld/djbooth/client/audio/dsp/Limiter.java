@@ -81,11 +81,23 @@ public final class Limiter {
      */
     public static double ceiling(double s) {
         double a = Math.abs(s);
-        if (a <= 0.95) {
+        if (a <= GUARD) {
             return s;
         }
-        double over = a - 0.95;
-        double curved = 0.95 + 0.05 * (over / (0.05 + over));
+        double range = 1.0 - GUARD;
+        double over = a - GUARD;
+        double curved = GUARD + range * (over / (range + over));
         return s < 0 ? -curved : curved;
     }
+
+    /**
+     * Where the guard starts bending, which must sit <em>above</em> {@link #THRESHOLD}.
+     *
+     * <p>It was 0.95 while the limiter aimed for 0.97, so every peak the limiter delivered on
+     * target landed inside the guard's curve and got reshaped — 0.9% distortion at every
+     * frequency, all the time, on audio the limiter had already dealt with correctly. Exactly the
+     * fault the limiter replaced, reintroduced one stage later and an order of magnitude smaller.
+     * A guard that overlaps the stage it is guarding is not a guard, it is a second clipper.
+     */
+    private static final double GUARD = 0.995;
 }

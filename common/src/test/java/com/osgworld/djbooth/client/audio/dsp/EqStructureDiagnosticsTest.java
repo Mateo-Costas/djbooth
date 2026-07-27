@@ -183,6 +183,65 @@ class EqStructureDiagnosticsTest {
             }
         }
 
+        say("");
+        say("=== E. THE COLOUR FILTER: does it distort? ===");
+        say("In FILTER mode the stage is a plain resonant low/high-pass, which is linear and");
+        say("therefore cannot add harmonics. Anything here is a real fault.");
+        say("");
+        say("  knob   param   THD @110Hz   THD @440Hz   out/in rms");
+        for (double knob : new double[]{0.35, 0.2, 0.05, 0.65, 0.8, 0.95}) {
+            for (double param : new double[]{0.0, 1.0}) {
+                StringBuilder row = new StringBuilder(String.format("  %.2f   %.1f  ", knob, param));
+                double lastRatio = 0;
+                for (double hz : new double[]{110, 440}) {
+                    ColorFx fx = new ColorFx();
+                    fx.setup(FS);
+                    fx.set(com.osgworld.djbooth.mixer.ColorFxModes.FILTER, knob, param);
+                    int n = (int) FS;
+                    double[] y = new double[n];
+                    for (int i = 0; i < n; i++) {          // settle
+                        fx.process(0.5 * Math.sin(2 * Math.PI * hz * i / FS));
+                    }
+                    double si = 0, so = 0;
+                    for (int i = 0; i < n; i++) {
+                        double s = 0.5 * Math.sin(2 * Math.PI * hz * (i + n) / FS);
+                        y[i] = fx.process(s);
+                        si += s * s;
+                        so += y[i] * y[i];
+                    }
+                    row.append(String.format("   %8.4f%%", thd(y, hz)));
+                    lastRatio = Math.sqrt(so / n) / Math.sqrt(si / n);
+                }
+                row.append(String.format("    %.3f", lastRatio));
+                say("%s", row);
+            }
+        }
+
+        say("");
+        say("=== F. THE LIMITER ON BASS ===");
+        say("A limiter that reacts faster than one cycle of the tone follows the waveform");
+        say("itself instead of its envelope, and riding the gain within a cycle IS distortion.");
+        say("Bass is where this bites: 50 Hz is a 20 ms cycle.");
+        say("");
+        say("     Hz   input   THD");
+        for (double hz : new double[]{50, 80, 110, 220, 1000}) {
+            for (double amp : new double[]{1.0, 1.6}) {
+                Limiter lim = new Limiter();
+                lim.setup(FS);
+                int n = (int) FS;
+                double[] y = new double[n];
+                for (int i = 0; i < n; i++) {          // settle
+                    double s = amp * Math.sin(2 * Math.PI * hz * i / FS);
+                    Limiter.ceiling(s * lim.gainFor(s));
+                }
+                for (int i = 0; i < n; i++) {
+                    double s = amp * Math.sin(2 * Math.PI * hz * (i + n) / FS);
+                    y[i] = Limiter.ceiling(s * lim.gainFor(s));
+                }
+                say("  %5.0f   %.2f   %7.3f%%", hz, amp, thd(y, hz));
+            }
+        }
+
         Path f = Path.of("build", "diagnostics-eq.txt");
         Files.createDirectories(f.getParent());
         Files.write(f, out);

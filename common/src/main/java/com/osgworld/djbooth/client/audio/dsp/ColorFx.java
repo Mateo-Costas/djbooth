@@ -66,7 +66,13 @@ public final class ColorFx {
     // Where they actually are. The COLOR knob drives filter cutoffs, so baking coefficients
     // straight onto a new position steps the response mid-waveform and clicks - the same fault
     // the channel EQ had, and worse here because the cutoff sweeps decades rather than dB.
-    private static final int RAMP_CADENCE = ParamRamp.CHUNK_FRAMES / 8;
+    // Far finer than the EQ's cadence, because the knob maps to a cutoff exponentially: equal
+    // steps of knob are equal *ratios* of frequency, so a step worth nothing in dB moves the
+    // corner several percent. Measured against what the same filter does standing still, a sweep
+    // of the low-pass across a 110 Hz tone bends the waveform 2.6x sharper at a cadence of 4 and
+    // 1.8x at 2, so this is where it stops being audible rather than where it stops being cheap.
+    // The cost is only paid while a knob is actually moving: the ramp rebakes nothing otherwise.
+    private static final int RAMP_CADENCE = ParamRamp.CHUNK_FRAMES / 32;
     private final ParamRamp knobRamp = new ParamRamp(RAMP_CADENCE);
     private final ParamRamp paramRamp = new ParamRamp(RAMP_CADENCE);
     private int sinceChunk;   // samples since the ramps last moved

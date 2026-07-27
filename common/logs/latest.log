@@ -1,7 +1,7 @@
-[02:18:19] [Test worker/INFO]: DJ Booth: track lookup enabled (GetSongBPM)
-[02:18:19] [Test worker/INFO]: DJ Booth: track lookup enabled (GetSongBPM)
-[02:18:19] [Test worker/WARN]: DJ Booth: could not read C:\Users\Mateo\AppData\Local\Temp\junit11946008338492124748\djbooth.properties, lookup stays off
-java.nio.file.AccessDeniedException: C:\Users\Mateo\AppData\Local\Temp\junit11946008338492124748\djbooth.properties
+[02:28:10] [Test worker/INFO]: DJ Booth: track lookup enabled (GetSongBPM)
+[02:28:10] [Test worker/INFO]: DJ Booth: track lookup enabled (GetSongBPM)
+[02:28:10] [Test worker/WARN]: DJ Booth: could not read C:\Users\Mateo\AppData\Local\Temp\junit5082237890770097890\djbooth.properties, lookup stays off
+java.nio.file.AccessDeniedException: C:\Users\Mateo\AppData\Local\Temp\junit5082237890770097890\djbooth.properties
 	at java.base/sun.nio.fs.WindowsException.translateToIOException(WindowsException.java:89) ~[?:?]
 	at java.base/sun.nio.fs.WindowsException.rethrowAsIOException(WindowsException.java:103) ~[?:?]
 	at java.base/sun.nio.fs.WindowsException.rethrowAsIOException(WindowsException.java:108) ~[?:?]
@@ -95,5 +95,5 @@ java.nio.file.AccessDeniedException: C:\Users\Mateo\AppData\Local\Temp\junit1194
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:71) [gradle-worker-main-8.10.2.jar:8.10.2]
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69) [gradle-worker.jar:?]
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74) [gradle-worker.jar:?]
-[02:18:19] [Test worker/INFO]: DJ Booth: track lookup enabled (GetSongBPM)
-[02:18:19] [Test worker/INFO]: DJ Booth: track lookup enabled (GetSongBPM)
+[02:28:10] [Test worker/INFO]: DJ Booth: track lookup enabled (GetSongBPM)
+[02:28:10] [Test worker/INFO]: DJ Booth: track lookup enabled (GetSongBPM)

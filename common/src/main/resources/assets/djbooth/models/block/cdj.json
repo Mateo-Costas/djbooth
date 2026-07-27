@@ -1,8 +1,351 @@
 {
-  "parent": "block/cube_bottom_top",
+  "__comment": "CDJ-3000 on its stand. The block still fills a cube so it places and collides like furniture, but its shape is a table: legs, a brace, a surface, and the player sitting on top with real relief. The top face is rotated 180 so the screen ends up away from whoever placed the block and the jog and transport buttons face them, which is how you stand at a deck. Every raised piece is mapped to the part of the photo it sits on, so the relief lines up with the controls rather than floating over them.",
+  "parent": "block/block",
   "textures": {
     "top": "djbooth:block/cdj_top",
-    "bottom": "djbooth:block/cdj_side",
-    "side": "djbooth:block/cdj_side"
-  }
+    "side": "djbooth:block/cdj_side",
+    "particle": "djbooth:block/cdj_side"
+  },
+  "elements": [
+    {
+      "__comment": "Legs",
+      "from": [1, 0, 1],
+      "to": [3, 11.0, 3],
+      "faces": {
+        "north": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "down": {
+          "uv": [0, 0, 2, 2],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "from": [13, 0, 1],
+      "to": [15, 11.0, 3],
+      "faces": {
+        "north": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "down": {
+          "uv": [0, 0, 2, 2],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "from": [1, 0, 13],
+      "to": [3, 11.0, 15],
+      "faces": {
+        "north": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "down": {
+          "uv": [0, 0, 2, 2],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "from": [13, 0, 13],
+      "to": [15, 11.0, 15],
+      "faces": {
+        "north": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [0, 4, 2, 16],
+          "texture": "#side"
+        },
+        "down": {
+          "uv": [0, 0, 2, 2],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "__comment": "Cross brace, so the stand doesn't read as four floating posts",
+      "from": [2, 3, 2],
+      "to": [14, 5, 14],
+      "faces": {
+        "north": {
+          "uv": [2, 11, 14, 13],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [2, 11, 14, 13],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [2, 11, 14, 13],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [2, 11, 14, 13],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [2, 2, 14, 14],
+          "texture": "#side"
+        },
+        "down": {
+          "uv": [2, 2, 14, 14],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "__comment": "Table surface",
+      "from": [0, 11.0, 0],
+      "to": [16, 13.0, 16],
+      "faces": {
+        "north": {
+          "uv": [0, 0, 16, 2],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [0, 0, 16, 2],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [0, 0, 16, 2],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [0, 0, 16, 2],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [0, 0, 16, 16],
+          "texture": "#side"
+        },
+        "down": {
+          "uv": [0, 0, 16, 16],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "__comment": "The player body",
+      "from": [1, 13.0, 1],
+      "to": [15, 15.2, 15],
+      "faces": {
+        "north": {
+          "uv": [1, 13.0, 15, 15.2],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [1, 13.0, 15, 15.2],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [1, 13.0, 15, 15.2],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [1, 13.0, 15, 15.2],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [0, 0, 16, 16],
+          "texture": "#top",
+          "rotation": 180
+        }
+      }
+    },
+    {
+      "__comment": "Screen bezel, raised at the far end",
+      "from": [4.938, 15.2, 10.012],
+      "to": [11.238, 15.85, 14.125],
+      "faces": {
+        "north": {
+          "uv": [4.938, 15.2, 11.238, 15.85],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [4.938, 15.2, 11.238, 15.85],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [4.938, 15.2, 11.238, 15.85],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [4.938, 15.2, 11.238, 15.85],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [4.3, 1.0, 11.5, 5.7],
+          "texture": "#top",
+          "rotation": 180
+        }
+      }
+    },
+    {
+      "__comment": "Jog wheel",
+      "from": [4.938, 15.2, 3.188],
+      "to": [11.062, 15.8, 9.312],
+      "faces": {
+        "north": {
+          "uv": [4.938, 15.2, 11.062, 15.8],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [4.938, 15.2, 11.062, 15.8],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [4.938, 15.2, 11.062, 15.8],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [4.938, 15.2, 11.062, 15.8],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [4.5, 6.5, 11.5, 13.5],
+          "texture": "#top",
+          "rotation": 180
+        }
+      }
+    },
+    {
+      "__comment": "... and again at 45 degrees, so the pair reads as a disc rather than a square",
+      "from": [4.938, 15.2, 3.188],
+      "to": [11.062, 15.8, 9.312],
+      "faces": {
+        "north": {
+          "uv": [4.938, 15.2, 11.062, 15.8],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [4.938, 15.2, 11.062, 15.8],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [4.938, 15.2, 11.062, 15.8],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [4.938, 15.2, 11.062, 15.8],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [4.5, 6.5, 11.5, 13.5],
+          "texture": "#top",
+          "rotation": 180
+        }
+      },
+      "rotation": {
+        "origin": [8.0, 15.2, 6.25],
+        "axis": "y",
+        "angle": 45
+      }
+    },
+    {
+      "__comment": "Hot cue and transport buttons, down the near edge",
+      "from": [11.238, 15.2, 1.438],
+      "to": [12.375, 15.6, 9.312],
+      "faces": {
+        "north": {
+          "uv": [11.238, 15.2, 12.375, 15.6],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [11.238, 15.2, 12.375, 15.6],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [11.238, 15.2, 12.375, 15.6],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [11.238, 15.2, 12.375, 15.6],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [3.0, 6.5, 4.3, 15.5],
+          "texture": "#top",
+          "rotation": 180
+        }
+      }
+    },
+    {
+      "__comment": "Tempo fader and side trim",
+      "from": [3.45, 15.2, 1.438],
+      "to": [4.675, 15.5, 13.688],
+      "faces": {
+        "north": {
+          "uv": [3.45, 15.2, 4.675, 15.5],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [3.45, 15.2, 4.675, 15.5],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [3.45, 15.2, 4.675, 15.5],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [3.45, 15.2, 4.675, 15.5],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [11.8, 1.5, 13.2, 15.5],
+          "texture": "#top",
+          "rotation": 180
+        }
+      }
+    }
+  ]
 }

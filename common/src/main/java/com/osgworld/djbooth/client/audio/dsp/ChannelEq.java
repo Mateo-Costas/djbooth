@@ -24,8 +24,14 @@ public final class ChannelEq {
     public static final double F_LOW = 70.0;
     public static final double F_MID = 1000.0;
     public static final double F_HIGH = 13000.0;
-    // Wide enough to cover the gap between the two shelves without a narrow, phasey peak.
-    public static final double MID_Q = 0.7;
+
+    // Where the bands are divided. Pioneer's published 70 / 1000 / 13000 are the frequencies each
+    // band's gain range is *quoted at*, not where one band ends and the next begins — so the
+    // splits go either side of them: everything under 250 Hz is LOW (measured at 70), 250 Hz to
+    // 4 kHz is MID (measured at 1 k), above 4 kHz is HI (measured at 13 k). These match the
+    // corners DJ isolators have used since they were built out of active crossovers.
+    public static final double F_SPLIT_LOW = 250.0;
+    public static final double F_SPLIT_HIGH = 4000.0;
     public static final double EQ_BOOST_DB = 6.0;  // printed on the panel: +6 at the top
     public static final double EQ_CUT_DB = 26.0;   // ... and -26 at the bottom in EQ mode
     public static final double ISO_CUT_DB = 60.0;  // ISOLATOR mode kills the band instead (-inf)
@@ -33,8 +39,18 @@ public final class ChannelEq {
     /** Rebake cadence. See {@link ParamRamp} for why the band positions ramp at all. */
     public static final int CHUNK_FRAMES = ParamRamp.CHUNK_FRAMES;
 
-    private Biquad[] low, mid, high;
+    // One pair of crossovers per audio channel: LOW|MID, then MID|HI.
+    private Crossover[] xLow, xHigh;
     private double sampleRate;
+    // Band gains. The targets come from the knobs; the live values chase them one sample at a
+    // time. Stepping a gain once per chunk is a discontinuity in amplitude however small the step
+    // is, and a discontinuity is a click — the old shelves hid this because a filter's memory
+    // smears a coefficient change, while a multiply has no memory at all.
+    private double gLow = 1, gMid = 1, gHigh = 1;
+    private double tLow = 1, tMid = 1, tHigh = 1;
+
+    /** Per-sample smoothing for the band gains: about a 2 ms glide at 48 kHz. */
+    private double gainSmooth = 0.0104;
 
     // Knob targets, written from the client thread.
     private volatile float pLow = 0.5f, pMid = 0.5f, pHigh = 0.5f;
@@ -52,13 +68,15 @@ public final class ChannelEq {
     /** Allocate one filter chain per audio channel and forget any previous ramp. */
     public void setup(int sampleRate, int channels) {
         this.sampleRate = sampleRate;
-        low = new Biquad[channels];
-        mid = new Biquad[channels];
-        high = new Biquad[channels];
+        // A fixed 2 ms glide whatever the sample rate, rather than a fixed number of samples.
+        this.gainSmooth = 1.0 - Math.exp(-1.0 / (0.002 * Math.max(1, sampleRate)));
+        xLow = new Crossover[channels];
+        xHigh = new Crossover[channels];
         for (int c = 0; c < channels; c++) {
-            low[c] = new Biquad();
-            mid[c] = new Biquad();
-            high[c] = new Biquad();
+            xLow[c] = new Crossover();
+            xLow[c].set(sampleRate, F_SPLIT_LOW);
+            xHigh[c] = new Crossover();
+            xHigh[c].set(sampleRate, F_SPLIT_HIGH);
         }
         aLow = aMid = aHigh = -1; // force a rebake
         rLow.unprime();           // and snap the ramps rather than sweeping up to the live knobs
@@ -83,30 +101,63 @@ public final class ChannelEq {
         double sLow = rLow.advance(pLow);
         double sMid = rMid.advance(pMid);
         double sHigh = rHigh.advance(pHigh);
-        if (sLow == aLow && sMid == aMid && sHigh == aHigh && iso == aIsolator) {
-            return;
+        if (sLow != aLow || sMid != aMid || sHigh != aHigh || iso != aIsolator) {
+            // Only the three gains change. The crossover corners are fixed, so unlike the old
+            // shelves there are no filter coefficients to rebake when a knob moves — which also
+            // means a knob sweep cannot make the filters ring.
+            tLow = gainFor(sLow, iso);
+            tMid = gainFor(sMid, iso);
+            tHigh = gainFor(sHigh, iso);
+            aLow = sLow; aMid = sMid; aHigh = sHigh; aIsolator = iso;
         }
-        for (int c = 0; c < low.length; c++) {
-            low[c].lowShelf(sampleRate, F_LOW, dbForBand(sLow, iso));
-            mid[c].peaking(sampleRate, F_MID, dbForBand(sMid, iso), MID_Q);
-            high[c].highShelf(sampleRate, F_HIGH, dbForBand(sHigh, iso));
-        }
-        aLow = sLow; aMid = sMid; aHigh = sHigh; aIsolator = iso;
     }
 
-    /** Run one sample of one channel through all three bands. */
+    private static double gainFor(double knob, boolean isolator) {
+        double db = dbForBand(knob, isolator);
+        // The bottom of the travel is a kill, so make it silence rather than a very quiet band.
+        if (knob <= 0.0) {
+            return isolator ? 0.0 : Math.pow(10.0, -EQ_CUT_DB / 20.0);
+        }
+        return Math.pow(10.0, db / 20.0);
+    }
+
+    /**
+     * Run one sample of one channel through the isolator.
+     *
+     * <p>Split into three, scale each, add back up. This is what the hardware does and what the
+     * previous arrangement — a low shelf, a bell and a high shelf in series — could not do. Those
+     * three overlapped, so the bands fought each other: killing MID pulled 12 dB out at 500 Hz and
+     * 2 kHz as well, and with all three knobs at zero the mixer still passed audio at -6 dB around
+     * 250 Hz, where the shelves' skirts left a gap that nothing was cutting. A crossover has no
+     * gap by construction: every frequency belongs to exactly one band, so all three down really
+     * is silence.
+     */
     public double process(int channel, double s) {
-        s = low[channel].process(s);
-        s = mid[channel].process(s);
-        return high[channel].process(s);
+        gLow += (tLow - gLow) * gainSmooth;
+        gMid += (tMid - gMid) * gainSmooth;
+        gHigh += (tHigh - gHigh) * gainSmooth;
+
+        Crossover xl = xLow[channel];
+        Crossover xh = xHigh[channel];
+        xl.split(s);
+        double lowBand = xl.low();
+        xh.split(xl.high());
+        // The low band skipped the second crossover, so run it through that crossover's allpass
+        // to keep all three bands phase-aligned. Without this they no longer sum flat.
+        // No bypass at the detent, though it was tried. Splitting a signal and adding it back up
+        // is flat in level but not in phase, so switching between the dry signal and the summed
+        // bands is a step even though both are the same loudness — it measured as a click 30x
+        // worse than the one the smoothing above exists to prevent. Every full-kill isolator
+        // shifts phase at its centre detent for exactly this reason; the audio always goes
+        // through the filters, as it does on the hardware.
+        return gLow * xh.allpass(lowBand) + gMid * xh.low() + gHigh * xh.high();
     }
 
     /** Drop the filter state (call on discontinuities so old samples don't ring into the new spot). */
     public void reset() {
-        for (int c = 0; c < low.length; c++) {
-            low[c].reset();
-            mid[c].reset();
-            high[c].reset();
+        for (int c = 0; c < xLow.length; c++) {
+            xLow[c].reset();
+            xHigh[c].reset();
         }
     }
 

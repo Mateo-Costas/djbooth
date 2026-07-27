@@ -61,15 +61,13 @@ class ChannelEqTest {
 
     @Test
     void flatKnobsPassAudioThrough() {
-        ChannelEq eq = eqAt(0.5f, 0.5f, 0.5f);
-        double[] in = new double[FS / 10];
-        for (int n = 0; n < in.length; n++) {
-            in[n] = sine(n, 440) * 0.5;
-        }
-        double[] out = run(eq, in);
-        // Allow for the filters' first few samples of settling, then demand a real match.
-        for (int n = 64; n < in.length; n++) {
-            assertEquals(in[n], out[n], 1e-6, "flat EQ altered the signal at sample " + n);
+        // Level, not sample for sample. An isolator splits the signal into bands and adds them
+        // back up, which returns every frequency at the level it arrived but not at the same
+        // phase — true of the hardware too, which is why a DJM is not bit-transparent with the
+        // EQ centred either. What must not change is how loud anything is.
+        for (double hz : new double[]{40, 70, 120, 250, 500, 1000, 2000, 4000, 8000, 13000}) {
+            assertEquals(1.0, gainAt(0.5f, 0.5f, 0.5f, hz), 0.06,
+                    "flat EQ changed the level at " + hz + " Hz");
         }
     }
 
@@ -110,6 +108,19 @@ class ChannelEqTest {
      */
     private static double sweepWorstCurvature(int phase, int framesPerNotch) {
         ChannelEq eq = eqAt(0.5f, 0.5f, 0.5f);
+        // Let the filters fill before measuring, keeping the tone's phase continuous across the
+        // join. An isolator's crossovers start from an empty state and settle over a few
+        // milliseconds, and that settling is not a knob click — it happens once, when audio
+        // starts, and every sweep here measured exactly the same figure at exactly the same
+        // sample until it was excluded. What this test is for is what the *knob* does.
+        int warmUp = FS / 10;
+        for (int n = 0; n < warmUp; n++) {
+            if (n % ChannelEq.CHUNK_FRAMES == 0) {
+                eq.advance();
+            }
+            eq.process(0, sine(n, TONE_HZ) * TONE_AMP);
+        }
+
         int frames = FS / 2;
         double[] out = new double[frames];
         float knob = 0.5f;
@@ -121,7 +132,7 @@ class ChannelEqTest {
             if (n % ChannelEq.CHUNK_FRAMES == 0) {
                 eq.advance();
             }
-            out[n] = eq.process(0, sine(n, TONE_HZ) * TONE_AMP);
+            out[n] = eq.process(0, sine(warmUp + n, TONE_HZ) * TONE_AMP);
         }
         return maxCurvature(out);
     }
@@ -168,6 +179,14 @@ class ChannelEqTest {
         double worst = 0;
         for (int phase = 0; phase < 64; phase++) {
             ChannelEq eq = eqAt(0.5f, 0.5f, 0.5f);
+            // Same warm-up as the sweep: the crossovers' own start-up settling is not the knob.
+            int warmUp = FS / 10;
+            for (int n = 0; n < warmUp; n++) {
+                if (n % ChannelEq.CHUNK_FRAMES == 0) {
+                    eq.advance();
+                }
+                eq.process(0, sine(n, TONE_HZ) * TONE_AMP);
+            }
             int frames = FS / 4;
             double[] out = new double[frames];
             for (int n = 0; n < frames; n++) {
@@ -177,7 +196,7 @@ class ChannelEqTest {
                 if (n % ChannelEq.CHUNK_FRAMES == 0) {
                     eq.advance();
                 }
-                out[n] = eq.process(0, sine(n, TONE_HZ) * TONE_AMP);
+                out[n] = eq.process(0, sine(warmUp + n, TONE_HZ) * TONE_AMP);
             }
             worst = Math.max(worst, maxCurvature(out));
         }
@@ -212,23 +231,44 @@ class ChannelEqTest {
         assertEquals(1000.0, ChannelEq.F_MID, 1e-9);
         assertEquals(13000.0, ChannelEq.F_HIGH, 1e-9);
 
-        // A shelf's quoted frequency is the middle of its transition, where it applies half its
-        // gain — so +6 dB of LOW measures +3 dB at 70 Hz and reaches full lift below it. Measure
-        // each shelf in its passband, not at its corner, or the test asks for something no shelf
-        // can do. (Getting this wrong is what made this test fail when the bands were corrected.)
-
-        // LOW boosted: full lift well below 70 Hz, +3 dB at the corner, nothing up top.
-        assertEquals(2.0, gainAt(1f, 0.5f, 0.5f, 25), 0.15, "LOW +6 in its passband");
-        assertEquals(1.41, gainAt(1f, 0.5f, 0.5f, 70), 0.1, "a shelf applies half its gain at F");
+        // Each band applies its full gain across its own range, because the isolator splits the
+        // signal and scales the pieces rather than overlaying three curves. Pioneer's quoted
+        // frequencies sit inside their bands, so each one gets the whole +6 dB.
+        assertEquals(2.0, gainAt(1f, 0.5f, 0.5f, 70), 0.1, "LOW +6 at its quoted 70 Hz");
         assertTrue(gainAt(1f, 0.5f, 0.5f, 13000) < 1.1, "LOW must not reach the top end");
 
-        // HI boosted: full lift above 13 kHz, nothing in the bass.
-        assertEquals(2.0, gainAt(0.5f, 0.5f, 1f, 20000), 0.2, "HI +6 in its passband");
+        assertEquals(2.0, gainAt(0.5f, 0.5f, 1f, 13000), 0.1, "HI +6 at its quoted 13 kHz");
         assertTrue(gainAt(0.5f, 0.5f, 1f, 70) < 1.1, "HI must not reach the bass");
 
-        // MID is a bell, so it does hit its full gain at its own centre.
-        assertEquals(2.0, gainAt(0.5f, 1f, 0.5f, 1000), 0.15, "MID +6 at 1 kHz");
-        assertTrue(gainAt(0.5f, 1f, 0.5f, 60) < 1.3, "MID must not swamp the bass");
+        assertEquals(2.0, gainAt(0.5f, 1f, 0.5f, 1000), 0.1, "MID +6 at its quoted 1 kHz");
+        assertTrue(gainAt(0.5f, 1f, 0.5f, 60) < 1.1, "MID must not swamp the bass");
+    }
+
+    @Test
+    void allThreeBandsDownIsSilenceEverywhere() {
+        // The fault that forced the rewrite. Three overlapping curves left a gap between them:
+        // with every knob at the bottom the mixer still passed audio at -6 dB around 250 Hz,
+        // right where the low shelf had run out and the mid bell had not started. A crossover
+        // cannot leave a gap, because every frequency belongs to exactly one band.
+        for (double hz : new double[]{40, 70, 120, 250, 500, 1000, 2000, 5000, 13000}) {
+            double g = gainAt(0f, 0f, 0f, hz);
+            assertTrue(g < 0.08,
+                    "all three bands killed still passed " + hz + " Hz at x" + g);
+        }
+    }
+
+    @Test
+    void theBandsSumBackToFlat() {
+        // Splitting a signal into three and adding it up again has to give back what went in.
+        // Get the crossover pairing wrong and the seams either bump or dip.
+        //
+        // Measured with all three bands lifted equally rather than at centre, because centre is a
+        // true bypass — it would pass this test without the crossover being involved at all. Six
+        // dB across the board must come out as six dB at every frequency, seams included.
+        for (double hz : new double[]{40, 70, 120, 250, 500, 1000, 2000, 4000, 8000, 13000}) {
+            double g = gainAt(1f, 1f, 1f, hz);
+            assertEquals(2.0, g, 0.12, "the bands did not sum flat at " + hz + " Hz");
+        }
     }
 
     /** Steady-state gain the EQ applies to a sine at {@code hz}, once the ramps have settled. */
@@ -240,17 +280,24 @@ class ChannelEqTest {
         for (int i = 0; i < 500; i++) {
             eq.advance();
         }
+        // RMS, not peak. Peak of a *sampled* sine depends on where the samples land in its cycle:
+        // at 8 kHz against a 48 kHz rate there are only six samples per cycle, so the input peaks
+        // at sin(60 degrees) = 0.866 while the output — phase-shifted by the crossover — can land
+        // on 1.0. That is a 1.155 ratio out of thin air, and it read as a 1.2 dB bump in the
+        // filter that was not there. RMS does not care about phase.
         int n = (int) (fs / 2);
-        double peakIn = 0, peakOut = 0;
+        double sumIn = 0, sumOut = 0;
+        int counted = 0;
         for (int i = 0; i < n; i++) {
             double s = Math.sin(2 * Math.PI * hz * i / fs);
             double y = eq.process(0, s);
             if (i > n / 2) { // let the filter settle before measuring
-                peakIn = Math.max(peakIn, Math.abs(s));
-                peakOut = Math.max(peakOut, Math.abs(y));
+                sumIn += s * s;
+                sumOut += y * y;
+                counted++;
             }
         }
-        return peakOut / peakIn;
+        return Math.sqrt(sumOut / counted) / Math.sqrt(sumIn / counted);
     }
 
     @Test

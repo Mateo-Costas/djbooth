@@ -31,6 +31,23 @@ class MixLevelsTest {
     }
 
     @Test
+    void theCurvesAreShapedHardEnoughToBeWorthHaving() {
+        // The ordering above is too weak on its own: flattening SHARP from a cube to a square
+        // keeps it below linear and passes, while audibly changing what the fader does. A cut
+        // curve has to be genuinely shut at halfway to be a cut curve, and a blend curve
+        // genuinely open, so pin how far each one has to go rather than only which side it is on.
+        float sharp = MixLevels.curve(0.5f, MixLevels.CURVE_SHARP);
+        float slow = MixLevels.curve(0.5f, MixLevels.CURVE_SLOW);
+        assertTrue(sharp <= 0.15f,
+                "SHARP must be nearly shut at halfway to cut, was " + sharp);
+        assertTrue(slow >= 0.6f,
+                "SLOW must be well open at halfway to blend, was " + slow);
+        // And SHARP has to keep holding back near the top, which is where a square gives up.
+        assertTrue(MixLevels.curve(0.8f, MixLevels.CURVE_SHARP) <= 0.55f,
+                "SHARP should still be held back at 80%");
+    }
+
+    @Test
     void curvesRiseAllTheWayUpWithNoDeadSpots() {
         for (int shape : new int[]{MixLevels.CURVE_SLOW, LIN, MixLevels.CURVE_SHARP}) {
             float previous = -1;

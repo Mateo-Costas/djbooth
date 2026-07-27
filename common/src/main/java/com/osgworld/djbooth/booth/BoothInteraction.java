@@ -26,7 +26,7 @@ public final class BoothInteraction {
 
             @Override
             public Component getDisplayName() {
-                return Component.translatable("gui.djbooth.booth");
+                return Component.translatable("gui.soundsystem_dj.booth");
             }
 
             @Nullable

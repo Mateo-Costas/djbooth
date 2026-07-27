@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Standalone DMX smoke test. {@code /djbooth dmxtest} enables {@link DmxBridge} and, for a
+ * Standalone DMX smoke test. {@code /soundsystem_dj dmxtest} enables {@link DmxBridge} and, for a
  * few seconds, sweeps a rainbow across fixture ids 1..8. Its only job is to prove the UDP
  * path actually reaches MineDMX before we invest in real beat→light mapping.
  *

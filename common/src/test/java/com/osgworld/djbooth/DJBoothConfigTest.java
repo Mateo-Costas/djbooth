@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class DJBoothConfigTest {
 
-    private static final String FILE = "djbooth.properties";
+    private static final String FILE = "soundsystem_dj.properties";
 
     @Test
     void firstRunWritesACommentedTemplateAndLeavesLookupOff(@TempDir Path dir) throws IOException {

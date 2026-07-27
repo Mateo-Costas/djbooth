@@ -1,13 +1,13 @@
 modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="All Rights Reserved"
-issueTrackerURL="https://modrinth.com/mod/dj-booth"
+issueTrackerURL="https://modrinth.com/mod/soundsystem-dj"
 
 [[mods]]
-modId="djbooth"
+modId="soundsystem_dj"
 version="${version}"
 displayName="Soundsystem DJ"
-logoFile="djbooth_logo.png"
+logoFile="soundsystem_dj_logo.png"
 authors="OSGWORLD"
 credits="Built with WaterMedia (audio) and MineDMX (lighting)."
 description='''
@@ -24,35 +24,35 @@ Audio streaming needs WaterMedia (+ its binaries); DMX stage lighting needs Mine
 optional soft dependencies: the booth loads and works without them.
 '''
 
-[[dependencies.djbooth]]
+[[dependencies.soundsystem_dj]]
     modId="neoforge"
     type="required"
     versionRange="${neo_version_range}"
     ordering="NONE"
     side="BOTH"
 
-[[dependencies.djbooth]]
+[[dependencies.soundsystem_dj]]
     modId="minecraft"
     type="required"
     versionRange="${minecraft_version_range}"
     ordering="NONE"
     side="BOTH"
 
-[[dependencies.djbooth]]
+[[dependencies.soundsystem_dj]]
     modId="architectury"
     type="required"
     versionRange="[13.0.0,)"
     ordering="AFTER"
     side="BOTH"
 
-[[dependencies.djbooth]]
+[[dependencies.soundsystem_dj]]
     modId="watermedia"
     type="optional"
     versionRange="*"
     ordering="AFTER"
     side="BOTH"
 
-[[dependencies.djbooth]]
+[[dependencies.soundsystem_dj]]
     modId="minedmx"
     type="optional"
     versionRange="*"

@@ -1,10 +1,10 @@
 {
-  "__comment": "CDJ-3000 on its stand. The block still fills a cube so it places and collides like furniture, but its shape is a table: legs, a brace, a surface, and the player sitting on top with real relief. The top face is rotated 180 so the screen ends up away from whoever placed the block and the jog and transport buttons face them, which is how you stand at a deck. Every raised piece is mapped to the part of the photo it sits on, so the relief lines up with the controls rather than floating over them.",
+  "__comment": "DJM-900NXS2 on the same stand as the decks, so a booth reads as one piece of furniture. The relief follows the real panel: the EQ knobs stand proudest, the COLOR knobs and CUE buttons a little less, the channel faders barely at all, and a panel stands up either side.",
   "parent": "block/block",
   "textures": {
-    "top": "djbooth:block/cdj_top",
-    "side": "djbooth:block/cdj_side",
-    "particle": "djbooth:block/cdj_side"
+    "top": "soundsystem_dj:block/mixer_top",
+    "side": "soundsystem_dj:block/mixer_side",
+    "particle": "soundsystem_dj:block/mixer_side"
   },
   "elements": [
     {
@@ -175,7 +175,7 @@
       }
     },
     {
-      "__comment": "The player body",
+      "__comment": "The mixer body",
       "from": [1, 13.0, 1],
       "to": [15, 15.2, 15],
       "faces": {
@@ -203,145 +203,140 @@
       }
     },
     {
-      "__comment": "Screen bezel, raised at the far end",
-      "from": [4.938, 15.2, 10.012],
-      "to": [11.238, 15.85, 14.125],
+      "__comment": "EQ knobs: the tallest things on the panel",
+      "from": [3.625, 15.2, 9.312],
+      "to": [12.812, 15.85, 14.562],
       "faces": {
         "north": {
-          "uv": [4.938, 15.2, 11.238, 15.85],
+          "uv": [3.625, 15.2, 12.812, 15.85],
           "texture": "#side"
         },
         "south": {
-          "uv": [4.938, 15.2, 11.238, 15.85],
+          "uv": [3.625, 15.2, 12.812, 15.85],
           "texture": "#side"
         },
         "west": {
-          "uv": [4.938, 15.2, 11.238, 15.85],
+          "uv": [3.625, 15.2, 12.812, 15.85],
           "texture": "#side"
         },
         "east": {
-          "uv": [4.938, 15.2, 11.238, 15.85],
+          "uv": [3.625, 15.2, 12.812, 15.85],
           "texture": "#side"
         },
         "up": {
-          "uv": [4.3, 1.0, 11.5, 5.7],
+          "uv": [2.5, 0.5, 13.0, 6.5],
           "texture": "#top",
           "rotation": 180
         }
       }
     },
     {
-      "__comment": "Jog wheel",
-      "from": [4.938, 15.2, 3.188],
-      "to": [11.062, 15.8, 9.312],
+      "__comment": "COLOR knobs and the CUE buttons",
+      "from": [3.625, 15.2, 5.812],
+      "to": [12.812, 15.7, 9.312],
       "faces": {
         "north": {
-          "uv": [4.938, 15.2, 11.062, 15.8],
+          "uv": [3.625, 15.2, 12.812, 15.7],
           "texture": "#side"
         },
         "south": {
-          "uv": [4.938, 15.2, 11.062, 15.8],
+          "uv": [3.625, 15.2, 12.812, 15.7],
           "texture": "#side"
         },
         "west": {
-          "uv": [4.938, 15.2, 11.062, 15.8],
+          "uv": [3.625, 15.2, 12.812, 15.7],
           "texture": "#side"
         },
         "east": {
-          "uv": [4.938, 15.2, 11.062, 15.8],
+          "uv": [3.625, 15.2, 12.812, 15.7],
           "texture": "#side"
         },
         "up": {
-          "uv": [4.5, 6.5, 11.5, 13.5],
+          "uv": [2.5, 6.5, 13.0, 10.5],
           "texture": "#top",
           "rotation": 180
         }
       }
     },
     {
-      "__comment": "... and again at 45 degrees, so the pair reads as a disc rather than a square",
-      "from": [4.938, 15.2, 3.188],
-      "to": [11.062, 15.8, 9.312],
+      "__comment": "Channel faders",
+      "from": [3.625, 15.2, 1.175],
+      "to": [12.812, 15.45, 5.375],
       "faces": {
         "north": {
-          "uv": [4.938, 15.2, 11.062, 15.8],
+          "uv": [3.625, 15.2, 12.812, 15.45],
           "texture": "#side"
         },
         "south": {
-          "uv": [4.938, 15.2, 11.062, 15.8],
+          "uv": [3.625, 15.2, 12.812, 15.45],
           "texture": "#side"
         },
         "west": {
-          "uv": [4.938, 15.2, 11.062, 15.8],
+          "uv": [3.625, 15.2, 12.812, 15.45],
           "texture": "#side"
         },
         "east": {
-          "uv": [4.938, 15.2, 11.062, 15.8],
+          "uv": [3.625, 15.2, 12.812, 15.45],
           "texture": "#side"
         },
         "up": {
-          "uv": [4.5, 6.5, 11.5, 13.5],
-          "texture": "#top",
-          "rotation": 180
-        }
-      },
-      "rotation": {
-        "origin": [8.0, 15.2, 6.25],
-        "axis": "y",
-        "angle": 45
-      }
-    },
-    {
-      "__comment": "Hot cue and transport buttons, down the near edge",
-      "from": [11.238, 15.2, 1.438],
-      "to": [12.375, 15.6, 9.312],
-      "faces": {
-        "north": {
-          "uv": [11.238, 15.2, 12.375, 15.6],
-          "texture": "#side"
-        },
-        "south": {
-          "uv": [11.238, 15.2, 12.375, 15.6],
-          "texture": "#side"
-        },
-        "west": {
-          "uv": [11.238, 15.2, 12.375, 15.6],
-          "texture": "#side"
-        },
-        "east": {
-          "uv": [11.238, 15.2, 12.375, 15.6],
-          "texture": "#side"
-        },
-        "up": {
-          "uv": [3.0, 6.5, 4.3, 15.5],
+          "uv": [2.5, 11.0, 13.0, 15.8],
           "texture": "#top",
           "rotation": 180
         }
       }
     },
     {
-      "__comment": "Tempo fader and side trim",
-      "from": [3.45, 15.2, 1.438],
-      "to": [4.675, 15.5, 13.688],
+      "__comment": "Effects panel down one side",
+      "from": [1.175, 15.2, 1.175],
+      "to": [3.625, 15.85, 14.825],
       "faces": {
         "north": {
-          "uv": [3.45, 15.2, 4.675, 15.5],
+          "uv": [1.175, 15.2, 3.625, 15.85],
           "texture": "#side"
         },
         "south": {
-          "uv": [3.45, 15.2, 4.675, 15.5],
+          "uv": [1.175, 15.2, 3.625, 15.85],
           "texture": "#side"
         },
         "west": {
-          "uv": [3.45, 15.2, 4.675, 15.5],
+          "uv": [1.175, 15.2, 3.625, 15.85],
           "texture": "#side"
         },
         "east": {
-          "uv": [3.45, 15.2, 4.675, 15.5],
+          "uv": [1.175, 15.2, 3.625, 15.85],
           "texture": "#side"
         },
         "up": {
-          "uv": [11.8, 1.5, 13.2, 15.5],
+          "uv": [13.0, 0.2, 15.8, 15.8],
+          "texture": "#top",
+          "rotation": 180
+        }
+      }
+    },
+    {
+      "__comment": "Mic and Sound Color FX panel down the other",
+      "from": [12.812, 15.2, 1.175],
+      "to": [14.825, 15.8, 14.825],
+      "faces": {
+        "north": {
+          "uv": [12.812, 15.2, 14.825, 15.8],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [12.812, 15.2, 14.825, 15.8],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [12.812, 15.2, 14.825, 15.8],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [12.812, 15.2, 14.825, 15.8],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [0.2, 0.2, 2.5, 15.8],
           "texture": "#top",
           "rotation": 180
         }

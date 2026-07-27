@@ -14,16 +14,17 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 
 /**
- * Server commands: {@code /djbooth track <url>} points the nearest deck at a streaming URL and
- * parks it at the start (WaterMedia on each client then streams it); {@code /djbooth dmxtest} runs
- * the DMX rainbow smoke test.
+ * Server commands: {@code /soundsystem track <url>} points the nearest deck at a streaming URL and
+ * parks it at the start (WaterMedia on each client then streams it); {@code /soundsystem dmxtest}
+ * runs the DMX rainbow smoke test.
  */
 public final class BoothCommands {
     private BoothCommands() {}
 
     public static void register() {
         CommandRegistrationEvent.EVENT.register((dispatcher, registry, selection) ->
-                dispatcher.register(Commands.literal("djbooth")
+                // Not the mod id: nobody wants to type an underscore mid-command.
+                dispatcher.register(Commands.literal("soundsystem")
                         .then(Commands.literal("track")
                                 .then(Commands.argument("url", StringArgumentType.greedyString())
                                         .executes(ctx -> {

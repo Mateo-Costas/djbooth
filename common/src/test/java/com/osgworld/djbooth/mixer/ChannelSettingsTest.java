@@ -28,7 +28,7 @@ class ChannelSettingsTest {
         assertEquals(ColorFxModes.MODES, ColorFxModes.NAMES.length);
         assertEquals(BeatFxTypes.BEATS.length, BeatFxTypes.BEAT_NAMES.length);
         for (int i = 0; i < BeatFxTypes.TYPES; i++) {
-            assertTrue(BeatFxTypes.tipKey(i).startsWith("gui.djbooth.beatfx."),
+            assertTrue(BeatFxTypes.tipKey(i).startsWith("gui.soundsystem_dj.beatfx."),
                     "every effect needs a tooltip key");
         }
     }

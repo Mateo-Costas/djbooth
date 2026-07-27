@@ -49,6 +49,6 @@ public final class BeatFxTypes {
     public static final String[] CHANNEL_NAMES = {"1", "2", "MASTER"};
 
     public static String tipKey(int type) {
-        return "gui.djbooth.beatfx." + NAMES[type].toLowerCase(java.util.Locale.ROOT).replace(' ', '_');
+        return "gui.soundsystem_dj.beatfx." + NAMES[type].toLowerCase(java.util.Locale.ROOT).replace(' ', '_');
     }
 }

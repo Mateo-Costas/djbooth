@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "soundsystem_dj:block/cdj" },
+    "facing=south": { "model": "soundsystem_dj:block/cdj", "y": 180 },
+    "facing=west":  { "model": "soundsystem_dj:block/cdj", "y": 270 },
+    "facing=east":  { "model": "soundsystem_dj:block/cdj", "y": 90 }
+  }
+}

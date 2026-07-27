@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 
 /** Common (loader-agnostic) mod entry point. Called by the Fabric and NeoForge initializers. */
 public final class DJBooth {
-    public static final String MODID = "djbooth";
+    public static final String MODID = "soundsystem_dj";
     public static final Logger LOGGER = LoggerFactory.getLogger(MODID);
 
     private DJBooth() {}

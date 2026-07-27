@@ -6,7 +6,7 @@ import java.nio.file.Path;
 import java.util.Properties;
 
 /**
- * Optional settings, read from {@code config/djbooth.properties}.
+ * Optional settings, read from {@code config/soundsystem_dj.properties}.
  *
  * <p>Right now this holds one thing: a GetSongBPM API key. With a key the booth can look a track's
  * tempo and musical key up when it loads, which is what QUANTIZE, BEAT SYNC and KEY SYNC need in
@@ -20,7 +20,7 @@ import java.util.Properties;
 public final class DJBoothConfig {
     private DJBoothConfig() {}
 
-    private static final String FILE_NAME = "djbooth.properties";
+    private static final String FILE_NAME = "soundsystem_dj.properties";
     private static final String KEY_API = "getsongbpm_api_key";
 
     private static final String TEMPLATE = """

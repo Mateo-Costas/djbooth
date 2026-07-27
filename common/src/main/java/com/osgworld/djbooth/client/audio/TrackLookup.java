@@ -62,7 +62,7 @@ public final class TrackLookup {
             if (!info.isEmpty()) {
                 net.minecraft.client.Minecraft.getInstance().execute(() -> onResult.accept(info));
             }
-        }, "djbooth-track-lookup");
+        }, "soundsystem_dj-track-lookup");
         t.setDaemon(true);
         t.start();
     }

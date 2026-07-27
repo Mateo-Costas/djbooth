@@ -51,7 +51,7 @@ public final class DeckAudioManager {
             } catch (Throwable e) {
                 com.osgworld.djbooth.DJBooth.LOGGER.warn("YouTube search failed for '{}'", query, e);
             }
-        }, "djbooth-yt-search");
+        }, "soundsystem_dj-yt-search");
         t.setDaemon(true);
         t.start();
     }

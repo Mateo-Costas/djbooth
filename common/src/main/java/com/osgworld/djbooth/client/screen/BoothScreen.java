@@ -205,7 +205,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         for (int i = 0; i < com.osgworld.djbooth.deck.DeckState.HOT_CUES; i++) {
             final int idx = i;
             addRenderableWidget(perfButton(String.valueOf(i + 1),
-                    Component.translatable("gui.djbooth.hotcue", i + 1), x, y, bw, () -> {
+                    Component.translatable("gui.soundsystem_dj.hotcue", i + 1), x, y, bw, () -> {
                         CdjBlockEntity be = menu.deck(pos);
                         int action = (be != null && be.state().hasHotCue(idx))
                                 ? HotCuePayload.JUMP : HotCuePayload.SET;
@@ -213,11 +213,11 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                     }));
             x += bw + 2;
         }
-        addRenderableWidget(perfButton("◀", Component.translatable("gui.djbooth.jump_back"),
+        addRenderableWidget(perfButton("◀", Component.translatable("gui.soundsystem_dj.jump_back"),
                 x, y, bw, () -> NetworkManager.sendToServer(
                         new TransportPayload(pos, TransportPayload.JUMP_BACK))));
         x += bw + 2;
-        addRenderableWidget(perfButton("▶", Component.translatable("gui.djbooth.jump_fwd"),
+        addRenderableWidget(perfButton("▶", Component.translatable("gui.soundsystem_dj.jump_fwd"),
                 x, y, bw, () -> NetworkManager.sendToServer(
                         new TransportPayload(pos, TransportPayload.JUMP_FWD))));
 
@@ -231,7 +231,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         int lx = x0;
         for (int i = 0; i < labels.length; i++) {
             final int action = actions[i];
-            addRenderableWidget(perfButton(labels[i], Component.translatable("gui.djbooth." + keys[i]),
+            addRenderableWidget(perfButton(labels[i], Component.translatable("gui.soundsystem_dj." + keys[i]),
                     lx, y2, lw, () -> NetworkManager.sendToServer(new TransportPayload(pos, action))));
             lx += lw + 2;
         }
@@ -248,14 +248,14 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 })
                 .bounds(x0, y3, hw, 13)
                 .tooltip(net.minecraft.client.gui.components.Tooltip.create(
-                        Component.translatable("gui.djbooth.tempo_range")))
+                        Component.translatable("gui.soundsystem_dj.tempo_range")))
                 .build();
         addRenderableWidget(rangeBtn);
         addRenderableWidget(net.minecraft.client.gui.components.Button.builder(
                         Component.literal("TAP BPM"), b -> tapTempo(pos))
                 .bounds(x0 + hw + 2, y3, hw, 13)
                 .tooltip(net.minecraft.client.gui.components.Tooltip.create(
-                        Component.translatable("gui.djbooth.tap")))
+                        Component.translatable("gui.soundsystem_dj.tap")))
                 .build());
     }
 
@@ -271,7 +271,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     private void addUrlBox(BlockPos pos, int x, int y, int width) {
         EditBox box = new EditBox(this.font, x, y, width, 16, Component.literal("URL"));
         box.setMaxLength(1024);
-        box.setHint(Component.translatable("gui.djbooth.url_hint"));
+        box.setHint(Component.translatable("gui.soundsystem_dj.url_hint"));
         CdjBlockEntity be = menu.deck(pos);
         if (be != null) {
             box.setValue(be.state().getTrackUrl());
@@ -308,7 +308,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         // PLAY / PAUSE toggle (green): one button like the real CDJ.
         int[] play = px(region, BoothLayout.DECK_PLAY);
         PanelButton playBtn = new PanelButton(play[0], play[1], play[2], play[3],
-                Component.translatable("gui.djbooth.play"), 0xFF1DB954,
+                Component.translatable("gui.soundsystem_dj.play"), 0xFF1DB954,
                 () -> {
                     CdjBlockEntity be = menu.deck(pos);
                     if (be == null) return;
@@ -321,13 +321,13 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                     return be != null && be.state().getPlayState() == PlayState.PLAY;
                 });
         playBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.translatable("gui.djbooth.play")));
+                Component.translatable("gui.soundsystem_dj.play")));
         addRenderableWidget(playBtn);
 
         // CUE (orange): left-click cues/previews, right-click sets the cue point here.
         int[] cue = px(region, BoothLayout.DECK_CUE);
         PanelButton cueBtn = new PanelButton(cue[0], cue[1], cue[2], cue[3],
-                Component.translatable("gui.djbooth.cue"), 0xFFF2A900,
+                Component.translatable("gui.soundsystem_dj.cue"), 0xFFF2A900,
                 () -> NetworkManager.sendToServer(new TransportPayload(pos, TransportPayload.CUE)),
                 () -> {
                     CdjBlockEntity be = menu.deck(pos);
@@ -335,13 +335,13 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 }).withSecondary(
                 () -> NetworkManager.sendToServer(new TransportPayload(pos, TransportPayload.SET_CUE)));
         cueBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.translatable("gui.djbooth.cue")));
+                Component.translatable("gui.soundsystem_dj.cue")));
         addRenderableWidget(cueBtn);
 
         // LOOP toggle.
         int[] loop = px(region, BoothLayout.DECK_LOOP);
         PanelButton loopBtn = new PanelButton(loop[0], loop[1], loop[2], loop[3],
-                Component.translatable("gui.djbooth.loop"), 0xFFC03AA0,
+                Component.translatable("gui.soundsystem_dj.loop"), 0xFFC03AA0,
                 () -> NetworkManager.sendToServer(
                         new TransportPayload(pos, TransportPayload.LOOP_TOGGLE)),
                 () -> {
@@ -349,7 +349,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                     return be != null && be.state().isLoopOn();
                 });
         loopBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.translatable("gui.djbooth.loop")));
+                Component.translatable("gui.soundsystem_dj.loop")));
         addRenderableWidget(loopBtn);
 
         addDeckCdjControls(pos, region);
@@ -366,7 +366,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 },
                 v -> sendTempo(pos, 1.0 - (v - 0.5) * 2 * tempoRangeFor(pos)));
         tempo.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.translatable("gui.djbooth.tempo")));
+                Component.translatable("gui.soundsystem_dj.tempo")));
         addRenderableWidget(tempo);
 
         // Jog wheel. It scrubs the position in both directions like a vinyl-mode CDJ jog; while
@@ -407,7 +407,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
      *  and the memory-cue tools. Each one sits where the panel prints it. */
     private void addDeckCdjControls(BlockPos pos, BoothLayout.Rect region) {
         // DIRECTION steps FWD -> REV -> SLIP REV, so its caption has to say where it is.
-        deckButton(pos, region, BoothLayout.DECK_DIRECTION, "gui.djbooth.direction",
+        deckButton(pos, region, BoothLayout.DECK_DIRECTION, "gui.soundsystem_dj.direction",
                 TransportPayload.DIRECTION, 0xFFFF3B30,
                 () -> {
                     CdjBlockEntity be = menu.deck(pos);
@@ -423,13 +423,13 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                     };
                 });
 
-        deckToggle(pos, region, BoothLayout.DECK_SLIP, "SLIP", "gui.djbooth.slip",
+        deckToggle(pos, region, BoothLayout.DECK_SLIP, "SLIP", "gui.soundsystem_dj.slip",
                 TransportPayload.SLIP, 0xFFFF8A1F, s -> s.isSlip());
-        deckToggle(pos, region, BoothLayout.DECK_QUANTIZE, "QUANT", "gui.djbooth.quantize",
+        deckToggle(pos, region, BoothLayout.DECK_QUANTIZE, "QUANT", "gui.soundsystem_dj.quantize",
                 TransportPayload.QUANTIZE, 0xFF2A7BFF, s -> s.isQuantize());
 
         // JOG MODE: VINYL means grabbing the platter stops it, CDJ means the jog only bends.
-        deckButton(pos, region, BoothLayout.DECK_JOGMODE, "gui.djbooth.jog_mode",
+        deckButton(pos, region, BoothLayout.DECK_JOGMODE, "gui.soundsystem_dj.jog_mode",
                 TransportPayload.JOG_MODE, 0xFF2A7BFF,
                 () -> {
                     CdjBlockEntity be = menu.deck(pos);
@@ -442,28 +442,28 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 });
 
         deckToggle(pos, region, BoothLayout.DECK_MASTER_TEMPO, "M.TEMPO",
-                "gui.djbooth.master_tempo", TransportPayload.MASTER_TEMPO, 0xFFFF3B30,
+                "gui.soundsystem_dj.master_tempo", TransportPayload.MASTER_TEMPO, 0xFFFF3B30,
                 s -> s.isMasterTempo());
         simpleDeckButton(pos, region, BoothLayout.DECK_TEMPO_RESET, "RESET",
-                "gui.djbooth.tempo_reset", TransportPayload.TEMPO_RESET);
+                "gui.soundsystem_dj.tempo_reset", TransportPayload.TEMPO_RESET);
         simpleDeckButton(pos, region, BoothLayout.DECK_BEAT_SYNC, "SYNC",
-                "gui.djbooth.beat_sync", TransportPayload.BEAT_SYNC);
-        deckToggle(pos, region, BoothLayout.DECK_KEY_SYNC, "KEY", "gui.djbooth.key_sync",
+                "gui.soundsystem_dj.beat_sync", TransportPayload.BEAT_SYNC);
+        deckToggle(pos, region, BoothLayout.DECK_KEY_SYNC, "KEY", "gui.soundsystem_dj.key_sync",
                 TransportPayload.KEY_SYNC, 0xFF9B5DE5, st -> st.getKeyShift() != 0);
         simpleDeckButton(pos, region, BoothLayout.DECK_TRACK_START, "|◀ TRACK",
-                "gui.djbooth.track_start", TransportPayload.TRACK_START);
+                "gui.soundsystem_dj.track_start", TransportPayload.TRACK_START);
         simpleDeckButton(pos, region, BoothLayout.DECK_SEARCH_BACK, "◀◀",
-                "gui.djbooth.search_back", TransportPayload.SEARCH_BACK);
+                "gui.soundsystem_dj.search_back", TransportPayload.SEARCH_BACK);
         simpleDeckButton(pos, region, BoothLayout.DECK_SEARCH_FWD, "▶▶",
-                "gui.djbooth.search_fwd", TransportPayload.SEARCH_FWD);
+                "gui.soundsystem_dj.search_fwd", TransportPayload.SEARCH_FWD);
         simpleDeckButton(pos, region, BoothLayout.DECK_CALL_PREV, "◀",
-                "gui.djbooth.call_prev", TransportPayload.CALL_PREV);
+                "gui.soundsystem_dj.call_prev", TransportPayload.CALL_PREV);
         simpleDeckButton(pos, region, BoothLayout.DECK_CALL_NEXT, "▶",
-                "gui.djbooth.call_next", TransportPayload.CALL_NEXT);
+                "gui.soundsystem_dj.call_next", TransportPayload.CALL_NEXT);
         simpleDeckButton(pos, region, BoothLayout.DECK_MEM_DELETE, "DEL",
-                "gui.djbooth.memory_delete", TransportPayload.MEMORY_DELETE);
+                "gui.soundsystem_dj.memory_delete", TransportPayload.MEMORY_DELETE);
         simpleDeckButton(pos, region, BoothLayout.DECK_MEMORY, "MEMORY",
-                "gui.djbooth.memory", TransportPayload.MEMORY);
+                "gui.soundsystem_dj.memory", TransportPayload.MEMORY);
     }
 
     /** Mirrors DeckState's switch positions without importing them into every lambda. */
@@ -597,76 +597,76 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
 
     private void addMixer() {
         addMixerFader(BoothLayout.MIX_FADER_A, true, MixerPayload.FADER_A,
-                m -> m.getFaderA(), Component.translatable("gui.djbooth.fader_a"));
+                m -> m.getFaderA(), Component.translatable("gui.soundsystem_dj.fader_a"));
         addMixerFader(BoothLayout.MIX_FADER_B, true, MixerPayload.FADER_B,
-                m -> m.getFaderB(), Component.translatable("gui.djbooth.fader_b"));
+                m -> m.getFaderB(), Component.translatable("gui.soundsystem_dj.fader_b"));
         addMixerFader(BoothLayout.MIX_MASTER, true, MixerPayload.MASTER,
-                m -> m.getMaster(), Component.translatable("gui.djbooth.master"));
+                m -> m.getMaster(), Component.translatable("gui.soundsystem_dj.master"));
         addMixerFader(BoothLayout.MIX_XFADER, false, MixerPayload.CROSSFADER,
-                m -> m.getCrossfader(), Component.translatable("gui.djbooth.crossfader"));
+                m -> m.getCrossfader(), Component.translatable("gui.soundsystem_dj.crossfader"));
 
         // Channel A EQ + COLOR filter (labels to the left). Band gains, flat at centre.
         addMixerKnob(BoothLayout.MIX_HI_A, "HI", true, MixerPayload.EQ_HI_A, 0.5, this::eqDb,
-                m -> m.getEqHiA(), Component.translatable("gui.djbooth.eq_hi"));
+                m -> m.getEqHiA(), Component.translatable("gui.soundsystem_dj.eq_hi"));
         addMixerKnob(BoothLayout.MIX_MID_A, "MID", true, MixerPayload.EQ_MID_A, 0.5, this::eqDb,
-                m -> m.getEqMidA(), Component.translatable("gui.djbooth.eq_mid"));
+                m -> m.getEqMidA(), Component.translatable("gui.soundsystem_dj.eq_mid"));
         addMixerKnob(BoothLayout.MIX_LOW_A, "LOW", true, MixerPayload.EQ_LOW_A, 0.5, this::eqDb,
-                m -> m.getEqLowA(), Component.translatable("gui.djbooth.eq_low"));
+                m -> m.getEqLowA(), Component.translatable("gui.soundsystem_dj.eq_low"));
         addMixerKnob(BoothLayout.MIX_FILTER_A, "FLT", true, MixerPayload.FILTER_A, 0.5, this::colorReadout,
-                m -> m.getFilterA(), Component.translatable("gui.djbooth.filter"));
+                m -> m.getFilterA(), Component.translatable("gui.soundsystem_dj.filter"));
         // Channel B EQ + colour filter (labels to the right).
         addMixerKnob(BoothLayout.MIX_HI_B, "HI", false, MixerPayload.EQ_HI_B, 0.5, this::eqDb,
-                m -> m.getEqHiB(), Component.translatable("gui.djbooth.eq_hi"));
+                m -> m.getEqHiB(), Component.translatable("gui.soundsystem_dj.eq_hi"));
         addMixerKnob(BoothLayout.MIX_MID_B, "MID", false, MixerPayload.EQ_MID_B, 0.5, this::eqDb,
-                m -> m.getEqMidB(), Component.translatable("gui.djbooth.eq_mid"));
+                m -> m.getEqMidB(), Component.translatable("gui.soundsystem_dj.eq_mid"));
         addMixerKnob(BoothLayout.MIX_LOW_B, "LOW", false, MixerPayload.EQ_LOW_B, 0.5, this::eqDb,
-                m -> m.getEqLowB(), Component.translatable("gui.djbooth.eq_low"));
+                m -> m.getEqLowB(), Component.translatable("gui.soundsystem_dj.eq_low"));
         addMixerKnob(BoothLayout.MIX_FILTER_B, "FLT", false, MixerPayload.FILTER_B, 0.5, this::colorReadout,
-                m -> m.getFilterB(), Component.translatable("gui.djbooth.filter"));
+                m -> m.getFilterB(), Component.translatable("gui.soundsystem_dj.filter"));
 
         // Channel trim, in the spot the real mixer puts GAIN: top of each strip, unity at centre.
         addMixerKnob(BoothLayout.MIX_GAIN_A, "GAIN", true, MixerPayload.GAIN_A, 0.5, BoothScreen::trimDb,
-                m -> m.getGainA(), Component.translatable("gui.djbooth.gain"));
+                m -> m.getGainA(), Component.translatable("gui.soundsystem_dj.gain"));
         addMixerKnob(BoothLayout.MIX_GAIN_B, "GAIN", false, MixerPayload.GAIN_B, 0.5, BoothScreen::trimDb,
-                m -> m.getGainB(), Component.translatable("gui.djbooth.gain"));
+                m -> m.getGainB(), Component.translatable("gui.soundsystem_dj.gain"));
 
         // Echo (Beat FX) per channel, off at rest.
         addMixerKnob(BoothLayout.MIX_ECHO_A, "FX", true, MixerPayload.FX_ECHO_A, 0.0, v -> Math.round(v * 100) + "%",
-                m -> m.getEchoA(), Component.translatable("gui.djbooth.echo"));
+                m -> m.getEchoA(), Component.translatable("gui.soundsystem_dj.echo"));
         addMixerKnob(BoothLayout.MIX_ECHO_B, "FX", false, MixerPayload.FX_ECHO_B, 0.0, v -> Math.round(v * 100) + "%",
-                m -> m.getEchoB(), Component.translatable("gui.djbooth.echo"));
+                m -> m.getEchoB(), Component.translatable("gui.soundsystem_dj.echo"));
 
         // SOUND COLOR FX: six mode buttons plus the PARAMETER knob, driving both COLOR knobs.
         addColorModeButtons();
         addMixerKnob(BoothLayout.MIX_COLOR_PARAM, "PARAM", true, MixerPayload.COLOR_PARAM, 0.5,
                 v -> Math.round(v * 100) + "%",
-                m -> m.getColorParam(), Component.translatable("gui.djbooth.color_param"));
+                m -> m.getColorParam(), Component.translatable("gui.soundsystem_dj.color_param"));
 
         addBeatFxPanel();
 
         // CROSS FADER ASSIGN under each channel fader: A / THRU / B, like the hardware switch.
         addMixerCycle(BoothLayout.MIX_XF_ASSIGN_A, MixerPayload.XF_ASSIGN_A,
-                MixerBlockEntity::getXfAssignA, "gui.djbooth.xf_assign");
+                MixerBlockEntity::getXfAssignA, "gui.soundsystem_dj.xf_assign");
         addMixerCycle(BoothLayout.MIX_XF_ASSIGN_B, MixerPayload.XF_ASSIGN_B,
-                MixerBlockEntity::getXfAssignB, "gui.djbooth.xf_assign");
+                MixerBlockEntity::getXfAssignB, "gui.soundsystem_dj.xf_assign");
 
         // Global switches: EQ curve (isolator/EQ) and channel fader curve.
         addMixerToggle(BoothLayout.MIX_ISOLATOR, MixerPayload.ISOLATOR,
-                MixerBlockEntity::isIsolator, "ISO", "EQ", "gui.djbooth.eq_curve");
+                MixerBlockEntity::isIsolator, "ISO", "EQ", "gui.soundsystem_dj.eq_curve");
         addMixerCycle(BoothLayout.MIX_FADERCURVE, MixerPayload.FADER_CURVE,
                 MixerBlockEntity::getChFaderCurve, MixerBlockEntity.CURVE_NAMES,
-                "gui.djbooth.fader_curve");
+                "gui.soundsystem_dj.fader_curve");
         addMixerCycle(BoothLayout.MIX_XFCURVE, MixerPayload.CROSSFADER_CURVE,
                 MixerBlockEntity::getCrossFaderCurve, MixerBlockEntity.CURVE_NAMES,
-                "gui.djbooth.xfader_curve");
+                "gui.soundsystem_dj.xfader_curve");
 
         // Master section: BALANCE, BOOTH MONITOR, and a headphone CUE per channel.
         addMixerKnob(BoothLayout.MIX_BALANCE, "BAL", true, MixerPayload.BALANCE, 0.5,
                 BoothScreen::balanceReadout,
-                m -> m.getBalance(), Component.translatable("gui.djbooth.balance"));
+                m -> m.getBalance(), Component.translatable("gui.soundsystem_dj.balance"));
         addMixerKnob(BoothLayout.MIX_BOOTH, "BOOTH", true, MixerPayload.BOOTH, 1.0,
                 v -> Math.round(v * 100) + "%",
-                m -> m.getBooth(), Component.translatable("gui.djbooth.booth"));
+                m -> m.getBooth(), Component.translatable("gui.soundsystem_dj.booth"));
         addCueButton(BoothLayout.MIX_CUE_A, MixerPayload.CUE_A, MixerBlockEntity::isCueA);
         addCueButton(BoothLayout.MIX_CUE_B, MixerPayload.CUE_B, MixerBlockEntity::isCueB);
     }
@@ -724,7 +724,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                     return be != null && state.test(be);
                 });
         b.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.translatable("gui.djbooth.cue_channel")));
+                Component.translatable("gui.soundsystem_dj.cue_channel")));
         addRenderableWidget(b);
     }
 
@@ -755,7 +755,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         gridButtons(BoothLayout.FX_BEATS,
                 com.osgworld.djbooth.mixer.BeatFxTypes.BEAT_NAMES.length, 4,
                 i -> com.osgworld.djbooth.mixer.BeatFxTypes.BEAT_NAMES[i],
-                i -> Component.translatable("gui.djbooth.beat_fraction"),
+                i -> Component.translatable("gui.soundsystem_dj.beat_fraction"),
                 i -> NetworkManager.sendToServer(new MixerPayload(mix, MixerPayload.BEATFX_BEAT, i)),
                 i -> {
                     MixerBlockEntity be = menu.mixer();
@@ -769,7 +769,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         String[] bandNames = {"LOW", "MID", "HI"};
         gridButtons(BoothLayout.FX_FREQ, 3, 3,
                 i -> bandNames[i],
-                i -> Component.translatable("gui.djbooth.fx_freq"),
+                i -> Component.translatable("gui.soundsystem_dj.fx_freq"),
                 i -> {
                     MixerBlockEntity be = menu.mixer();
                     int bands = be != null ? be.getBeatFxBands()
@@ -786,7 +786,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         gridButtons(BoothLayout.FX_CHANNEL,
                 com.osgworld.djbooth.mixer.BeatFxTypes.CHANNEL_NAMES.length, 3,
                 i -> com.osgworld.djbooth.mixer.BeatFxTypes.CHANNEL_NAMES[i],
-                i -> Component.translatable("gui.djbooth.fx_channel"),
+                i -> Component.translatable("gui.soundsystem_dj.fx_channel"),
                 i -> NetworkManager.sendToServer(
                         new MixerPayload(mix, MixerPayload.BEATFX_CHANNEL, i)),
                 i -> {
@@ -796,7 +796,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
 
         addMixerKnob(BoothLayout.FX_DEPTH, "DEPTH", true, MixerPayload.BEATFX_DEPTH, 0.5,
                 v -> Math.round(v * 100) + "%",
-                m -> m.getBeatFxDepth(), Component.translatable("gui.djbooth.fx_depth"));
+                m -> m.getBeatFxDepth(), Component.translatable("gui.soundsystem_dj.fx_depth"));
 
         // TAP sets the BPM the beat fractions are measured against.
         int[] tap = px(BoothLayout.REGION_MIXER, BoothLayout.FX_TAP);
@@ -811,7 +811,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 },
                 () -> false).withCaption();
         tapBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.translatable("gui.djbooth.fx_tap")));
+                Component.translatable("gui.soundsystem_dj.fx_tap")));
         addRenderableWidget(tapBtn);
 
         // The big ON/OFF at the bottom of the panel.
@@ -829,7 +829,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                     return be != null && be.isBeatFxOn();
                 }).withCaption();
         onBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.translatable("gui.djbooth.fx_onoff")));
+                Component.translatable("gui.soundsystem_dj.fx_onoff")));
         addRenderableWidget(onBtn);
     }
 
@@ -1098,13 +1098,13 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     private void drawGuide(GuiGraphics g) {
         int cx = leftPos + imageWidth / 2;
         int y = topPos + imageHeight + BOTTOM_STRIP - 2 * (this.font.lineHeight + 1);
-        g.drawCenteredString(this.font, Component.translatable("gui.djbooth.guide1"), cx, y, 0xFF1DB954);
-        g.drawCenteredString(this.font, Component.translatable("gui.djbooth.guide2"),
+        g.drawCenteredString(this.font, Component.translatable("gui.soundsystem_dj.guide1"), cx, y, 0xFF1DB954);
+        g.drawCenteredString(this.font, Component.translatable("gui.soundsystem_dj.guide2"),
                 cx, y + this.font.lineHeight + 1, 0xFFB8B8C0);
         // GetSongBPM's terms require a visible credit wherever their data is used, so it shows
         // whenever the lookup is switched on — and takes no space when it isn't.
         if (com.osgworld.djbooth.DJBoothConfig.lookupEnabled()) {
-            g.drawCenteredString(this.font, Component.translatable("gui.djbooth.credit_getsongbpm"),
+            g.drawCenteredString(this.font, Component.translatable("gui.soundsystem_dj.credit_getsongbpm"),
                     cx, y - this.font.lineHeight - 1, 0xFF7A7A84);
         }
     }

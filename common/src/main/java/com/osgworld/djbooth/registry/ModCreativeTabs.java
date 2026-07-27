@@ -12,9 +12,9 @@ public final class ModCreativeTabs {
     public static final DeferredRegister<CreativeModeTab> TABS =
             DeferredRegister.create(DJBooth.MODID, Registries.CREATIVE_MODE_TAB);
 
-    public static final RegistrySupplier<CreativeModeTab> DJBOOTH = TABS.register("djbooth",
+    public static final RegistrySupplier<CreativeModeTab> DJBOOTH = TABS.register("soundsystem_dj",
             () -> CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0)
-                    .title(Component.translatable("itemGroup.djbooth"))
+                    .title(Component.translatable("itemGroup.soundsystem_dj"))
                     .icon(() -> new ItemStack(ModItems.CDJ.get()))
                     .displayItems((params, output) -> {
                         output.accept(ModItems.CDJ.get());

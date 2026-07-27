@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "id": "djbooth",
+  "id": "soundsystem_dj",
   "version": "${version}",
   "name": "Soundsystem DJ",
   "description": "An interactive Pioneer-style DJ booth: two CDJ decks and a mixer in one GUI.",
   "authors": ["OSGWORLD"],
   "contact": {},
   "license": "All Rights Reserved",
-  "icon": "djbooth_logo.png",
+  "icon": "soundsystem_dj_logo.png",
   "environment": "*",
   "entrypoints": {
     "main": ["com.osgworld.djbooth.fabric.DJBoothFabric"],

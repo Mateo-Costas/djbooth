@@ -21,15 +21,15 @@ public final class ColorFxModes {
     public static final String[] NAMES =
             {"SPACE", "DUB ECHO", "SWEEP", "NOISE", "CRUSH", "FILTER"};
 
-    /** Translation key for a mode's tooltip, e.g. {@code gui.djbooth.color.space}. */
+    /** Translation key for a mode's tooltip, e.g. {@code gui.soundsystem_dj.color.space}. */
     public static String tipKey(int mode) {
         return switch (mode) {
-            case SPACE -> "gui.djbooth.color.space";
-            case DUB_ECHO -> "gui.djbooth.color.dub_echo";
-            case SWEEP -> "gui.djbooth.color.sweep";
-            case NOISE -> "gui.djbooth.color.noise";
-            case CRUSH -> "gui.djbooth.color.crush";
-            default -> "gui.djbooth.color.filter";
+            case SPACE -> "gui.soundsystem_dj.color.space";
+            case DUB_ECHO -> "gui.soundsystem_dj.color.dub_echo";
+            case SWEEP -> "gui.soundsystem_dj.color.sweep";
+            case NOISE -> "gui.soundsystem_dj.color.noise";
+            case CRUSH -> "gui.soundsystem_dj.color.crush";
+            default -> "gui.soundsystem_dj.color.filter";
         };
     }
 }

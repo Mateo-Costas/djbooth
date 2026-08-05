@@ -51,3 +51,8 @@ run/
 # Game logs from dev runs; nothing here belongs in history.
 common/logs/
 logs/
+
+# Icon previews from tools/gen_logo.py — scratch output, not resources.
+_preview_*.png
+_icon_sheet.png
+_thumb48.png

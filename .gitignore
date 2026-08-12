@@ -52,7 +52,8 @@ run/
 common/logs/
 logs/
 
-# Icon previews from tools/gen_logo.py — scratch output, not resources.
+# Preview sheets from the tools/gen_*.py art scripts — scratch output, not resources.
 _preview_*.png
 _icon_sheet.png
 _thumb48.png
+_blocks_preview.png

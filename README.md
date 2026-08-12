@@ -1,6 +1,6 @@
 # DJ Booth
 
-An interactive Pioneer-style DJ booth for Minecraft (NeoForge 1.21.1). Two CDJ decks and a mixer
+An interactive club-style DJ booth for Minecraft (NeoForge 1.21.1). Two decks and a mixer
 that open a single booth GUI drawn over the real gear, stream real music, and can drive DMX stage
 lights.
 

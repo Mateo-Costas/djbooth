@@ -11,7 +11,7 @@ logoFile="soundsystem_dj_logo.png"
 authors="OSGWORLD"
 credits="Built with WaterMedia (audio) and MineDMX (lighting)."
 description='''
-An interactive Pioneer-style DJ booth for Minecraft.
+An interactive club-style DJ booth for Minecraft.
 
 Place two CDJ decks around a mixer and right-click to open one full booth GUI drawn over the real
 gear. Load any track by pasting a link or typing a song name (YouTube search), then play, cue, loop,

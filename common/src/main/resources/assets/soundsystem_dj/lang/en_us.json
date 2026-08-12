@@ -1,5 +1,5 @@
 {
-  "block.soundsystem_dj.cdj": "CDJ-3000",
+  "block.soundsystem_dj.cdj": "DJ Deck",
   "block.soundsystem_dj.mixer": "DJ Mixer",
   "gui.soundsystem_dj.booth": "BOOTH MONITOR: level for whoever is stood at the booth",
   "itemGroup.soundsystem_dj": "Soundsystem DJ",

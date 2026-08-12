@@ -1,5 +1,5 @@
 {
-  "block.soundsystem_dj.cdj": "CDJ-3000",
+  "block.soundsystem_dj.cdj": "Reproductor DJ",
   "block.soundsystem_dj.mixer": "Mesa de mezclas",
   "gui.soundsystem_dj.booth": "BOOTH MONITOR: volumen para quien esté en la cabina",
   "itemGroup.soundsystem_dj": "Soundsystem DJ",

@@ -1,44 +1,76 @@
-# DJ Booth
+# Soundsystem DJ
 
-An interactive club-style DJ booth for Minecraft (NeoForge 1.21.1). Two decks and a mixer
-that open a single booth GUI drawn over the real gear, stream real music, and can drive DMX stage
-lights.
+A playable club-style DJ booth for Minecraft 1.21.1 (NeoForge and Fabric). Two **DJ Deck** blocks and
+a **DJ Mixer** open a single booth GUI, stream music from links, and can drive DMX stage lights.
 
-![logo](src/main/resources/djbooth_logo.png)
+Modrinth: https://modrinth.com/mod/soundsystem-dj
 
 ## Features
 
 - **One booth GUI.** Right-click a deck or the mixer to open the whole rig at once, with every
-  control on the artwork where it lives on real hardware.
+  control where it lives on a real booth.
 - **Load any track.** Paste a link or type a song name (top YouTube hit). Recent tracks are one
   click away.
 - **Deck controls.** Play/pause, smart cue (jump / right-click to set), loops (in / out / exit /
-  reloop / halve / double), 4 hot cues, beat-jump, a pitch-bend jog wheel, click-to-seek on the
-  deck screen, a scrolling waveform readout with elapsed/remaining time.
-- **Tempo.** Tempo fader with a selectable range (±6 / ±10 / ±16 / WIDE) and a tap-tempo BPM counter.
-- **Mixer.** Channel faders, crossfader, master. A real 3-band **isolator EQ**, a **colour sweep
-  filter** and an **echo FX**, all processed live in Java. Switches for EQ/ISO curve and fader curve.
+  reloop / halve / double), 4 hot cues, beat jump, a pitch-bend jog wheel, click-to-seek on the
+  deck screen, a scrolling waveform with elapsed/remaining time, SLIP, QUANTIZE, MASTER TEMPO.
+- **Tempo.** Fader with a selectable range (±6 / ±10 / ±16 / WIDE) and a tap-tempo BPM counter.
+- **Mixer.** Channel faders, crossfader, master, TRIM, BALANCE, BOOTH MONITOR and CUE. A three-band
+  **isolator EQ**, six **SOUND COLOR FX** and fourteen **BEAT FX**, all processed live in Java.
 - **DMX (optional).** Sends lighting frames to MineDMX over UDP.
+
+## Where the music comes from
+
+**The mod ships no music and no audio files.** Every track is streamed from a link at play time.
+
+- Paste a link into a deck's box and press Enter, or type a song name and the mod searches YouTube
+  and loads the first result.
+- Playback is done by each player's own game client through
+  [WaterMedia](https://modrinth.com/mod/watermedia) (plus WaterMedia Binaries). It plays whatever
+  links WaterMedia can resolve: YouTube, direct links to audio or video files, and the other
+  platforms WaterMedia supports. Without WaterMedia installed the booth works but is silent.
+- The **server never downloads or relays audio.** It only stores the link and the deck's playback
+  state (playing, position, tempo) and syncs that to nearby players, so each client streams the
+  track itself. This also means every player's client contacts the host of the link.
+- Optional: with a free [GetSongBPM](https://getsongbpm.com/api) API key in
+  `config/soundsystem_dj.properties`, the typed song name is sent to GetSongBPM to look up its BPM
+  and key. It is off by default and no key is bundled. Data by [GetSongBPM.com](https://getsongbpm.com).
+
+You are responsible for having the right to play whatever you load.
+
+## AI usage disclosure
+
+This mod was made with AI assistance, and that is most of it:
+
+- **Code:** written by Claude (Anthropic) through Claude Code, directed and tested by the author.
+  That includes the audio DSP, the networking, the GUI and the build setup.
+- **Text:** the project description, in-game names, translations (English and Spanish) and
+  changelogs were written with AI assistance.
+- **Art:** the GUI panel, the four block textures and the icon are not hand-painted and not made by
+  an image model. They are drawn by Python scripts in `tools/` (written with AI assistance) from
+  geometric primitives. The block models are hand-written JSON.
 
 ## Requirements
 
 | Mod | Needed for | Required? |
 | --- | --- | --- |
-| NeoForge 21.1.x (MC 1.21.1) | the mod itself | yes |
-| [WaterMedia](https://modrinth.com/mod/watermedia) + [WaterMedia Binaries](https://modrinth.com/mod/watermedia-binaries) | streaming audio | optional (no sound without it) |
+| NeoForge 21.1.x or Fabric (MC 1.21.1) | the mod itself | yes |
+| [Architectury API](https://modrinth.com/mod/architectury-api) | the mod itself (both loaders) | yes |
+| [Fabric API](https://modrinth.com/mod/fabric-api) | the mod itself (Fabric only) | yes on Fabric |
+| [WaterMedia](https://modrinth.com/mod/watermedia) + [WaterMedia Binaries](https://modrinth.com/mod/watermedia-binaries) | streaming audio | optional (silent without) |
 | [MineDMX](https://modrinth.com/mod/minedmx) | DMX stage lights | optional |
-
-The booth loads and works without the optional mods — it just stays silent / dark.
 
 > WaterMedia is under a non-commercial license, so it is **not** bundled with this mod. Install it
 > separately.
 
 ## Setup in-game
 
-1. Place two **CDJ-3000** blocks with a **DJ Mixer** between (or beside) them. The booth finds the
-   nearest deck+mixer group automatically.
+1. Place two **DJ Deck** blocks with a **DJ Mixer** between (or beside) them. The booth finds the
+   nearest deck + mixer group automatically.
 2. Right-click any of them to open the booth.
-3. Type a song or paste a link in a deck's box, press Enter, hit the green play button.
+3. Type a song or paste a link in a deck's box, press Enter, hit play.
+
+Server command: `/soundsystem track <url>` loads a link onto the nearest deck.
 
 ## Building
 
@@ -46,9 +78,11 @@ The booth loads and works without the optional mods — it just stays silent / d
 ./gradlew build
 ```
 
-The jar lands in `build/libs/`. Run `./gradlew runClient` for a dev client. Textures are generated
-from source art by the scripts in `tools/`.
+Jars land in `fabric/build/libs/` and `neoforge/build/libs/`. Run `./gradlew :neoforge:runClient`
+for a dev client. The icon, GUI panel and block textures are generated by `tools/gen_logo.py`,
+`tools/gen_booth.py` and `tools/gen_block_textures.py`.
 
 ## Credits
 
 Built with [WaterMedia](https://github.com/WaterMediaTeam/watermedia) (audio) and MineDMX (lighting).
+Tempo and key data by [GetSongBPM.com](https://getsongbpm.com).

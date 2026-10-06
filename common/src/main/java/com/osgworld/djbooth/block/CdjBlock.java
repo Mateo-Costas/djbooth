@@ -16,6 +16,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
@@ -24,10 +25,14 @@ import org.jetbrains.annotations.Nullable;
 public class CdjBlock extends BaseEntityBlock {
     public static final MapCodec<CdjBlock> CODEC = simpleCodec(CdjBlock::new);
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
+    /** True while the deck is playing: the block gives off light, so a running booth is visible. */
+    public static final BooleanProperty LIT = BlockStateProperties.LIT;
+    /** Light level of a playing deck. Enough to read as "on" without lighting the room. */
+    public static final int LIT_LEVEL = 7;
 
     public CdjBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(FACING, Direction.NORTH));
+        registerDefaultState(defaultBlockState().setValue(FACING, Direction.NORTH).setValue(LIT, false));
     }
 
     @Override
@@ -37,7 +42,7 @@ public class CdjBlock extends BaseEntityBlock {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING);
+        builder.add(FACING, LIT);
     }
 
     @Override

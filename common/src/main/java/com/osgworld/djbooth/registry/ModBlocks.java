@@ -16,7 +16,8 @@ public final class ModBlocks {
 
     public static final RegistrySupplier<CdjBlock> CDJ = BLOCKS.register("cdj",
             () -> new CdjBlock(BlockBehaviour.Properties.of()
-                    .mapColor(MapColor.METAL).strength(2.0f).noOcclusion()));
+                    .mapColor(MapColor.METAL).strength(2.0f).noOcclusion()
+                    .lightLevel(state -> state.getValue(CdjBlock.LIT) ? CdjBlock.LIT_LEVEL : 0)));
 
     public static final RegistrySupplier<MixerBlock> MIXER = BLOCKS.register("mixer",
             () -> new MixerBlock(BlockBehaviour.Properties.of()

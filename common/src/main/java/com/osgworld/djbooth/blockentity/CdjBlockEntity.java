@@ -1,5 +1,6 @@
 package com.osgworld.djbooth.blockentity;
 
+import com.osgworld.djbooth.block.CdjBlock;
 import com.osgworld.djbooth.deck.DeckState;
 import com.osgworld.djbooth.deck.PlayState;
 import com.osgworld.djbooth.registry.ModBlockEntities;
@@ -49,6 +50,13 @@ public class CdjBlockEntity extends BlockEntity {
     public void applyAndSync() {
         setChanged();
         if (level != null && !level.isClientSide) {
+            // The block glows while it plays. Changing the state keeps this block entity, and the
+            // update that goes out with it carries the deck's data too.
+            BlockState current = getBlockState();
+            boolean playing = state.getPlayState() == PlayState.PLAY;
+            if (current.hasProperty(CdjBlock.LIT) && current.getValue(CdjBlock.LIT) != playing) {
+                level.setBlock(worldPosition, current.setValue(CdjBlock.LIT, playing), 3);
+            }
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
         }
     }

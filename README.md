@@ -63,6 +63,17 @@ This mod was made with AI assistance, and that is most of it:
 > WaterMedia is under a non-commercial license, so it is **not** bundled with this mod. Install it
 > separately.
 
+## Crafting
+
+Both blocks are in the creative tab and craftable in survival (`I` iron ingot, `R` redstone,
+`N` note block):
+
+| DJ Deck | DJ Mixer |
+| --- | --- |
+| `I I I` / `R N R` / `I R I` | `R R R` / `I N I` / `I I I` |
+
+A deck gives off a little light while it is playing.
+
 ## Setup in-game
 
 1. Place two **DJ Deck** blocks with a **DJ Mixer** between (or beside) them. The booth finds the

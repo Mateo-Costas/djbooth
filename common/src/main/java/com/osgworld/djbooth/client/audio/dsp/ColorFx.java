@@ -247,16 +247,6 @@ public final class ColorFx {
             case SWEEP -> rightSide ? mix(s, sweep.process(s)) : gate(s);
             case NOISE -> s + depth * (0.25 + 0.55 * param) * noiseFilter.process(noise());
             case CRUSH -> crush(s);
-            // FILTER is fully wet once the knob is properly turned. Blending dry in across the
-            // whole travel was wrong twice over: a filter on the hardware replaces the signal
-            // rather than sitting beside it, and summing a filtered copy with the original
-            // comb-filters the two, so cutting the bass left the bass audibly there while the
-            // mids hollowed out.
-            //
-            // The first sliver of travel is the exception. There the resonance compensation would
-            // otherwise land as a step — 6 dB of level gone the moment the knob moves — so fade
-            // it in. Nothing is lost to comb filtering in that range because the cutoff is parked
-            // at the far end of its sweep, where the filter is passing everything anyway.
             // FILTER: wet, once the knob is properly turned. Blending dry across the *whole*
             // travel was wrong — a filter replaces the signal rather than sitting beside it, and
             // summing a filtered copy with the original comb-filters the two, so cutting the bass

@@ -4,7 +4,7 @@
 
 A playable club-style DJ booth for Minecraft. Place two **DJ Deck** blocks either side of a **DJ Mixer**, right-click, and you get one booth GUI — with the controls where they live on a real booth, doing what they do on a real booth.
 
-Runs on **NeoForge** and **Fabric** for 1.21.1. Both blocks are craftable in survival (iron, redstone and a note block), and a deck gives off a little light while it plays.
+Runs on **NeoForge** and **Fabric** for 1.21.1. Both blocks are craftable in survival (iron, redstone and a note block), and a deck gives off a little light while it is set to play (it keeps glowing after a track runs out, until you pause it).
 
 ## Load a track
 

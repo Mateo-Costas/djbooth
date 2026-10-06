@@ -28,6 +28,7 @@ public final class BlockRelay {
     }
 
     private ByteBuffer scratch = ByteBuffer.allocateDirect(0);
+    private ByteBuffer heapIn = ByteBuffer.allocate(0); // reused storage for refusedIn
     // The block the sink last turned down: as it arrived, and as the chain turned it.
     private ByteBuffer refusedIn;
     private ByteBuffer refusedOut;
@@ -43,6 +44,11 @@ public final class BlockRelay {
                 refusedOut.rewind();
                 boolean taken = sink.accept(refusedOut);
                 if (taken) {
+                    // Nobody holds it any more: take its memory back for the next block, so a sink
+                    // that refuses as a matter of course does not allocate on every block.
+                    if (refusedOut.capacity() > scratch.capacity()) {
+                        scratch = refusedOut;
+                    }
                     forget();
                 }
                 return taken;
@@ -59,10 +65,13 @@ public final class BlockRelay {
 
         boolean taken = sink.accept(out);
         if (!taken) {
-            ByteBuffer copy = ByteBuffer.allocate(n);
-            copy.put(in.duplicate());
-            copy.flip();
-            refusedIn = copy;
+            if (heapIn.capacity() < n) {
+                heapIn = ByteBuffer.allocate(n);
+            }
+            heapIn.clear();
+            heapIn.put(in.duplicate());
+            heapIn.flip();
+            refusedIn = heapIn;
             refusedOut = out;
             scratch = ByteBuffer.allocateDirect(0); // the kept block owns that memory now
         }

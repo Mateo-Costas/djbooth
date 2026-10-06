@@ -1,6 +1,5 @@
 package com.osgworld.djbooth.booth;
 
-import java.net.URI;
 import java.util.Locale;
 
 /**
@@ -45,15 +44,54 @@ public final class TrackUrl {
         if (!lower.startsWith("http://") && !lower.startsWith("https://")) {
             return null;
         }
-        try {
-            URI uri = new URI(url);
-            String host = uri.getHost();
-            if (host == null || host.isBlank()) {
-                return null;
+        return hasHost(url) ? url : null;
+    }
+
+    /**
+     * Whether the text after {@code scheme://} starts with a plausible host.
+     *
+     * <p>Read by hand rather than through {@link java.net.URI}: that class rejects a hostname with
+     * an underscore (its host comes back null) and throws on characters such as {@code |} or
+     * {@code ^} in a query string, and pasted links have both. A link that played in an earlier
+     * version should not stop playing because the check was stricter than the player.
+     */
+    private static boolean hasHost(String url) {
+        String rest = url.substring(url.indexOf("://") + 3);
+        int end = rest.length();
+        for (int i = 0; i < rest.length(); i++) {
+            char c = rest.charAt(i);
+            if (c == '/' || c == '?' || c == '#') {
+                end = i;
+                break;
             }
-        } catch (java.net.URISyntaxException e) {
-            return null;
         }
-        return url;
+        String authority = rest.substring(0, end);
+        // Anything before the last '@' is credentials; the host is what follows.
+        String hostPort = authority.substring(authority.lastIndexOf('@') + 1);
+
+        String host;
+        boolean bracketed = hostPort.startsWith("[");
+        if (bracketed) {
+            int close = hostPort.indexOf(']');
+            if (close < 0) {
+                return false;
+            }
+            host = hostPort.substring(1, close);
+        } else {
+            int colon = hostPort.lastIndexOf(':');
+            host = colon >= 0 ? hostPort.substring(0, colon) : hostPort;
+        }
+        if (host.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < host.length(); i++) {
+            char c = host.charAt(i);
+            boolean ok = Character.isLetterOrDigit(c) || c == '.' || c == '-' || c == '_'
+                    || (bracketed && c == ':');
+            if (!ok) {
+                return false;
+            }
+        }
+        return true;
     }
 }

@@ -72,7 +72,7 @@ Both blocks are in the creative tab and craftable in survival (`I` iron ingot, `
 | --- | --- |
 | `I I I` / `R N R` / `I R I` | `R R R` / `I N I` / `I I I` |
 
-A deck gives off a little light while it is playing.
+A deck gives off a little light while it is set to play. It cannot tell when a track runs out, so it keeps glowing until you pause it.
 
 ## Setup in-game
 

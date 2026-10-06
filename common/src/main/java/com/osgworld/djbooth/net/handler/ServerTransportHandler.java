@@ -1,7 +1,6 @@
 package com.osgworld.djbooth.net.handler;
 
 import com.osgworld.djbooth.blockentity.CdjBlockEntity;
-import com.osgworld.djbooth.deck.DeckState;
 import com.osgworld.djbooth.deck.PlayState;
 import com.osgworld.djbooth.net.TransportPayload;
 import net.minecraft.server.level.ServerPlayer;
@@ -35,20 +34,7 @@ public final class ServerTransportHandler {
                 case TransportPayload.PAUSE -> be.state().press(PlayState.PAUSE, now);
                 case TransportPayload.CUE -> be.state().cue(now);
                 case TransportPayload.SET_CUE -> be.state().setCueHere(now);
-                case TransportPayload.DIRECTION -> {
-                    // Stepping into or out of reverse re-anchors the clock, otherwise the
-                    // position jumps by however long the deck has been playing.
-                    long p = be.state().positionMsAt(now);
-                    be.state().setDirection(be.state().getDirection() + 1);
-                    be.state().jumpTo(p, now);
-                    // SLIP REV keeps the untouched timeline running underneath.
-                    if (be.state().getDirection() == DeckState.DIR_SLIP_REV) {
-                        be.state().setSlip(true);
-                        be.state().beginSlip(now);
-                    } else {
-                        be.state().endSlip(now);
-                    }
-                }
+                case TransportPayload.DIRECTION -> be.state().cycleDirection(now);
                 case TransportPayload.JOG_MODE ->
                         be.state().setJogMode(be.state().getJogMode() + 1);
                 case TransportPayload.SLIP -> {

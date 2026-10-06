@@ -25,7 +25,7 @@ public record BoothRefs(@Nullable BlockPos mixer,
 
     /** Scan the neighbourhood of {@code anchor} and collect the booth blocks. */
     public static BoothRefs scan(Level level, BlockPos anchor) {
-        BlockPos mixer = null;
+        List<BlockPos> mixers = new ArrayList<>();
         List<BlockPos> decks = new ArrayList<>();
 
         for (int dx = -RADIUS_XZ; dx <= RADIUS_XZ; dx++) {
@@ -36,22 +36,42 @@ public record BoothRefs(@Nullable BlockPos mixer,
                         continue;
                     }
                     var be = level.getBlockEntity(p);
-                    if (be instanceof MixerBlockEntity && mixer == null) {
-                        mixer = p.immutable();
+                    if (be instanceof MixerBlockEntity) {
+                        mixers.add(p.immutable());
                     } else if (be instanceof CdjBlockEntity) {
                         decks.add(p.immutable());
                     }
                 }
             }
         }
+        return choose(anchor, mixers, decks);
+    }
 
+    /**
+     * Pick the booth out of everything found nearby: the mixer and the two decks closest to
+     * {@code anchor}.
+     *
+     * <p>Closest, not first found. With two booths side by side the scan sees both, and taking
+     * whichever block it met first wired a booth to the other one's mixer. The two decks are then
+     * ordered by position, so each keeps its side whichever one was clicked.
+     */
+    static BoothRefs choose(BlockPos anchor, List<BlockPos> mixers, List<BlockPos> decks) {
+        Comparator<BlockPos> nearest = Comparator
+                .<BlockPos>comparingDouble(p -> p.distSqr(anchor))
+                .thenComparingInt(BlockPos::getX)
+                .thenComparingInt(BlockPos::getZ)
+                .thenComparingInt(BlockPos::getY);
+
+        BlockPos mixer = mixers.stream().min(nearest).orElse(null);
+
+        List<BlockPos> pair = new ArrayList<>(decks.stream().sorted(nearest).limit(2).toList());
         // Stable A/B assignment: sort by position so both decks keep their side.
-        decks.sort(Comparator.<BlockPos>comparingInt(BlockPos::getX)
+        pair.sort(Comparator.<BlockPos>comparingInt(BlockPos::getX)
                 .thenComparingInt(BlockPos::getZ)
                 .thenComparingInt(BlockPos::getY));
 
-        BlockPos a = decks.isEmpty() ? null : decks.get(0);
-        BlockPos b = decks.size() < 2 ? null : decks.get(1);
+        BlockPos a = pair.isEmpty() ? null : pair.get(0);
+        BlockPos b = pair.size() < 2 ? null : pair.get(1);
         return new BoothRefs(mixer, a, b);
     }
 

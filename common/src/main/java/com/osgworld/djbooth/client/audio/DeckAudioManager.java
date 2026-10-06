@@ -92,8 +92,12 @@ public final class DeckAudioManager {
             if (!AUDIO.isEmpty()) {
                 releaseAll();
             }
+            // Leaving a world does not unload its block entities one by one, so the set would keep
+            // every deck, and through each deck the whole old ClientLevel, alive across joins.
+            CdjBlockEntity.CLIENT_DECKS.clear();
             return;
         }
+        CdjBlockEntity.CLIENT_DECKS.removeIf(d -> d.isRemoved() || d.getLevel() != mc.level);
 
         long now = mc.level.getGameTime() * 50L;
 
@@ -123,10 +127,7 @@ public final class DeckAudioManager {
             // Audible with distance falloff inside RANGE; silent (but still streaming + synced)
             // between RANGE and KEEPALIVE so returning resumes in place instead of restarting.
             float attenuation = dist < RANGE ? (float) (1.0 - dist / RANGE) : 0f;
-            // Scan for the booth once and reuse it: the scan walks several hundred block
-            // positions, and doing it separately for the volume and the DSP doubled that for
-            // every deck, every tick.
-            BoothRefs refs = BoothRefs.scan(mc.level, pos);
+            BoothRefs refs = refsFor(mc.level, pos, mc.level.getGameTime());
             MixerBlockEntity mixer =
                     refs.mixer() != null
                             && mc.level.getBlockEntity(refs.mixer()) instanceof MixerBlockEntity m
@@ -145,6 +146,24 @@ public final class DeckAudioManager {
                 it.remove();
             }
         }
+        REFS.keySet().retainAll(live);
+    }
+
+    // The booth around a deck is found by walking several hundred block positions, which used to
+    // happen for every deck on every tick. Blocks do not move that fast: once a second is plenty
+    // to notice a mixer being placed or broken.
+    private static final long SCAN_INTERVAL_TICKS = 20;
+    private record CachedRefs(BoothRefs refs, long tick) {}
+    private static final Map<BlockPos, CachedRefs> REFS = new HashMap<>();
+
+    private static BoothRefs refsFor(Level level, BlockPos deck, long gameTick) {
+        CachedRefs cached = REFS.get(deck);
+        // A tick earlier than the cached one means the clock was reset (new world, /time set).
+        if (cached == null || gameTick < cached.tick() || gameTick - cached.tick() >= SCAN_INTERVAL_TICKS) {
+            cached = new CachedRefs(BoothRefs.scan(level, deck), gameTick);
+            REFS.put(deck, cached);
+        }
+        return cached.refs();
     }
 
     /**
@@ -176,5 +195,6 @@ public final class DeckAudioManager {
     private static void releaseAll() {
         AUDIO.values().forEach(DeckAudio::release);
         AUDIO.clear();
+        REFS.clear();
     }
 }

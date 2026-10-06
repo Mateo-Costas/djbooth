@@ -60,7 +60,12 @@ public final class BoothCommands {
         return 1;
     }
 
-    private static int setNearestDeck(ServerPlayer player, String url) {
+    private static int setNearestDeck(ServerPlayer player, String rawUrl) {
+        String url = TrackUrl.sanitize(rawUrl);
+        if (url == null) {
+            player.sendSystemMessage(Component.translatable("gui.soundsystem_dj.url_rejected"));
+            return 0;
+        }
         Level level = player.level();
         BoothRefs refs = BoothRefs.scan(level, player.blockPosition());
         BlockPos target = nearest(player.blockPosition(), refs.deckA(), refs.deckB());

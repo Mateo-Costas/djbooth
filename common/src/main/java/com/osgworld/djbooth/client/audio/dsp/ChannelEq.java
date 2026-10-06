@@ -183,10 +183,7 @@ public final class ChannelEq {
      */
     public static double trimGain(double knob) {
         double v = Math.max(0.0, Math.min(1.0, knob));
-        double db = v >= 0.5
-                ? (v - 0.5) / 0.5 * TRIM_BOOST_DB
-                : (v / 0.5 - 1.0) * TRIM_CUT_DB;
-        double g = Math.pow(10.0, db / 20.0);
+        double g = Math.pow(10.0, trimDb(v) / 20.0);
         // Fade the last sliver of travel to true silence. Without it the knob stops at -26 dB,
         // which is quiet but still audible, so "all the way down" would not actually be off.
         // Doing it as a fade rather than a step keeps the bottom of the sweep smooth.
@@ -195,6 +192,22 @@ public final class ChannelEq {
         }
         return g;
     }
+
+    /**
+     * TRIM knob 0..1 -&gt; decibels, before the last sliver fades to silence. The one place that
+     * says what the knob is worth, so the panel's readout and the audio cannot disagree: the readout
+     * used to carry its own copy of the old linear law and showed -6 dB for a knob that was cutting
+     * 13.
+     */
+    public static double trimDb(double knob) {
+        double v = Math.max(0.0, Math.min(1.0, knob));
+        return v >= 0.5
+                ? (v - 0.5) / 0.5 * TRIM_BOOST_DB
+                : (v / 0.5 - 1.0) * TRIM_CUT_DB;
+    }
+
+    /** Where the bottom of the TRIM travel stops being a cut and becomes off. */
+    public static final double TRIM_OFF_BELOW = 0.02;
 
     /** Headroom the trim can add, matching the EQ's own boost. */
     public static final double TRIM_BOOST_DB = 6.0;
@@ -207,5 +220,5 @@ public final class ChannelEq {
      */
     public static final double TRIM_CUT_DB = 26.0;
 
-    private static final double FADE_OUT = 0.02;
+    private static final double FADE_OUT = TRIM_OFF_BELOW;
 }

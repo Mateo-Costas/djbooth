@@ -78,5 +78,6 @@
   "gui.soundsystem_dj.memory_delete": "DELETE: forget the saved cue nearest the playhead",
   "gui.soundsystem_dj.master_tempo": "MASTER TEMPO: keep the key when you move the tempo fader",
   "gui.soundsystem_dj.key_sync": "KEY SYNC: shift this deck into the other deck's key. Needs track lookup configured",
-  "gui.soundsystem_dj.credit_getsongbpm": "Tempo and key data by GetSongBPM.com"
+  "gui.soundsystem_dj.credit_getsongbpm": "Tempo and key data by GetSongBPM.com",
+  "gui.soundsystem_dj.url_rejected": "That isn't a link the booth can load. Use a full http(s) link."
 }

@@ -7,6 +7,7 @@ import com.osgworld.djbooth.client.screen.widget.PanelButton;
 import com.osgworld.djbooth.client.screen.widget.PanelFader;
 import com.osgworld.djbooth.client.screen.widget.PanelJog;
 import com.osgworld.djbooth.client.audio.DeckAudioManager;
+import com.osgworld.djbooth.client.audio.dsp.ChannelEq;
 import com.osgworld.djbooth.deck.PlayState;
 import com.osgworld.djbooth.menu.BoothMenu;
 import com.osgworld.djbooth.net.HotCuePayload;
@@ -676,17 +677,16 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         MixerBlockEntity be = menu.mixer();
         boolean iso = be != null && be.isIsolator();
         if (v <= 0.001) {
-            return iso ? "KILL" : "-26 dB";
+            return iso ? "KILL" : String.format("%+.0f dB", -ChannelEq.EQ_CUT_DB);
         }
-        double db = v >= 0.5 ? (v - 0.5) / 0.5 * 6.0 : (v / 0.5 - 1.0) * (iso ? 60.0 : 26.0);
-        return String.format("%+.1f dB", db);
+        return String.format("%+.1f dB", ChannelEq.dbForBand(v, iso));
     }
 
     private static String trimDb(double v) {
-        if (v <= 0.001) {
+        if (v < ChannelEq.TRIM_OFF_BELOW) {
             return "-∞";
         }
-        return String.format("%+.1f dB", 20.0 * Math.log10(v * 2.0));
+        return String.format("%+.1f dB", ChannelEq.trimDb(v));
     }
 
     /** COLOR knob: which way it is turned and how far, named after the current mode's two sides. */

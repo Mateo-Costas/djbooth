@@ -55,10 +55,29 @@ public final class DeckState {
     public PlayState getPlayState() { return playState; }
     public void setPlayState(PlayState s) { this.playState = s; }
 
+    /**
+     * Playback speed limits. The widest the panel asks for is WIDE at +-60%, and BEAT SYNC can
+     * ask for a ratio of two when one track is half the other's tempo, so this leaves room for
+     * both. The bounds exist because these values arrive from clients: an unchecked NaN or
+     * infinity would be saved into the block and break the deck for everyone, permanently.
+     */
+    public static final double MIN_RATE = 0.25;
+    public static final double MAX_RATE = 4.0;
+    /** No track is longer than a day; anything beyond this is a corrupt or hostile value. */
+    public static final long MAX_POSITION_MS = 24L * 60 * 60 * 1000;
+
+    private static double clampRate(double r) {
+        return Double.isFinite(r) ? Math.max(MIN_RATE, Math.min(MAX_RATE, r)) : 1.0;
+    }
+
+    private static long clampPosition(long ms) {
+        return Math.max(0, Math.min(MAX_POSITION_MS, ms));
+    }
+
     public double getRate() { return rate; }
 
     /** Raw rate setter (use for NBT load only; does not re-anchor position). */
-    public void setRate(double r) { this.rate = Math.max(0.01, r); }
+    public void setRate(double r) { this.rate = clampRate(r); }
 
     /**
      * Change tempo without teleporting: freeze the current position at the old rate,
@@ -68,7 +87,7 @@ public final class DeckState {
         long current = positionMsAt(now);
         this.offsetMs = current;
         this.startEpochMs = now;
-        this.rate = Math.max(0.01, r);
+        this.rate = clampRate(r);
     }
 
     public long getCuePointMs() { return cuePointMs; }
@@ -78,7 +97,7 @@ public final class DeckState {
     public void setStartEpochMs(long ms) { this.startEpochMs = ms; }
 
     public long getOffsetMs() { return offsetMs; }
-    public void setOffsetMs(long ms) { this.offsetMs = ms; }
+    public void setOffsetMs(long ms) { this.offsetMs = clampPosition(ms); }
 
     public boolean isLoopOn() { return loopOn; }
     public long getLoopInMs() { return loopInMs; }
@@ -93,8 +112,8 @@ public final class DeckState {
         this.loopOn = on && this.loopOutMs > this.loopInMs;
     }
 
-    /** Set the cue point at the current position. */
-    /** Quantised where QUANTIZE is lit, so a cue lands on the beat rather than between two. */
+    /** Set the cue point at the current position, quantised where QUANTIZE is lit so a cue lands
+     *  on the beat rather than between two. */
     public void setCueHere(long now) {
         this.cuePointMs = quantise(positionMsAt(now));
     }
@@ -116,7 +135,7 @@ public final class DeckState {
 
     /** Jump to {@code posMs} without changing the play state (needle / beat jump). */
     public void jumpTo(long posMs, long now) {
-        offsetMs = Math.max(0, posMs);
+        offsetMs = clampPosition(posMs);
         startEpochMs = now;
     }
 
@@ -180,6 +199,36 @@ public final class DeckState {
 
     public int getDirection() { return direction; }
     public void setDirection(int d) { this.direction = Math.floorMod(d, 3); }
+
+    // SLIP REV needs SLIP on to mean anything, so entering it lights SLIP. Leaving it has to put
+    // SLIP back as it was, or the button stays lit after the DJ never pressed it.
+    private boolean slipForcedByDirection = false;
+
+    /**
+     * DIRECTION button: FWD, then REV, then SLIP REV, then round again.
+     *
+     * <p>Re-anchors the clock when the direction flips, otherwise the position would jump by
+     * however long the deck had been running. SLIP REV keeps the untouched timeline running
+     * underneath, and leaving it jumps back onto that timeline.
+     */
+    public void cycleDirection(long now) {
+        long p = positionMsAt(now);
+        boolean wasSlipRev = direction == DIR_SLIP_REV;
+        setDirection(direction + 1);
+        jumpTo(p, now);
+        if (direction == DIR_SLIP_REV) {
+            boolean alreadySlip = slip;
+            setSlip(true);
+            slipForcedByDirection = !alreadySlip;
+            beginSlip(now);
+        } else {
+            endSlip(now);
+            if (wasSlipRev && slipForcedByDirection) {
+                slip = false;
+            }
+            slipForcedByDirection = false;
+        }
+    }
     /** True while the DIRECTION switch is asking for backwards playback. */
     public boolean isReverse() { return direction != DIR_FWD; }
 
@@ -195,7 +244,10 @@ public final class DeckState {
     }
 
     public boolean isSlip() { return slip; }
-    public void setSlip(boolean v) { this.slip = v; }
+    public void setSlip(boolean v) {
+        this.slip = v;
+        this.slipForcedByDirection = false; // pressed by hand, so it is the DJ's now
+    }
     public boolean isQuantize() { return quantize; }
     public void setQuantize(boolean v) { this.quantize = v; }
 

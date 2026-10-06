@@ -83,12 +83,21 @@ public class CdjBlockEntity extends BlockEntity {
         tag.putLongArray("HotCues", hc);
     }
 
+    /** A stored play state, or STOP if it is missing or not one this version knows. {@code valueOf}
+     *  throws on anything else, and a throw while loading a chunk takes the whole chunk with it. */
+    private static PlayState parsePlayState(String name) {
+        try {
+            return PlayState.valueOf(name);
+        } catch (IllegalArgumentException e) {
+            return PlayState.STOP;
+        }
+    }
+
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         state.setTrackUrl(tag.getString("Url"));
-        state.setPlayState(tag.getString("Play").isEmpty()
-                ? PlayState.STOP : PlayState.valueOf(tag.getString("Play")));
+        state.setPlayState(parsePlayState(tag.getString("Play")));
         state.setRate(tag.contains("Rate") ? tag.getDouble("Rate") : 1.0);
         state.setCuePointMs(tag.getLong("Cue"));
         state.setOffsetMs(tag.getLong("Offset"));

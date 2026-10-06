@@ -21,8 +21,15 @@ public final class MixLevels {
     public static final int XF_THRU = 1;
     public static final int XF_B = 2;
 
+    /**
+     * Clamp to 0..1, with NaN becoming 0.
+     *
+     * <p>The NaN case is not academic: values arrive from clients, and {@code Math.min}/{@code max}
+     * both pass NaN straight through. A single NaN fader would be saved into the mixer and silence
+     * or corrupt the deck for every player until someone edited the world file by hand.
+     */
     public static float clamp01(float v) {
-        return v < 0f ? 0f : (v > 1f ? 1f : v);
+        return v > 0f ? (v < 1f ? v : 1f) : 0f;
     }
 
     /**

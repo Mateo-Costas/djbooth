@@ -12,8 +12,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Mixer state stub for Plan 01: holds fader/crossfader/master values and persists them.
- * Deck binding and mixing math land in Plan 03.
+ * The mixer's state: faders, EQ, colour and beat effects, switches. Server-authoritative; persisted
+ * to NBT and synced to clients like the decks. The audio itself is mixed client-side from these
+ * values (see {@link com.osgworld.djbooth.mixer.MixLevels} and {@code DeckAudioManager}).
  */
 public class MixerBlockEntity extends BlockEntity {
     private float faderA = 1.0f;
@@ -146,7 +147,7 @@ public class MixerBlockEntity extends BlockEntity {
     }
 
     private static float clamp01(float v) {
-        return Math.max(0.0f, Math.min(1.0f, v));
+        return com.osgworld.djbooth.mixer.MixLevels.clamp01(v);
     }
 
     public int getColorMode() { return colorMode; }
@@ -178,7 +179,11 @@ public class MixerBlockEntity extends BlockEntity {
     }
     public void setBeatFxDepth(float v) { this.beatFxDepth = clamp01(v); }
     public void setBeatFxOn(boolean v) { this.beatFxOn = v; }
-    public void setBpm(float v) { this.bpm = Math.max(40f, Math.min(300f, v)); }
+    public void setBpm(float v) {
+        if (Float.isFinite(v)) {
+            this.bpm = Math.max(40f, Math.min(300f, v));
+        }
+    }
 
     /** How long one cycle of the selected beat fraction lasts at the current BPM. */
     public float beatFxSeconds() {
@@ -275,28 +280,37 @@ public class MixerBlockEntity extends BlockEntity {
         tag.putBoolean("CueB", cueB);
     }
 
+    /** A 0..1 float from the tag: the default if it is missing, or if what is stored is not a number. */
+    private static float unit(CompoundTag tag, String key, float fallback) {
+        if (!tag.contains(key)) {
+            return fallback;
+        }
+        float v = tag.getFloat(key);
+        return Float.isFinite(v) ? clamp01(v) : fallback;
+    }
+
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        faderA = tag.contains("FaderA") ? tag.getFloat("FaderA") : 1.0f;
-        faderB = tag.contains("FaderB") ? tag.getFloat("FaderB") : 1.0f;
-        crossfader = tag.contains("Crossfader") ? tag.getFloat("Crossfader") : 0.5f;
-        master = tag.contains("Master") ? tag.getFloat("Master") : 1.0f;
-        eqLowA = tag.contains("EqLowA") ? tag.getFloat("EqLowA") : 0.5f;
-        eqMidA = tag.contains("EqMidA") ? tag.getFloat("EqMidA") : 0.5f;
-        eqHiA = tag.contains("EqHiA") ? tag.getFloat("EqHiA") : 0.5f;
-        filterA = tag.contains("FilterA") ? tag.getFloat("FilterA") : 0.5f;
-        eqLowB = tag.contains("EqLowB") ? tag.getFloat("EqLowB") : 0.5f;
-        eqMidB = tag.contains("EqMidB") ? tag.getFloat("EqMidB") : 0.5f;
-        eqHiB = tag.contains("EqHiB") ? tag.getFloat("EqHiB") : 0.5f;
-        filterB = tag.contains("FilterB") ? tag.getFloat("FilterB") : 0.5f;
-        echoA = tag.contains("EchoA") ? tag.getFloat("EchoA") : 0f;
-        echoB = tag.contains("EchoB") ? tag.getFloat("EchoB") : 0f;
-        gainA = tag.contains("GainA") ? tag.getFloat("GainA") : 0.5f;
-        gainB = tag.contains("GainB") ? tag.getFloat("GainB") : 0.5f;
+        faderA = unit(tag, "FaderA", 1.0f);
+        faderB = unit(tag, "FaderB", 1.0f);
+        crossfader = unit(tag, "Crossfader", 0.5f);
+        master = unit(tag, "Master", 1.0f);
+        eqLowA = unit(tag, "EqLowA", 0.5f);
+        eqMidA = unit(tag, "EqMidA", 0.5f);
+        eqHiA = unit(tag, "EqHiA", 0.5f);
+        filterA = unit(tag, "FilterA", 0.5f);
+        eqLowB = unit(tag, "EqLowB", 0.5f);
+        eqMidB = unit(tag, "EqMidB", 0.5f);
+        eqHiB = unit(tag, "EqHiB", 0.5f);
+        filterB = unit(tag, "FilterB", 0.5f);
+        echoA = unit(tag, "EchoA", 0f);
+        echoB = unit(tag, "EchoB", 0f);
+        gainA = unit(tag, "GainA", 0.5f);
+        gainB = unit(tag, "GainB", 0.5f);
         setColorMode(tag.contains("ColorMode") ? tag.getInt("ColorMode")
                 : com.osgworld.djbooth.mixer.ColorFxModes.FILTER);
-        colorParam = tag.contains("ColorParam") ? tag.getFloat("ColorParam") : 0.5f;
+        colorParam = unit(tag, "ColorParam", 0.5f);
         setBeatFxType(tag.contains("BeatFxType") ? tag.getInt("BeatFxType")
                 : com.osgworld.djbooth.mixer.BeatFxTypes.DELAY);
         setBeatFxBeat(tag.contains("BeatFxBeat") ? tag.getInt("BeatFxBeat")
@@ -305,7 +319,7 @@ public class MixerBlockEntity extends BlockEntity {
                 : com.osgworld.djbooth.mixer.BeatFxTypes.BANDS_ALL);
         setBeatFxChannel(tag.contains("BeatFxChannel") ? tag.getInt("BeatFxChannel")
                 : com.osgworld.djbooth.mixer.BeatFxTypes.CH_MASTER);
-        beatFxDepth = tag.contains("BeatFxDepth") ? tag.getFloat("BeatFxDepth") : 0.5f;
+        beatFxDepth = unit(tag, "BeatFxDepth", 0.5f);
         beatFxOn = tag.contains("BeatFxOn") && tag.getBoolean("BeatFxOn");
         setBpm(tag.contains("Bpm") ? tag.getFloat("Bpm") : 128.0f);
         xfAssignA = clampAssign(tag.contains("XfAssignA") ? tag.getInt("XfAssignA") : XF_A);
@@ -316,8 +330,8 @@ public class MixerBlockEntity extends BlockEntity {
                 : (tag.getBoolean("FaderSharp") ? CURVE_SHARP : CURVE_LINEAR));
         setCrossFaderCurve(tag.contains("CrossFaderCurve")
                 ? tag.getInt("CrossFaderCurve") : CURVE_LINEAR);
-        balance = tag.contains("Balance") ? tag.getFloat("Balance") : 0.5f;
-        booth = tag.contains("Booth") ? tag.getFloat("Booth") : 1.0f;
+        balance = unit(tag, "Balance", 0.5f);
+        booth = unit(tag, "Booth", 1.0f);
         cueA = tag.contains("CueA") && tag.getBoolean("CueA");
         cueB = tag.contains("CueB") && tag.getBoolean("CueB");
     }

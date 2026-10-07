@@ -12,8 +12,10 @@ import com.osgworld.djbooth.mixer.ColorFxModes;
  * <ul>
  *   <li><b>FILTER</b> — left sweeps a low-pass cutoff down, right sweeps a high-pass cutoff up.</li>
  *   <li><b>SPACE</b> — reverb; left sends the mid and low range in, right the mid and high.</li>
- *   <li><b>DUB ECHO</b> — echo; left keeps the repeats in the mid range, right extends them up.</li>
- *   <li><b>SWEEP</b> — left is a gate that tightens the sound, right a band pass that narrows.</li>
+ *   <li><b>DUB ECHO</b> — echo; left keeps the repeats to the mids only, right to the highs only.</li>
+ *   <li><b>SWEEP</b> — left is a gate that tightens the sound, right a band pass that narrows.
+ *       PARAMETER sets how hard the gate closes on the left, and the band pass's centre frequency
+ *       on the right.</li>
  *   <li><b>NOISE</b> — white noise through a filter; left drops its cutoff, right raises it.</li>
  *   <li><b>CRUSH</b> — left piles on distortion, right crushes before a high-pass.</li>
  * </ul>
@@ -44,12 +46,22 @@ public final class ColorFx {
     private static final double FILTER_Q_RANGE = 2.8; // tops out at 3.5
     /** Travel over which the filter fades up from dry, so it does not switch in mid-waveform. */
     private static final double FILTER_FADE_IN = 0.15;
+    // SWEEP's band pass: PARAMETER sweeps its centre across this range (manual: turn right to raise
+    // the centre frequency). The manual gives the direction, not the range; these are estimates
+    // chosen so the middle of the knob lands near 1.2 kHz, where the old fixed centre sat.
+    private static final double SWEEP_CENTRE_MIN_HZ = 200.0;
+    private static final double SWEEP_CENTRE_MAX_HZ = 8000.0;
+    // DUB ECHO's send (manual: left = mids only, right = highs only). Estimated corners.
+    private static final double DUB_MID_LOW_HZ = 250.0;
+    private static final double DUB_MID_HIGH_HZ = 2500.0;
+    private static final double DUB_HIGH_HZ = 2500.0;
     private static final double REVERB_SECONDS = 0.09;  // comb spread for the SPACE reverb
     private static final double ECHO_SECONDS = 0.28;    // DUB ECHO repeat time
     private static final int COMBS = 4;
 
     private final Biquad sweep = new Biquad();      // FILTER / SWEEP band shaping
     private final Biquad send = new Biquad();       // which range feeds SPACE / DUB ECHO
+    private final Biquad sendLow = new Biquad();    // DUB ECHO's mids-only send needs a second corner
     private final Biquad noiseFilter = new Biquad();
     private final Biquad crushHp = new Biquad();
 
@@ -181,20 +193,35 @@ public final class ColorFx {
                 }
             }
             case SWEEP -> {
-                // Right is a band pass whose bandwidth shrinks; left is a gate, handled per sample.
+                // Right is a band pass whose bandwidth shrinks as COLOR goes up and whose centre
+                // frequency is PARAMETER's; left is a gate, handled per sample.
                 if (rightSide && depth > 0) {
-                    sweep.bandpass(fs, 1200.0, 0.7 + depth * 12.0);
+                    double centre = sweepHz(param, SWEEP_CENTRE_MIN_HZ, SWEEP_CENTRE_MAX_HZ);
+                    sweep.bandpass(fs, Math.min(centre, nyq * 0.98), 0.7 + depth * 12.0);
                 } else {
                     sweep.identity();
                 }
             }
-            case SPACE, DUB_ECHO -> {
+            case SPACE -> {
                 // Which part of the spectrum is fed into the tail: mid+low on the left, mid+high
                 // on the right, per the manual.
                 if (rightSide) {
                     send.highpass(fs, 700.0, 0.7);
                 } else {
                     send.lowpass(fs, Math.min(2500.0, nyq * 0.98), 0.7);
+                }
+                sendLow.identity();
+                sweep.identity();
+            }
+            case DUB_ECHO -> {
+                // Unlike SPACE, the manual narrows the echo to a single range: mids only on the
+                // left, highs only on the right.
+                if (rightSide) {
+                    send.highpass(fs, DUB_HIGH_HZ, 0.7);
+                    sendLow.identity();
+                } else {
+                    send.highpass(fs, DUB_MID_LOW_HZ, 0.7);
+                    sendLow.lowpass(fs, Math.min(DUB_MID_HIGH_HZ, nyq * 0.98), 0.7);
                 }
                 sweep.identity();
             }
@@ -243,7 +270,7 @@ public final class ColorFx {
         }
         return switch (mode) {
             case SPACE -> s + depth * 0.8 * reverb(send.process(s));
-            case DUB_ECHO -> s + depth * 0.9 * echo(send.process(s));
+            case DUB_ECHO -> s + depth * 0.9 * echo(sendLow.process(send.process(s)));
             case SWEEP -> rightSide ? mix(s, sweep.process(s)) : gate(s);
             case NOISE -> s + depth * (0.25 + 0.55 * param) * noiseFilter.process(noise());
             case CRUSH -> crush(s);
@@ -298,9 +325,13 @@ public final class ColorFx {
         return delayed;
     }
 
-    /** Left-hand SWEEP: a gate that clamps down on quiet parts, tightening the sound. */
+    /**
+     * Left-hand SWEEP: a gate that clamps down on quiet parts, tightening the sound. COLOR sets how
+     * far it is turned, and PARAMETER how hard it closes: the manual says to turn PARAMETER right
+     * "to limit the sound". The middle of the knob gives the threshold the gate always had.
+     */
     private double gate(double s) {
-        double threshold = depth * 0.35;
+        double threshold = depth * (0.1 + 0.5 * param);
         double a = Math.abs(s);
         if (a >= threshold) {
             return s;
@@ -331,6 +362,7 @@ public final class ColorFx {
     public void reset() {
         sweep.reset();
         send.reset();
+        sendLow.reset();
         noiseFilter.reset();
         crushHp.reset();
         for (float[] line : comb) {

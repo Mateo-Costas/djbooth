@@ -167,4 +167,27 @@ class BeatFxTest {
                     "with no bands enabled the effect should not be heard");
         }
     }
+
+    // --- TIME ranges from the DJM-900NXS2 manual -------------------------------------------------
+
+    @Test
+    void sweepingEffectsMayRunToThirtyTwoSeconds() {
+        // Manual: FLANGER, PHASER and FILTER cycles go up to 32000 ms. They are an LFO, not a buffer.
+        for (int type : new int[]{BeatFxTypes.FLANGER, BeatFxTypes.PHASER, BeatFxTypes.FILTER}) {
+            assertEquals(32.0, BeatFx.maxSecondsFor(type), 1e-9, BeatFxTypes.NAMES[type]);
+        }
+        assertEquals(16.0, BeatFx.maxSecondsFor(BeatFxTypes.TRANS), 1e-9);
+        // The delays and loops stay at the line's six seconds: the manual's 4000 ms is the range
+        // of a TIME knob this panel does not have, and a four-beat fraction at 40 BPM needs six.
+        for (int type : new int[]{BeatFxTypes.DELAY, BeatFxTypes.ECHO, BeatFxTypes.PING_PONG,
+                BeatFxTypes.SPIRAL, BeatFxTypes.ROLL, BeatFxTypes.SLIP_ROLL,
+                BeatFxTypes.VINYL_BRAKE, BeatFxTypes.HELIX}) {
+            assertEquals(6.0, BeatFx.maxSecondsFor(type), 1e-9, BeatFxTypes.NAMES[type]);
+        }
+        // And a long cycle stays well-behaved.
+        BeatFx fx = stage(BeatFxTypes.FLANGER, true, 20.0, 1.0);
+        for (double s : tone(100000)) {
+            assertTrue(Double.isFinite(fx.process(s)));
+        }
+    }
 }

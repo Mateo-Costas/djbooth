@@ -29,6 +29,17 @@ public final class BeatFx {
      * would quietly stop matching the beat at low tempos.
      */
     private static final double MAX_SECONDS = 6.0;
+    /**
+     * The manual gives TRANS up to 16000 ms and FLANGER, PHASER and FILTER up to 32000 ms. Those
+     * four are only an LFO and need no buffer, so they are not held to {@link #MAX_SECONDS}.
+     *
+     * <p>The delays and loops are deliberately <em>not</em> held to the manual's 4000 ms. That is
+     * the range of the hardware's TIME knob, which this panel does not have: here the time is the
+     * BPM times a beat fraction, and at 40 to 60 BPM a four-beat fraction is up to six seconds.
+     * Cutting it to four would put the repeat off the beat instead of on it.
+     */
+    private static final double MAX_TRANS_SECONDS = 16.0;
+    private static final double MAX_SWEEP_SECONDS = 32.0;
     /** Headroom on the buffer so a tap at exactly MAX_SECONDS doesn't land on the wrap point,
      *  where it would read the sample just written and collapse to no delay at all. */
     private static final double BUFFER_MARGIN_SECONDS = 0.1;
@@ -107,10 +118,19 @@ public final class BeatFx {
         }
         this.type = newType;
         this.on = newOn;
-        this.timeSeconds = Math.max(0.005, Math.min(MAX_SECONDS, seconds));
+        this.timeSeconds = Math.max(0.005, Math.min(maxSecondsFor(newType), seconds));
         this.depth = Math.max(0.0, Math.min(1.0, newDepth));
         this.bands = newBands;
         pitch.setRatio(pitchRate());
+    }
+
+    /** The longest effect time the panel's TIME knob reaches for this effect. */
+    static double maxSecondsFor(int t) {
+        return switch (t) {
+            case BeatFxTypes.FILTER, BeatFxTypes.FLANGER, BeatFxTypes.PHASER -> MAX_SWEEP_SECONDS;
+            case BeatFxTypes.TRANS -> MAX_TRANS_SECONDS;
+            default -> MAX_SECONDS;
+        };
     }
 
     private static boolean isRecorder(int t) {

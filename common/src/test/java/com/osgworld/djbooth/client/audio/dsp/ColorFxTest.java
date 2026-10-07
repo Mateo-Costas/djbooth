@@ -125,4 +125,112 @@ class ColorFxTest {
         }
         assertEquals(0.0, tail, 1e-9);
     }
+
+    // --- Behaviour the DJM-900NXS2 manual specifies for SWEEP and DUB ECHO -------------------------
+
+    private static double[] sine(double hz, double amp, int n) {
+        double[] out = new double[n];
+        for (int i = 0; i < n; i++) {
+            out[i] = amp * Math.sin(2 * Math.PI * hz * i / FS);
+        }
+        return out;
+    }
+
+    /** RMS of the second half of the run, after any ramp has settled. */
+    private static double settledRms(ColorFx fx, double[] in) {
+        double sum = 0;
+        int from = in.length / 2;
+        for (int i = 0; i < in.length; i++) {
+            double y = fx.process(in[i]);
+            if (i >= from) {
+                sum += y * y;
+            }
+        }
+        return Math.sqrt(sum / (in.length - from));
+    }
+
+    @Test
+    void sweepRightPutsTheBandPassWhereParameterSaysAndOnlyThere() {
+        // Manual: with COLOR turned right, PARAMETER sets the band pass's centre frequency, and
+        // turning it right raises it. At full COLOR the sound is all band pass, so a tone sitting
+        // on the centre goes through and one far away does not.
+        double low = settledRms(stage(ColorFxModes.SWEEP, 1.0, 0.0), sine(200, 0.5, 24000));
+        double lowAway = settledRms(stage(ColorFxModes.SWEEP, 1.0, 0.0), sine(5000, 0.5, 24000));
+        assertTrue(low > 0.25, "a 200 Hz tone should pass with the centre at its lowest: " + low);
+        assertTrue(lowAway < 0.05, "a 5 kHz tone should not: " + lowAway);
+
+        double high = settledRms(stage(ColorFxModes.SWEEP, 1.0, 1.0), sine(8000, 0.5, 24000));
+        double highAway = settledRms(stage(ColorFxModes.SWEEP, 1.0, 1.0), sine(200, 0.5, 24000));
+        assertTrue(high > 0.25, "an 8 kHz tone should pass with the centre at its highest: " + high);
+        assertTrue(highAway < 0.05, "a 200 Hz tone should not: " + highAway);
+    }
+
+    @Test
+    void sweepRightCentreRisesMonotonicallyWithParameter() {
+        // Probe with a fixed 1.5 kHz tone: the closer the centre gets to it the more comes through.
+        // It must rise up to the parameter where the centre crosses 1.5 kHz, then fall again.
+        double best = -1;
+        int bestAt = -1;
+        double[] levels = new double[11];
+        for (int i = 0; i <= 10; i++) {
+            levels[i] = settledRms(stage(ColorFxModes.SWEEP, 1.0, i / 10.0), sine(1500, 0.5, 24000));
+            if (levels[i] > best) {
+                best = levels[i];
+                bestAt = i;
+            }
+        }
+        // 200 * 40^p = 1500 Hz  =>  p ~ 0.55.
+        assertTrue(bestAt >= 4 && bestAt <= 7,
+                "the centre should cross 1.5 kHz near the middle of PARAMETER, was " + bestAt);
+        for (int i = 1; i <= bestAt; i++) {
+            assertTrue(levels[i] >= levels[i - 1] - 1e-3, "rising side not monotonic at " + i);
+        }
+        for (int i = bestAt + 1; i <= 10; i++) {
+            assertTrue(levels[i] <= levels[i - 1] + 1e-3, "falling side not monotonic at " + i);
+        }
+    }
+
+    @Test
+    void sweepLeftGateClosesHarderAsParameterGoesUp() {
+        // Manual: with COLOR turned left PARAMETER sets the gate; turn it right to limit the sound.
+        double[] quiet = sine(440, 0.2, 24000);
+        double soft = settledRms(stage(ColorFxModes.SWEEP, 0.0, 0.0), quiet);
+        double hard = settledRms(stage(ColorFxModes.SWEEP, 0.0, 1.0), quiet);
+        assertTrue(hard < soft * 0.5,
+                "a harder gate should take more out of a quiet signal: " + soft + " vs " + hard);
+        // And a loud signal is barely touched whatever PARAMETER is: only its zero crossings.
+        double[] loud = sine(440, 0.9, 24000);
+        double loudSoft = settledRms(stage(ColorFxModes.SWEEP, 0.0, 0.0), loud);
+        double loudHard = settledRms(stage(ColorFxModes.SWEEP, 0.0, 1.0), loud);
+        assertTrue(loudHard > loudSoft * 0.9, "a loud signal should survive the hardest gate");
+    }
+
+    /** Energy in the tail of a DUB ECHO fed a tone and then silence, so only the repeats are left. */
+    private static double dubEchoTail(double knob, double toneHz) {
+        ColorFx fx = stage(ColorFxModes.DUB_ECHO, knob, 1.0);
+        for (double s : sine(toneHz, 0.5, 20000)) {
+            fx.process(s);
+        }
+        double tail = 0;
+        for (int i = 0; i < 40000; i++) {
+            tail += Math.abs(fx.process(0.0));
+        }
+        return tail;
+    }
+
+    @Test
+    void dubEchoLeftRepeatsOnlyTheMidsAndRightOnlyTheHighs() {
+        // Manual: COLOR left applies the echo to the mids only, COLOR right to the highs only.
+        double leftMid = dubEchoTail(0.0, 1000);
+        double leftBass = dubEchoTail(0.0, 60);
+        double leftHigh = dubEchoTail(0.0, 9000);
+        assertTrue(leftMid > 4 * leftBass, "left should leave the bass out of the echo");
+        assertTrue(leftMid > 4 * leftHigh, "left should leave the highs out of the echo");
+
+        double rightHigh = dubEchoTail(1.0, 9000);
+        double rightMid = dubEchoTail(1.0, 1000);
+        double rightBass = dubEchoTail(1.0, 60);
+        assertTrue(rightHigh > 4 * rightMid, "right should leave the mids out of the echo");
+        assertTrue(rightHigh > 20 * rightBass, "right should leave the bass out of the echo");
+    }
 }

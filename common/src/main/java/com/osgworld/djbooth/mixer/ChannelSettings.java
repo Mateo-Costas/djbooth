@@ -22,17 +22,35 @@ package com.osgworld.djbooth.mixer;
  * @param beatDepth  LEVEL/DEPTH, 0..1
  * @param beatBands  FX FREQUENCY mask
  * @param balance    master BALANCE, 0 = hard left, 0.5 = centre, 1 = hard right
+ * @param gain       the channel fader's gain, applied after the channel meter and before BEAT FX
+ *                   (see {@link MixLevels.Gains#pre()}); 1 = fader fully open
  */
 public record ChannelSettings(
         float eqLow, float eqMid, float eqHigh, float colour, float echo, float trim,
         boolean isolator, int colourMode, float colourParam,
         int beatType, boolean beatOn, float beatSeconds, float beatDepth, int beatBands,
-        float balance) {
+        float balance, float gain) {
+
+    /** Settings with the fader fully open, for callers that don't deal in the channel fader. */
+    public ChannelSettings(
+            float eqLow, float eqMid, float eqHigh, float colour, float echo, float trim,
+            boolean isolator, int colourMode, float colourParam,
+            int beatType, boolean beatOn, float beatSeconds, float beatDepth, int beatBands,
+            float balance) {
+        this(eqLow, eqMid, eqHigh, colour, echo, trim, isolator, colourMode, colourParam,
+                beatType, beatOn, beatSeconds, beatDepth, beatBands, balance, 1.0f);
+    }
+
+    /** The same settings with a different fader gain. */
+    public ChannelSettings withGain(float newGain) {
+        return new ChannelSettings(eqLow, eqMid, eqHigh, colour, echo, trim, isolator, colourMode,
+                colourParam, beatType, beatOn, beatSeconds, beatDepth, beatBands, balance, newGain);
+    }
 
     /** Everything flat: what a deck uses when it can't find a mixer. */
     public static ChannelSettings flat() {
         return new ChannelSettings(0.5f, 0.5f, 0.5f, 0.5f, 0f, 0.5f, false,
                 ColorFxModes.FILTER, 0.5f,
-                BeatFxTypes.DELAY, false, 0.5f, 0.5f, BeatFxTypes.BANDS_ALL, 0.5f);
+                BeatFxTypes.DELAY, false, 0.5f, 0.5f, BeatFxTypes.BANDS_ALL, 0.5f, 1.0f);
     }
 }

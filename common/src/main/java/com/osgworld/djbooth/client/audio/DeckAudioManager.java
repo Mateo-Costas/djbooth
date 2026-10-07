@@ -4,6 +4,7 @@ import com.osgworld.djbooth.blockentity.CdjBlockEntity;
 import com.osgworld.djbooth.blockentity.MixerBlockEntity;
 import com.osgworld.djbooth.booth.BoothRefs;
 import com.osgworld.djbooth.mixer.ChannelSettings;
+import com.osgworld.djbooth.mixer.MixLevels;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
@@ -134,7 +135,10 @@ public final class DeckAudioManager {
                             ? m : null;
             boolean isA = pos.equals(refs.deckA());
             audio.setDsp(mixer != null ? mixer.settingsForDeck(isA) : ChannelSettings.flat());
-            audio.syncTo(deck.state(), now, mixerVolume(mixer, isA, dist) * attenuation);
+            MixLevels.Gains gains = mixer != null
+                    ? mixer.gainsForDeck(isA, dist <= BOOTH_RANGE)
+                    : new MixLevels.Gains(1.0f, 1.0f);
+            audio.syncTo(deck.state(), now, gains.pre(), gains.post() * attenuation);
         }
 
         // Release any audio whose deck is no longer in range/loaded.
@@ -164,23 +168,6 @@ public final class DeckAudioManager {
             REFS.put(deck, cached);
         }
         return cached.refs();
-    }
-
-    /**
-     * Volume for this deck's channel.
-     *
-     * <p>Out on the floor that is the mixer's fader/crossfader/master chain. Stand at the booth —
-     * within {@link #BOOTH_RANGE} of the deck — and you get the BOOTH MONITOR feed instead, which
-     * is what lets CUE preview a channel for the person working the booth without the whole
-     * server hearing it.
-     */
-    private static float mixerVolume(MixerBlockEntity mixer, boolean deckA, double listenerDist) {
-        if (mixer == null) {
-            return 1.0f;
-        }
-        return listenerDist <= BOOTH_RANGE
-                ? mixer.boothVolumeForDeck(deckA)
-                : mixer.volumeForDeck(deckA);
     }
 
     /** Loudest sample of a deck's last audio block, 0..1, for the panel meters. */

@@ -62,7 +62,7 @@
   "gui.soundsystem_dj.fx_onoff": "Switch the BEAT FX in and out",
   "gui.soundsystem_dj.balance": "BALANCE: master left/right. Double-click = centre",
   "gui.soundsystem_dj.cue_channel": "CUE: preview this channel for the person at the booth only",
-  "gui.soundsystem_dj.xfader_curve": "CROSS FADER curve: SLOW / LIN / SHARP",
+  "gui.soundsystem_dj.xfader_curve": "CROSS FADER curve: SLOW = smooth blend (constant power) / MED / FAST = cut (both sides full almost at once, for scratching)",
   "gui.soundsystem_dj.direction": "DIRECTION: FWD / REV / SLIP REV (reverse with the track running underneath)",
   "gui.soundsystem_dj.slip": "SLIP: loops and scratches happen on top; the track carries on underneath",
   "gui.soundsystem_dj.quantize": "QUANTIZE: cues, hot cues and loops snap to the beat. Needs a tapped BPM",

@@ -658,7 +658,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 MixerBlockEntity::getChFaderCurve, MixerBlockEntity.CURVE_NAMES,
                 "gui.soundsystem_dj.fader_curve");
         addMixerCycle(BoothLayout.MIX_XFCURVE, MixerPayload.CROSSFADER_CURVE,
-                MixerBlockEntity::getCrossFaderCurve, MixerBlockEntity.CURVE_NAMES,
+                MixerBlockEntity::getCrossFaderCurve, MixerBlockEntity.XF_CURVE_NAMES,
                 "gui.soundsystem_dj.xfader_curve");
 
         // Master section: BALANCE, BOOTH MONITOR, and a headphone CUE per channel.

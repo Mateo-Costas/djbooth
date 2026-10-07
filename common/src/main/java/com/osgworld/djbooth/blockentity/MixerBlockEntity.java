@@ -35,8 +35,14 @@ public class MixerBlockEntity extends BlockEntity {
     public static final int CURVE_LINEAR = com.osgworld.djbooth.mixer.MixLevels.CURVE_LINEAR;
     public static final int CURVE_SHARP = com.osgworld.djbooth.mixer.MixLevels.CURVE_SHARP;
     public static final String[] CURVE_NAMES = com.osgworld.djbooth.mixer.MixLevels.CURVE_NAMES;
+    // The crossfader has its own three shapes: smooth (constant power), medium and fast (cut).
+    public static final int XF_CURVE_SLOW = com.osgworld.djbooth.mixer.MixLevels.XF_CURVE_SLOW;
+    public static final int XF_CURVE_MEDIUM = com.osgworld.djbooth.mixer.MixLevels.XF_CURVE_MEDIUM;
+    public static final int XF_CURVE_FAST = com.osgworld.djbooth.mixer.MixLevels.XF_CURVE_FAST;
+    public static final String[] XF_CURVE_NAMES = com.osgworld.djbooth.mixer.MixLevels.XF_CURVE_NAMES;
     private int chFaderCurve = CURVE_LINEAR;
-    private int crossFaderCurve = CURVE_LINEAR;
+    // Smooth by default: with both decks open at the centre, a cut curve would add them up.
+    private int crossFaderCurve = XF_CURVE_SLOW;
 
     private float balance = 0.5f;  // master BALANCE: 0 = hard left, 1 = hard right
     private float booth = 1.0f;    // BOOTH MONITOR level, heard by whoever is at the booth
@@ -205,33 +211,45 @@ public class MixerBlockEntity extends BlockEntity {
     public void setXfAssignA(int v) { this.xfAssignA = clampAssign(v); }
     public void setXfAssignB(int v) { this.xfAssignB = clampAssign(v); }
 
+    // The crossfader used to share the channel fader's three curves (sqrt, linear, cube), which made
+    // its "sharp" setting the opposite of a cut: both sides quiet in the middle. The shapes changed,
+    // so saves carry a version to say which meaning a stored index has.
+    private static final String XF_CURVE_VERSION_KEY = "XfCurveV";
+    private static final int XF_CURVE_VERSION = 2;
+
+    /** The stored crossfader curve, translated from the old shapes if the save predates the change. */
+    static int readCrossFaderCurve(CompoundTag tag) {
+        if (!tag.contains("CrossFaderCurve")) {
+            return XF_CURVE_SLOW;
+        }
+        int stored = tag.getInt("CrossFaderCurve");
+        if (tag.getInt(XF_CURVE_VERSION_KEY) >= XF_CURVE_VERSION) {
+            return stored;
+        }
+        // Old sqrt and linear were both gentle blends; the old cube was the cutting one.
+        return stored == 2 ? XF_CURVE_FAST : XF_CURVE_SLOW;
+    }
+
     private static int clampAssign(int v) {
         return v < XF_A ? XF_A : (v > XF_B ? XF_B : v);
     }
 
     /**
-     * Effective output volume (0..1) for one deck, folding in its channel fader, the
-     * crossfader weight and the master. Crossfader 0 = full A, 1 = full B.
-     */
-    public float volumeForDeck(boolean deckA) {
-        return com.osgworld.djbooth.mixer.MixLevels.channelVolume(
-                deckA ? faderA : faderB, chFaderCurve,
-                deckA ? xfAssignA : xfAssignB, crossfader, crossFaderCurve,
-                master);
-    }
-
-
-    /**
-     * Level for someone stood at the booth rather than out on the floor.
+     * The two gains one deck's audio runs through, for a listener out on the floor or one stood at
+     * the booth: the part ahead of its BEAT FX and the part after. Crossfader 0 = full A, 1 = full B.
      *
      * <p>A real desk feeds the booth monitors from their own knob, and the DJ hears whatever is
      * cued on top of that. Here the "booth" is simply the blocks right around the mixer: stand
      * there and you hear the BOOTH MONITOR level, and cueing a channel previews it for you alone,
      * which is as close to headphones as a shared world gets.
      */
-    public float boothVolumeForDeck(boolean deckA) {
-        return com.osgworld.djbooth.mixer.MixLevels.boothVolume(
-                volumeForDeck(deckA), booth, anyCue(), isCued(deckA));
+    public com.osgworld.djbooth.mixer.MixLevels.Gains gainsForDeck(boolean deckA, boolean atBooth) {
+        return com.osgworld.djbooth.mixer.MixLevels.gains(
+                beatFxChannel == com.osgworld.djbooth.mixer.BeatFxTypes.CH_MASTER,
+                deckA ? faderA : faderB, chFaderCurve,
+                deckA ? xfAssignA : xfAssignB, crossfader, crossFaderCurve,
+                master,
+                atBooth, booth, anyCue(), isCued(deckA));
     }
 
     public void applyAndSync() {
@@ -274,6 +292,7 @@ public class MixerBlockEntity extends BlockEntity {
         tag.putBoolean("Isolator", isolator);
         tag.putInt("ChFaderCurve", chFaderCurve);
         tag.putInt("CrossFaderCurve", crossFaderCurve);
+        tag.putInt(XF_CURVE_VERSION_KEY, XF_CURVE_VERSION);
         tag.putFloat("Balance", balance);
         tag.putFloat("Booth", booth);
         tag.putBoolean("CueA", cueA);
@@ -328,8 +347,7 @@ public class MixerBlockEntity extends BlockEntity {
         // Older worlds stored the channel fader curve as a sharp/linear flag.
         setChFaderCurve(tag.contains("ChFaderCurve") ? tag.getInt("ChFaderCurve")
                 : (tag.getBoolean("FaderSharp") ? CURVE_SHARP : CURVE_LINEAR));
-        setCrossFaderCurve(tag.contains("CrossFaderCurve")
-                ? tag.getInt("CrossFaderCurve") : CURVE_LINEAR);
+        setCrossFaderCurve(readCrossFaderCurve(tag));
         balance = unit(tag, "Balance", 0.5f);
         booth = unit(tag, "Booth", 1.0f);
         cueA = tag.contains("CueA") && tag.getBoolean("CueA");

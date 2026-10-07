@@ -6,8 +6,15 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 /**
- * One deck's whole signal path: trim, key lock, EQ, SOUND COLOR FX, BEAT FX, echo, balance and the
- * output limiter, run over interleaved PCM.
+ * One deck's whole signal path, run over interleaved PCM, in the order the DJM-900NXS2 puts it:
+ * trim, key lock, EQ, SOUND COLOR FX, <em>the channel meter</em>, <em>the channel fader</em>,
+ * BEAT FX, echo, balance and the output limiter.
+ *
+ * <p>The fader sits between the meter and the effects because that is where the manual puts it:
+ * the level indicator shows the signal "before passing through the channel faders", and the BEAT FX
+ * section warns that lowering the fader leaves the effect's repeats ringing. Applied after the
+ * effects instead (as OpenAL's volume would), closing the fader would cut the tail off with it,
+ * and the echo-out that effect exists for would be impossible.
  *
  * <p>Lives apart from {@link DspSfxEngine} for the same reason as {@link ChannelEq}: that class
  * extends a WaterMedia type and cannot be loaded in a test, so anything inside it can only be
@@ -32,11 +39,18 @@ public final class ChannelStrip {
     private boolean s16;
     private boolean ready;
 
+    // The channel fader's gain, chased per sample. It only arrives once a tick, and a step in a
+    // gain is a click, so it glides over about 7 ms. The first block snaps rather than fading in.
+    private double faderNow = 1.0;
+    private double faderSmooth = 0.003;
+    private boolean faderPrimed;
+
     private volatile ChannelSettings settings = ChannelSettings.flat();
     private volatile double keyRatio = 1.0; // MASTER TEMPO + KEY SYNC pitch correction, 1.0 = off
 
     // Peak of the last block per side, for the panel meters. A float write is atomic.
     private volatile float peakLeft, peakRight;
+    private float pkL, pkR; // the running peaks of the block being processed
 
     /** Build one chain per audio channel for a new format. */
     public void setup(int sampleRate, int channelCount, boolean signed16) {
@@ -48,6 +62,8 @@ public final class ChannelStrip {
         this.s16 = signed16;
         eq.setup(sampleRate, channelCount);
         limiter.setup(sampleRate);
+        faderSmooth = 1.0 - Math.exp(-1.0 / (0.007 * Math.max(1, sampleRate)));
+        faderPrimed = false;
         work = new double[channelCount];
         color = new ColorFx[channelCount];
         echo = new ChannelEcho[channelCount];
@@ -84,7 +100,11 @@ public final class ChannelStrip {
         this.keyRatio = ratio;
     }
 
-    /** Loudest sample of the last block on each side, 0..1, for drawing the channel meters. */
+    /**
+     * Loudest sample of the last block on each side, for drawing the channel meters. Read before
+     * the channel fader, as the hardware's indicator is, so it does not move when the fader does.
+     * It can exceed 1.0: that is a channel being driven hot, which is what the meter is for.
+     */
     public float peakLeft() { return peakLeft; }
     public float peakRight() { return peakRight; }
 
@@ -138,10 +158,16 @@ public final class ChannelStrip {
         }
         ChannelSettings cfg = settings;
         syncStages(cfg);
+        double faderTarget = com.osgworld.djbooth.mixer.MixLevels.clamp01(cfg.gain());
+        if (!faderPrimed) {
+            faderNow = faderTarget;
+            faderPrimed = true;
+        }
         double echoKnob = cfg.echo();
         // TRIM before the EQ, as on the hardware: it sets how hard the bands are driven.
         double trim = ChannelEq.trimGain(cfg.trim());
-        float pkL = 0, pkR = 0;
+        pkL = 0;
+        pkR = 0;
         int pos = buf.position();
         int lim = buf.limit();
         int frame = 0;
@@ -156,6 +182,7 @@ public final class ChannelStrip {
             // Run the whole frame first and note how loud it is, because the limiter has to act on
             // every channel by the same amount. Ducking one side more than the other would drag
             // the stereo image sideways whenever a peak came through.
+            faderNow += (faderTarget - faderNow) * faderSmooth;
             double framePeak = 0;
             for (int c = 0; c < channels; c++) {
                 int idx = i + c * bytes;
@@ -168,8 +195,6 @@ public final class ChannelStrip {
             double g = limiter.gainFor(framePeak);
             for (int c = 0; c < channels; c++) {
                 double s = Limiter.ceiling(work[c] * g);
-                if (c == 0) { pkL = Math.max(pkL, (float) Math.abs(s)); }
-                else if (c == 1) { pkR = Math.max(pkR, (float) Math.abs(s)); }
                 int idx = i + c * bytes;
                 if (s16) {
                     v.putShort(idx, (short) Math.round(s * 32767.0));
@@ -187,6 +212,10 @@ public final class ChannelStrip {
         s = keyLock[c].process(s);
         s = eq.process(c, s);
         s = color[c].process(s);
+        // The channel meter taps here: after the tone controls, before the fader.
+        if (c == 0) { pkL = Math.max(pkL, (float) Math.abs(s)); }
+        else if (c == 1) { pkR = Math.max(pkR, (float) Math.abs(s)); }
+        s *= faderNow;
         s = beat[c].process(s);
         return echo[c].process(s, echoKnob);
     }

@@ -101,8 +101,15 @@ public class DeckAudio {
         }
     }
 
-    /** Bring the audio in line with the deck state. Called every client tick on the main thread. */
-    public void syncTo(DeckState state, long nowMs, float volume) {
+    /**
+     * Bring the audio in line with the deck state. Called every client tick on the main thread.
+     *
+     * @param preGain    the channel fader's gain. With the DSP engine it is applied inside the
+     *                   effects chain, ahead of BEAT FX, so an effect's repeats outlive a closed
+     *                   fader; on the fallback player there is no chain and it joins the volume
+     * @param postVolume everything after the effects: crossfader, master or booth level, distance
+     */
+    public void syncTo(DeckState state, long nowMs, float preGain, float postVolume) {
         ensureUrl(state.getTrackUrl());
         if (url.isEmpty()) {
             return;
@@ -138,8 +145,9 @@ public class DeckAudio {
         }
 
         // Only the FFmpeg path carries our DSP engine.
+        float volume = postVolume;
         if (dsp != null) {
-            dsp.setParams(settings);
+            dsp.setParams(settings.withGain(preGain));
             // MASTER TEMPO: cancel the pitch change the tempo fader caused. The bend counts too,
             // otherwise nudging the jog would break the key lock for as long as it lasts.
             double heldRate = state.isMasterTempo() ? effSpeedFor(state) : 1.0;
@@ -148,6 +156,9 @@ public class DeckAudio {
             dsp.setKeyCorrection(masterTempoRatio * state.keyShiftRatio());
         }
 
+        if (dsp == null) {
+            volume *= preGain; // nothing to put the fader in front of
+        }
         // Volume (0..100).
         int vol = Math.round(Math.max(0f, Math.min(1f, volume)) * 100);
         if (vol != lastVolume) {

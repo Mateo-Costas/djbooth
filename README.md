@@ -25,6 +25,8 @@ Modrinth: https://modrinth.com/mod/soundsystem-dj
 
 - Paste a link into a deck's box and press Enter, or type a song name and the mod searches YouTube
   and loads the first result.
+- A direct link only plays if the server sends an audio or video content type (WaterMedia refuses
+  `application/ogg`, for example) and does not throttle the player.
 - Playback is done by each player's own game client through
   [WaterMedia](https://modrinth.com/mod/watermedia) (plus WaterMedia Binaries). It plays whatever
   links WaterMedia can resolve: YouTube, direct links to audio or video files, and the other

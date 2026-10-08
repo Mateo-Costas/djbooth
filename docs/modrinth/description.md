@@ -15,6 +15,7 @@ Type a song name or paste a link and hit Enter. Recent tracks are one click away
 **The mod ships no music.** There are no audio files inside it and no built-in library. Every track is streamed from a link when you play it:
 
 - **Paste a link** into a deck's box and press Enter, or **type a song name** and the mod searches YouTube and loads the first result.
+- A direct link only plays if the server sends an audio or video content type, and does not throttle the player.
 - Playback happens on **each player's own game client**, through [WaterMedia](https://modrinth.com/mod/watermedia) + WaterMedia Binaries. It plays whatever links WaterMedia can resolve: YouTube, direct links to audio or video files, and the other platforms WaterMedia supports. Without WaterMedia the booth works but is silent.
 - **The server never downloads or relays audio.** It only stores the link and the deck's playback state (playing, position, tempo) and syncs that to nearby players, so every client streams the track itself, and every client contacts the host of the link.
 - There is also a server command, `/soundsystem track <url>`, that loads a link onto the nearest deck.

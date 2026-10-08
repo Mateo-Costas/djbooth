@@ -48,6 +48,18 @@ class DeckReadoutTest {
     }
 
     @Test
+    void oneDegreeOfHandIsOneDegreeOfPlatter() {
+        // A scrub of d degrees moves the track by d * SCRUB_MS_PER_DEG, which turns the platter by
+        // exactly d degrees. Anything else and the marker runs ahead of (or behind) the hand: with the
+        // old 8 ms per degree it moved 2.6 times as far, because the drag and the platter both counted.
+        for (double hand : new double[]{0.5, 1, 7, 45, 180}) {
+            double platter = PanelMath.platterDegrees(hand * PanelMath.SCRUB_MS_PER_DEG);
+            assertEquals(hand, platter, 1e-9, "hand " + hand + " degrees");
+        }
+        assertEquals(5.0, PanelMath.SCRUB_MS_PER_DEG, 1e-12, "a full turn is 360 * 5 ms = 1.8 s");
+    }
+
+    @Test
     void thePlatterRunsBackwardsWhenThePositionDoes() {
         double a = PanelMath.platterDegrees(5000);
         double b = PanelMath.platterDegrees(4900);

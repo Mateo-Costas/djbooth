@@ -34,7 +34,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
             ResourceLocation.fromNamespaceAndPath(DJBooth.MODID, "textures/gui/booth.png");
     private static final int TEX_W = 1200;
     private static final int TEX_H = 440;
-    private static final double MS_PER_DEG = 8.0; // jog sensitivity: full turn ≈ 2.9 s scrub
+    private static final double MS_PER_DEG = PanelMath.SCRUB_MS_PER_DEG; // a full turn is 1.8 s, as on a platter
     private static final double JOG_BEND_PER_DEG = 0.05; // jog pitch-bend strength while playing
     private static final long JOG_SEND_MS = 60; // min gap between jog scrub packets
 

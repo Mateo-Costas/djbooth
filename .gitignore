@@ -57,3 +57,6 @@ _preview_*.png
 _icon_sheet.png
 _thumb48.png
 _blocks_preview.png
+
+# Output of tools/gui-probe/make_demo_track.py
+tools/gui-probe/audio/

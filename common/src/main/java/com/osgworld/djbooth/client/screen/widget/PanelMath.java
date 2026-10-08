@@ -25,6 +25,14 @@ public final class PanelMath {
     public static final int FADER_CAP_PX = 6;
     /** A CDJ platter turns at 33 1/3 rpm in vinyl mode, which is 200 degrees a second. */
     public static final double PLATTER_DEG_PER_MS = 0.2;
+    /**
+     * How far a scrub moves the track for each degree the hand turns the jog: the platter's own
+     * speed run backwards, so one degree of hand is one degree of platter and the marker stays under
+     * the pointer. It was a fixed 8 ms, which was fine while the marker only followed the hand; once
+     * the marker follows the track too, anything other than this makes it run ahead of, or behind,
+     * the hand.
+     */
+    public static final double SCRUB_MS_PER_DEG = 1.0 / PLATTER_DEG_PER_MS;
 
     /**
      * Where the jog wheel's marker points for a given point in the track.

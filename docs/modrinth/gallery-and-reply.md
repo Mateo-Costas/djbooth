@@ -6,7 +6,14 @@ resubmitting without doing so can lead to account suspension.
 
 ## 1. Gallery (needs real in-game screenshots)
 
-Take these in the game, not from texture files. Modrinth wants to see the content as a player sees it.
+**Done on 2026-10-08, not uploaded yet:** four real screenshots (the booth in a world, the whole booth
+screen with a track loaded, the mixer, a deck) are in `Downloads\Soundsystem-galeria\` with a `LEEME.txt`
+holding a title and description for each. They come from the dev client through `tools/gui-probe`; the
+track playing is one synthesised for the purpose. What is missing is a token to upload them, and a
+creative-tab shot (shot 5 below), which the probe does not take.
+
+Modrinth wants to see the content as a player sees it, so they must be taken in the game, not from
+texture files:
 
 | # | Shot | Title | Description | Featured |
 |---|------|-------|-------------|----------|

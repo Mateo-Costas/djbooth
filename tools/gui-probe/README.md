@@ -30,11 +30,27 @@ must never be committed as a `.java` file or shipped in a jar.
 
 ## Gallery shots
 
-With `SOUNDSYSTEM_PROBE_GALLERY=1` and `SOUNDSYSTEM_PROBE_URL=<link>` the decks load a real track, the
-game is muted, and the GUI is captured after the audio has had time to open. A CC0 track that works:
-`https://upload.wikimedia.org/wikipedia/commons/6/61/Happy_Happy_HardPopCoreTastic.ogg` (Mesostic, public
-domain dedication on Wikimedia Commons). A large window (`--width 2400 --height 1350`) gives a big panel,
-so a crop of the mixer or one deck is sharp.
+A deck only draws its waveform and times once a track has opened, so a gallery shot needs a real link.
+What worked, and what did not:
+
+- **Worked:** a track made here (`make_demo_track.py`, a synthesised four-on-the-floor loop, so nothing to
+  license) served from this machine by `serve_audio.py`, which answers HTTP Range requests because the
+  player seeks by byte range. Run both once, then:
+
+  ```
+  python tools/gui-probe/make_demo_track.py
+  python tools/gui-probe/serve_audio.py &        # stops itself after 15 minutes without a request
+  SOUNDSYSTEM_PROBE=gallery SOUNDSYSTEM_PROBE_GALLERY=1 \
+      SOUNDSYSTEM_PROBE_URL=http://127.0.0.1:8765/demo-set.wav \
+      ./gradlew :neoforge:runClient --args="--quickPlaySingleplayer ProbeWorld --width 2400 --height 1350"
+  ```
+
+  The game is muted for the capture and its volume put back afterwards. A window of that size gives a
+  panel large enough that a crop of the mixer or one deck is sharp. The URL boxes show the local link.
+- **Did not work:** a CC0 track straight from Wikimedia Commons. WaterMedia refuses a link whose server
+  sends `application/ogg` ("Content is not multimedia"), and Commons' MP3 copy answered 429 Too Many
+  Requests to FFmpeg. A direct link only plays if the server sends an audio or video content type and
+  does not throttle the player.
 
 ## What it cannot do
 

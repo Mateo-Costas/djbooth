@@ -17,11 +17,10 @@ public class PanelJog extends AbstractWidget {
     private final DoubleConsumer onDegrees;
     private final java.util.function.DoubleUnaryOperator platter; // partial tick -> degrees
     private double lastAngle;
-    private double visualAngle;
 
     /**
      * @param platter where the platter has turned to, in degrees, for a partial tick (so the marker
-     *                glides between ticks); the player's own drag is added on top of it
+     *                glides between ticks); it is the whole of the marker's angle
      */
     public PanelJog(int x, int y, int w, int h,
                     java.util.function.DoubleUnaryOperator platter, DoubleConsumer onDegrees) {
@@ -44,7 +43,6 @@ public class PanelJog extends AbstractWidget {
         double a = angleAt(mouseX, mouseY);
         double d = PanelMath.angleDelta(lastAngle, a);
         lastAngle = a;
-        visualAngle += d;
         if (Math.abs(d) > 0.01) {
             onDegrees.accept(d);
         }
@@ -64,7 +62,9 @@ public class PanelJog extends AbstractWidget {
         PoseStack pose = g.pose();
         pose.pushPose();
         pose.translate(cx, cy, 0);
-        pose.mulPose(Axis.ZP.rotationDegrees((float) (visualAngle + platter.applyAsDouble(partialTick))));
+        // Only the platter's angle. A scrub moves the track, which moves the platter, so adding the
+        // drag on top would count the same movement twice and run the marker ahead of the hand.
+        pose.mulPose(Axis.ZP.rotationDegrees((float) platter.applyAsDouble(partialTick)));
         // Marker from centre outward.
         g.fill(-2, -r + 4, 2, -r / 3, 0xCC00E0FF);
         pose.popPose();

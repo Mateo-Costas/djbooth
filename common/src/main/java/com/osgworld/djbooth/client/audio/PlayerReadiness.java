@@ -11,6 +11,10 @@ package com.osgworld.djbooth.client.audio;
  * good while its clock keeps running as if nothing were wrong. (Measured: the demux thread parked on a
  * full packet queue and no decoder thread at all.) So a deck must not touch its player until
  * {@link Stage#UP}.
+ *
+ * <p>Why the status alone is enough: WaterMedia's clock is born WAITING and its transition table lets
+ * WAITING go to LOADING only, so no other status can be seen before the pipeline has started. The wait
+ * in {@code lifecycle()} has no time limit, so a slow link does not cut it short either.
  */
 final class PlayerReadiness {
     enum Stage {

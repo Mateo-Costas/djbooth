@@ -229,6 +229,8 @@ public class DeckAudio {
 
         // Seek only when the server position jumps (cue/loop/track/first play), not to trim
         // drift. When bending, the audio deliberately runs off the server clock; leave it.
+        // The first seek is made even at position 0: it is also the only other place that starts
+        // WaterMedia's decoder threads, so it backs up the wait in lifecycle() if that ever ends early.
         if (freshPlayer) {
             player.seek(target);
             freshPlayer = false;

@@ -57,6 +57,22 @@ public final class DeckAudioManager {
         t.start();
     }
 
+    /**
+     * What a deck's audio is doing. Without WaterMedia there is nothing to wait for, which is worth
+     * telling the player: the booth otherwise just looks like a deck that never makes a sound.
+     */
+    public static DeckStatus status(BlockPos pos, boolean trackSet) {
+        if (!available()) {
+            return DeckStatus.NO_BACKEND;
+        }
+        if (!trackSet) {
+            return DeckStatus.NO_TRACK;
+        }
+        DeckAudio audio = AUDIO.get(pos);
+        // A deck that was just loaded has no player until the next tick builds one.
+        return audio != null ? audio.status() : DeckStatus.LOADING;
+    }
+
     /** Track length in ms for a deck's audio, or 0 if unknown / no WaterMedia. */
     public static long durationMs(BlockPos pos) {
         if (!available()) {

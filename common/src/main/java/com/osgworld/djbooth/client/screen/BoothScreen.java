@@ -7,7 +7,11 @@ import com.osgworld.djbooth.client.screen.widget.PanelButton;
 import com.osgworld.djbooth.client.screen.widget.PanelFader;
 import com.osgworld.djbooth.client.screen.widget.PanelJog;
 import com.osgworld.djbooth.client.audio.DeckAudioManager;
+import com.osgworld.djbooth.client.audio.DeckStatus;
 import com.osgworld.djbooth.client.audio.dsp.ChannelEq;
+import com.osgworld.djbooth.client.screen.widget.HotCuePad;
+import com.osgworld.djbooth.client.screen.widget.PanelMath;
+import com.osgworld.djbooth.client.screen.widget.PanelSwitch;
 import com.osgworld.djbooth.deck.PlayState;
 import com.osgworld.djbooth.menu.BoothMenu;
 import com.osgworld.djbooth.net.HotCuePayload;
@@ -205,8 +209,13 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         int x = x0;
         for (int i = 0; i < com.osgworld.djbooth.deck.DeckState.HOT_CUES; i++) {
             final int idx = i;
-            addRenderableWidget(perfButton(String.valueOf(i + 1),
-                    Component.translatable("gui.soundsystem_dj.hotcue", i + 1), x, y, bw, () -> {
+            addRenderableWidget(new HotCuePad(x, y, bw, 13, Component.literal(String.valueOf(i + 1)),
+                    Component.translatable("gui.soundsystem_dj.hotcue", i + 1), HOT_CUE_COLOURS[i],
+                    () -> {
+                        CdjBlockEntity be = menu.deck(pos);
+                        return be != null && be.state().hasHotCue(idx);
+                    },
+                    () -> {
                         CdjBlockEntity be = menu.deck(pos);
                         int action = (be != null && be.state().hasHotCue(idx))
                                 ? HotCuePayload.JUMP : HotCuePayload.SET;
@@ -374,7 +383,7 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         // playing it also bends the pitch so forward nudges still feel smooth. Scrub packets are
         // throttled and the leftover angle is carried over, so slow turns aren't lost to rounding.
         int[] j = px(region, BoothLayout.DECK_JOG);
-        addRenderableWidget(new PanelJog(j[0], j[1], j[2], j[3], deg -> {
+        addRenderableWidget(new PanelJog(j[0], j[1], j[2], j[3], partial -> platterDegrees(pos, (float) partial), deg -> {
             CdjBlockEntity be = menu.deck(pos);
             if (be == null || minecraft == null || minecraft.level == null) {
                 return;
@@ -402,6 +411,16 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
             long target = Math.max(0, be.state().positionMsAt(clock) + deltaMs);
             NetworkManager.sendToServer(new JogNudgePayload(pos, be.state().getRate(), target));
         }));
+    }
+
+    /** Where the deck's platter has turned to, so the jog marker rides with the track. */
+    private double platterDegrees(BlockPos pos, float partialTick) {
+        CdjBlockEntity be = menu.deck(pos);
+        if (be == null || minecraft == null || minecraft.level == null) {
+            return 0;
+        }
+        double now = (minecraft.level.getGameTime() + partialTick) * 50.0;
+        return PanelMath.platterDegrees(be.state().positionMsAt((long) now));
     }
 
     /** The CDJ-3000 controls that aren't transport: direction, slip/quantize, jog mode, tempo
@@ -654,12 +673,13 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         // Global switches: EQ curve (isolator/EQ) and channel fader curve.
         addMixerToggle(BoothLayout.MIX_ISOLATOR, MixerPayload.ISOLATOR,
                 MixerBlockEntity::isIsolator, "ISO", "EQ", "gui.soundsystem_dj.eq_curve");
-        addMixerCycle(BoothLayout.MIX_FADERCURVE, MixerPayload.FADER_CURVE,
+        // The two curve switches draw a picture of the curve: a word does not fit in their width.
+        addMixerSwitch(BoothLayout.MIX_FADERCURVE, MixerPayload.FADER_CURVE,
                 MixerBlockEntity::getChFaderCurve, MixerBlockEntity.CURVE_NAMES,
-                "gui.soundsystem_dj.fader_curve");
-        addMixerCycle(BoothLayout.MIX_XFCURVE, MixerPayload.CROSSFADER_CURVE,
+                PanelSwitch.curve(PanelSwitch.channelFader(), 1), "gui.soundsystem_dj.fader_curve");
+        addMixerSwitch(BoothLayout.MIX_XFCURVE, MixerPayload.CROSSFADER_CURVE,
                 MixerBlockEntity::getCrossFaderCurve, MixerBlockEntity.XF_CURVE_NAMES,
-                "gui.soundsystem_dj.xfader_curve");
+                PanelSwitch.curve(PanelSwitch.crossfader(), 2), "gui.soundsystem_dj.xfader_curve");
 
         // Master section: BALANCE, BOOTH MONITOR, and a headphone CUE per channel.
         addMixerKnob(BoothLayout.MIX_BALANCE, "BAL", true, MixerPayload.BALANCE, 0.5,
@@ -794,7 +814,8 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                     return be != null && be.getBeatFxChannel() == i;
                 });
 
-        addMixerKnob(BoothLayout.FX_DEPTH, "DEPTH", true, MixerPayload.BEATFX_DEPTH, 0.5,
+        // Caption on the right: on the left it ran under the CROSS FADER curve switch and showed as "JEPTH".
+        addMixerKnob(BoothLayout.FX_DEPTH, "DEPTH", false, MixerPayload.BEATFX_DEPTH, 0.5,
                 v -> Math.round(v * 100) + "%",
                 m -> m.getBeatFxDepth(), Component.translatable("gui.soundsystem_dj.fx_depth"));
 
@@ -915,47 +936,35 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
     private void addMixerCycle(BoothLayout.Rect ctrl, int channel,
                                java.util.function.ToIntFunction<MixerBlockEntity> state,
                                String[] labels, String tipKey) {
+        addMixerSwitch(ctrl, channel, state, labels, PanelSwitch.text(labels), tipKey);
+    }
+
+    /**
+     * A multi-position switch, drawn with the given face and synced to the server. In the same
+     * rectangle as the vanilla button it replaces: only what is drawn inside it changes.
+     */
+    private void addMixerSwitch(BoothLayout.Rect ctrl, int channel,
+                                java.util.function.ToIntFunction<MixerBlockEntity> state,
+                                String[] names, PanelSwitch.Face face, String tipKey) {
         BlockPos mix = menu.refs().mixer();
         int[] k = px(BoothLayout.REGION_MIXER, ctrl);
-        java.util.function.Supplier<Integer> cur = () -> {
-            MixerBlockEntity be = menu.mixer();
-            return be != null ? state.applyAsInt(be) : 0;
-        };
-        addRenderableWidget(net.minecraft.client.gui.components.Button.builder(
-                        Component.literal(labels[cur.get()]), b -> {
-                            int next = (cur.get() + 1) % labels.length;
-                            NetworkManager.sendToServer(new MixerPayload(mix, channel, next));
-                            b.setMessage(Component.literal(labels[next]));
-                        })
-                .bounds(k[0], k[1], k[2], k[3])
-                .tooltip(net.minecraft.client.gui.components.Tooltip.create(
-                        Component.translatable(tipKey)))
-                .build());
+        PanelSwitch sw = new PanelSwitch(k[0], k[1], k[2], k[3], Component.translatable(tipKey),
+                names, face,
+                () -> {
+                    MixerBlockEntity be = menu.mixer();
+                    return be != null ? state.applyAsInt(be) : 0;
+                },
+                next -> NetworkManager.sendToServer(new MixerPayload(mix, channel, next)));
+        sw.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable(tipKey)));
+        addRenderableWidget(sw);
     }
 
     /** A two-state switch on the mixer (isolator/EQ, sharp/linear fader), synced to the server. */
     private void addMixerToggle(BoothLayout.Rect ctrl, int channel,
                                 java.util.function.Predicate<MixerBlockEntity> state,
                                 String onLabel, String offLabel, String tipKey) {
-        BlockPos mix = menu.refs().mixer();
-        int[] k = px(BoothLayout.REGION_MIXER, ctrl);
-        java.util.function.Supplier<Boolean> cur = () -> {
-            MixerBlockEntity be = menu.mixer();
-            return be != null && state.test(be);
-        };
-        net.minecraft.client.gui.components.Button btn =
-                net.minecraft.client.gui.components.Button.builder(
-                        Component.literal(cur.get() ? onLabel : offLabel), b -> {
-                            boolean next = !cur.get();
-                            NetworkManager.sendToServer(
-                                    new MixerPayload(mix, channel, next ? 1f : 0f));
-                            b.setMessage(Component.literal(next ? onLabel : offLabel));
-                        })
-                        .bounds(k[0], k[1], k[2], k[3])
-                        .tooltip(net.minecraft.client.gui.components.Tooltip.create(
-                                Component.translatable(tipKey)))
-                        .build();
-        addRenderableWidget(btn);
+        String[] labels = {offLabel, onLabel};
+        addMixerSwitch(ctrl, channel, be -> state.test(be) ? 1 : 0, labels, PanelSwitch.text(labels), tipKey);
     }
 
     private void addMixerKnob(BoothLayout.Rect ctrl, String tag, boolean labelLeft, int channel,
@@ -1132,11 +1141,44 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
         drawScreenPanel(g, x0, y0, sw, sh);
 
         var lay = DeckScreenLayout.of(x0, y0, sw, sh, this.font.lineHeight);
-        drawZoomedWave(g, lay.waveX(), lay.waveY(), lay.waveW(), lay.waveH(),
-                ms, state.getBpm(), playing);
-        drawOverview(g, lay.overviewX(), lay.overviewY(), lay.overviewW(), lay.overviewH(),
-                ms, dur, state);
-        drawScreenHeader(g, lay.headerX(), lay.headerY(), lay.headerW(), ms, dur, state, pos);
+        DeckStatus status = DeckAudioManager.status(pos, !state.getTrackUrl().isEmpty());
+        // The server cannot tell when a track ends, so a deck can run on past its length: show the end.
+        long shownMs = dur > 0 ? Math.min(ms, dur) : ms;
+        // The wave is drawn from the position, not from the audio, so it only means something while
+        // there is a track on its way: with none, or one that cannot play, it would be a picture of
+        // nothing.
+        if (status == DeckStatus.LOADING || status == DeckStatus.READY) {
+            drawZoomedWave(g, lay.waveX(), lay.waveY(), lay.waveW(), lay.waveH(),
+                    ms, state.getBpm(), playing);
+            drawOverview(g, lay.overviewX(), lay.overviewY(), lay.overviewW(), lay.overviewH(),
+                    shownMs, dur, state);
+        }
+        drawScreenHeader(g, lay.headerX(), lay.headerY(), lay.headerW(), shownMs, dur, state, pos);
+        drawStatus(g, lay, status);
+    }
+
+    /** One line in the middle of the screen when the deck has something to say about its audio. */
+    private void drawStatus(GuiGraphics g, DeckScreenLayout lay, DeckStatus status) {
+        String key;
+        int colour;
+        switch (status) {
+            case NO_TRACK -> { key = "no_track"; colour = 0xFF8A8A96; }
+            case LOADING -> { key = "loading"; colour = 0xFFE0A000; }
+            case FAILED -> { key = "failed"; colour = 0xFFFF5040; }
+            case NO_BACKEND -> { key = "no_backend"; colour = 0xFFE0A000; }
+            default -> { return; }
+        }
+        Component text = Component.translatable("gui.soundsystem_dj.status." + key);
+        int tw = this.font.width(text);
+        float s = Math.min(1f, (lay.waveW() - 8f) / Math.max(1, tw));
+        float th = this.font.lineHeight * s;
+        float cx = lay.waveX() + lay.waveW() / 2f;
+        float cy = lay.waveY() + lay.waveH() / 2f;
+        g.pose().pushPose();
+        g.pose().scale(s, s, 1f);
+        g.drawString(this.font, text, Math.round((cx - tw * s / 2f) / s), Math.round((cy - th / 2f) / s),
+                colour, false);
+        g.pose().popPose();
     }
 
     /**
@@ -1290,8 +1332,20 @@ public class BoothScreen extends AbstractContainerScreen<BoothMenu> {
                 right.append(String.format("%+d", state.getKeyShift()));
             }
         }
-        if (right.length() > 0) {
-            String s = right.toString();
+        String s = right.toString();
+        // The tempo fader's position, the way a CDJ prints it. Only when it fits: it never takes room
+        // from the elapsed or remaining time.
+        String tempo = DeckReadout.tempoText(state.getRate());
+        if (!tempo.isEmpty()) {
+            String withTempo = s.isEmpty() ? tempo : tempo + "  " + s;
+            int leftEdge = dur > 0
+                    ? x + w / 2 + this.font.width("-" + fmtTime(Math.max(0, dur - ms))) / 2 + 6
+                    : x + this.font.width(fmtTime(ms)) + 6;
+            if (x + w - this.font.width(withTempo) > leftEdge) {
+                s = withTempo;
+            }
+        }
+        if (!s.isEmpty()) {
             g.drawString(this.font, s, x + w - this.font.width(s), y, 0xFF35E070, false);
         }
     }

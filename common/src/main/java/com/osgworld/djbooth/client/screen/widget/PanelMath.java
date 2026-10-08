@@ -23,6 +23,19 @@ public final class PanelMath {
     public static final long DOUBLE_CLICK_MS = 300;
     /** Height (or width) of the cap drawn on a fader. */
     public static final int FADER_CAP_PX = 6;
+    /** A CDJ platter turns at 33 1/3 rpm in vinyl mode, which is 200 degrees a second. */
+    public static final double PLATTER_DEG_PER_MS = 0.2;
+
+    /**
+     * Where the jog wheel's marker points for a given point in the track.
+     *
+     * <p>Tied to the position rather than to wall-clock time, so it stops when the deck pauses,
+     * runs backwards in reverse, speeds up with the tempo fader and jumps when the track does, all
+     * without being told.
+     */
+    public static double platterDegrees(double positionMs) {
+        return (positionMs * PLATTER_DEG_PER_MS) % 360.0;
+    }
 
     public static double clamp01(double v) {
         return v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v);

@@ -79,5 +79,10 @@
   "gui.soundsystem_dj.master_tempo": "MASTER TEMPO: keep the key when you move the tempo fader",
   "gui.soundsystem_dj.key_sync": "KEY SYNC: shift this deck into the other deck's key. Needs track lookup configured",
   "gui.soundsystem_dj.credit_getsongbpm": "Tempo and key data by GetSongBPM.com",
+  "gui.soundsystem_dj.title": "Soundsystem DJ booth",
+  "gui.soundsystem_dj.status.no_track": "NO TRACK",
+  "gui.soundsystem_dj.status.loading": "LOADING...",
+  "gui.soundsystem_dj.status.failed": "COULD NOT LOAD THIS LINK",
+  "gui.soundsystem_dj.status.no_backend": "INSTALL WATERMEDIA FOR SOUND",
   "gui.soundsystem_dj.url_rejected": "That isn't a link the booth can load. Use a full http(s) link."
 }

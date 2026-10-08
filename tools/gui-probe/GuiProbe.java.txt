@@ -1,0 +1,171 @@
+package com.osgworld.djbooth.client.devprobe;
+
+import com.osgworld.djbooth.block.CdjBlock;
+import com.osgworld.djbooth.block.MixerBlock;
+import com.osgworld.djbooth.blockentity.CdjBlockEntity;
+import com.osgworld.djbooth.blockentity.MixerBlockEntity;
+import com.osgworld.djbooth.booth.BoothInteraction;
+import com.osgworld.djbooth.deck.DeckState;
+import com.osgworld.djbooth.deck.PlayState;
+import com.osgworld.djbooth.registry.ModBlocks;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import dev.architectury.event.events.client.ClientTickEvent;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.block.Blocks;
+
+/**
+ * TEMPORARY development probe: builds a booth in a throwaway world, opens its screen and takes
+ * screenshots, so a GUI change can be compared before and after. Never committed or shipped; it only
+ * runs when the SOUNDSYSTEM_PROBE environment variable names the screenshot prefix.
+ */
+public final class GuiProbe {
+    private static int tick;
+    private static BlockPos mixerPos;
+    private static final boolean GALLERY = "1".equals(System.getenv("SOUNDSYSTEM_PROBE_GALLERY"));
+    private static final String URL = System.getenv("SOUNDSYSTEM_PROBE_URL");
+    private static double savedMaster = -1;
+
+    private GuiProbe() {}
+
+    public static void init() {
+        if (System.getenv("SOUNDSYSTEM_PROBE") == null) {
+            return;
+        }
+        ClientTickEvent.CLIENT_POST.register(GuiProbe::onTick);
+    }
+
+    private static void onTick(Minecraft mc) {
+        MinecraftServer server = mc.getSingleplayerServer();
+        if (mc.level == null || mc.player == null || server == null) {
+            return;
+        }
+        tick++;
+        String tag = System.getenv("SOUNDSYSTEM_PROBE");
+        mc.options.pauseOnLostFocus = false;
+        if (GALLERY && tick == 2) {
+            // Silence everything for the capture. WaterMedia plays through the same OpenAL context,
+            // so the master volume mutes it too. Put back before the game exits.
+            savedMaster = mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get();
+            mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.0);
+        }
+        if (tick == 20) {
+            server.execute(() -> build(server));
+        }
+        if (tick == 90) {
+            mc.options.hideGui = true;
+        }
+        if (tick == 100) {
+            shot(mc, tag + "_1_world.png");
+        }
+        if (tick == 110) {
+            mc.options.hideGui = false;
+            server.execute(() -> open(server));
+        }
+        int[] guiShots = GALLERY ? new int[]{400, 520, 640} : new int[]{180};
+        for (int i = 0; i < guiShots.length; i++) {
+            if (tick == guiShots[i]) {
+                shot(mc, tag + "_2_gui_" + (i + 1) + ".png");
+            }
+        }
+        if (tick == guiShots[guiShots.length - 1] + 20) {
+            if (savedMaster >= 0) {
+                mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(savedMaster);
+            }
+            mc.stop();
+        }
+    }
+
+    private static void shot(Minecraft mc, String name) {
+        RenderTarget target = mc.getMainRenderTarget();
+        Screenshot.grab(mc.gameDirectory, name, target, msg -> {});
+    }
+
+    private static void build(MinecraftServer server) {
+        ServerPlayer p = server.getPlayerList().getPlayers().get(0);
+        ServerLevel lvl = p.serverLevel();
+        BlockPos origin = p.blockPosition();
+        server.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
+        lvl.setDayTime(6000);
+
+        for (int dx = -6; dx <= 6; dx++) {
+            for (int dz = -5; dz <= 4; dz++) {
+                lvl.setBlock(origin.offset(dx, -1, dz), Blocks.POLISHED_DEEPSLATE.defaultBlockState(), 3);
+                for (int dy = 0; dy <= 5; dy++) {
+                    lvl.setBlock(origin.offset(dx, dy, dz), Blocks.AIR.defaultBlockState(), 3);
+                }
+            }
+        }
+        BlockPos b = origin.offset(0, 0, -2);
+        BlockPos a = b.west();
+        BlockPos c = b.east();
+        mixerPos = b;
+        lvl.setBlock(a, ModBlocks.CDJ.get().defaultBlockState().setValue(CdjBlock.FACING, Direction.SOUTH), 3);
+        lvl.setBlock(b, ModBlocks.MIXER.get().defaultBlockState().setValue(MixerBlock.FACING, Direction.SOUTH), 3);
+        lvl.setBlock(c, ModBlocks.CDJ.get().defaultBlockState().setValue(CdjBlock.FACING, Direction.SOUTH), 3);
+
+        long now = lvl.getGameTime() * 50L;
+        if (lvl.getBlockEntity(a) instanceof CdjBlockEntity deck) {
+            DeckState s = deck.state();
+            s.setTrackUrl(GALLERY && URL != null ? URL : "https://example.com/probe-a");
+            s.setBpm(128);
+            s.loadKey(8, true);
+            s.loadHotCue(0, 12000);
+            s.loadHotCue(1, 34000);
+            s.loadHotCue(2, 61000);
+            s.setCuePointMs(8000);
+            s.jumpTo(95000, now);
+            s.press(PlayState.PLAY, now);
+            s.setSlip(true);
+            deck.applyAndSync();
+        }
+        if (lvl.getBlockEntity(c) instanceof CdjBlockEntity deck) {
+            DeckState s = deck.state();
+            s.setTrackUrl(GALLERY && URL != null ? URL : "https://example.com/probe-b");
+            s.setBpm(124);
+            s.loadHotCue(0, 20000);
+            s.setCuePointMs(15000);
+            s.jumpTo(40000, now);
+            s.setLoop(40000, 44000, true);
+            s.setRate(1.04);
+            s.setQuantize(true);
+            deck.applyAndSync();
+        }
+        if (lvl.getBlockEntity(b) instanceof MixerBlockEntity m) {
+            m.setFaderA(0.8f);
+            m.setFaderB(0.55f);
+            m.setCrossfader(0.4f);
+            m.setMaster(0.9f);
+            m.setEqHiA(0.72f);
+            m.setEqMidA(0.5f);
+            m.setEqLowA(0.33f);
+            m.setEqHiB(0.5f);
+            m.setEqMidB(0.62f);
+            m.setEqLowB(0.8f);
+            m.setFilterA(0.3f);
+            m.setFilterB(0.5f);
+            m.setGainA(0.6f);
+            m.setBeatFxOn(true);
+            m.setBeatFxType(1);
+            m.setBeatFxDepth(0.6f);
+            m.setColorMode(3);
+            m.setColorParam(0.7f);
+            m.setIsolator(true);
+            m.applyAndSync();
+        }
+        p.teleportTo(lvl, origin.getX() + 0.5, origin.getY(), origin.getZ() + 0.5, 180f, 33f);
+    }
+
+    private static void open(MinecraftServer server) {
+        ServerPlayer p = server.getPlayerList().getPlayers().get(0);
+        if (mixerPos != null) {
+            BoothInteraction.open(p, mixerPos);
+        }
+    }
+}

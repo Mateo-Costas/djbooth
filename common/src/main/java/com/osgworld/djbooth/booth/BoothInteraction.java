@@ -26,7 +26,9 @@ public final class BoothInteraction {
 
             @Override
             public Component getDisplayName() {
-                return Component.translatable("gui.soundsystem_dj.booth");
+                // Not "gui.soundsystem_dj.booth": that key is the BOOTH MONITOR knob's tooltip, and
+                // used as the title it put a sentence about a knob across the top of the screen.
+                return Component.translatable("gui.soundsystem_dj.title");
             }
 
             @Nullable

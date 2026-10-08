@@ -33,6 +33,7 @@ public class DeckAudio {
     private DspSfxEngine dsp; // non-null when the FFmpeg path built our EQ engine
     private double lastSpeed = -1.0;
     private int lastVolume = -1;
+    private boolean playerFailed; // both ways of building a player threw, so this link is a dead end
 
     // The mixer's settings for this channel, refreshed every client tick.
     private volatile com.osgworld.djbooth.mixer.ChannelSettings settings =
@@ -71,6 +72,27 @@ public class DeckAudio {
     /** The speed the audio is actually running at: the deck's rate plus any live jog bend. */
     private double effSpeedFor(DeckState state) {
         return state.getRate() * (isBending() ? bend : 1.0);
+    }
+
+    /** What this deck's audio is doing, for the panel to say. */
+    public DeckStatus status() {
+        if (url.isEmpty()) {
+            return DeckStatus.NO_TRACK;
+        }
+        if (player != null) {
+            return DeckStatus.READY;
+        }
+        if (playerFailed) {
+            return DeckStatus.FAILED;
+        }
+        try {
+            if (mrl != null && mrl.exception() != null) {
+                return DeckStatus.FAILED;
+            }
+        } catch (Throwable ignored) {
+            // an unreadable status is not a failure worth reporting
+        }
+        return DeckStatus.LOADING;
     }
 
     /** Track length in ms once known, else 0. */
@@ -139,6 +161,7 @@ public class DeckAudio {
                 } catch (Throwable t2) {
                     DJBooth.LOGGER.warn("DeckAudio: failed to create player for {}", url, t2);
                     player = null;
+                    playerFailed = true;
                     return;
                 }
             }
@@ -241,6 +264,7 @@ public class DeckAudio {
         dsp = null;
         mrl = null;
         mrlReady = false;
+        playerFailed = false;
         lastVolume = -1;
         lastSpeed = -1.0;
         freshPlayer = true;

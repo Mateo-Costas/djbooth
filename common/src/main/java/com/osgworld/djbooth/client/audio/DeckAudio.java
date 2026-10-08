@@ -44,10 +44,18 @@ public class DeckAudio {
         this.settings = cfg;
     }
 
-    /** Loudest sample of the last audio block, 0..1, for the panel meters. 0 without a DSP. */
+    /**
+     * Loudest sample of the last audio block, 0..1, for the panel meters. 0 without a DSP, and 0 while
+     * the player is not actually playing: no blocks arrive then, so the strip would keep reporting the
+     * last one and a paused deck would leave its meter lit.
+     */
     public float peakLevel() {
         DspSfxEngine d = dsp;
-        return d == null ? 0f : Math.max(d.peakLeft(), d.peakRight());
+        MediaPlayer p = player;
+        if (d == null || p == null || p.status() != MediaPlayer.Status.PLAYING) {
+            return 0f;
+        }
+        return Math.max(d.peakLeft(), d.peakRight());
     }
 
     // Discontinuity tracking: where the server clock said we were last tick.
@@ -80,7 +88,14 @@ public class DeckAudio {
             return DeckStatus.NO_TRACK;
         }
         if (player != null) {
-            return DeckStatus.READY;
+            switch (PlayerReadiness.of(player.status().name())) {
+                case OPENING:
+                    return DeckStatus.LOADING;
+                case FAILED:
+                    return DeckStatus.FAILED;
+                default:
+                    return DeckStatus.READY;
+            }
         }
         if (playerFailed) {
             return DeckStatus.FAILED;
@@ -165,6 +180,14 @@ public class DeckAudio {
                     return;
                 }
             }
+        }
+
+        // The player opens its media on its own thread, and WaterMedia only starts the audio decoder
+        // once that is done. Resuming or seeking it before then (both move the clock's state) cuts that
+        // wait short and the decoder is never started: the deck stays silent for good. So hands off
+        // until it reports it is up. See PlayerReadiness.
+        if (PlayerReadiness.of(player.status().name()) != PlayerReadiness.Stage.UP) {
+            return;
         }
 
         // Only the FFmpeg path carries our DSP engine.
